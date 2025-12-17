@@ -1,0 +1,21 @@
+<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="400" fill="white"/>
+  
+  <!-- Corner text elements positioned at edges -->
+  <text x="10" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="black" text-transform="uppercase">N HERE</text>
+  <text x="250" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="black" text-transform="uppercase">DESIGN</text>
+  <text x="10" y="385" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="black" text-transform="uppercase">YOUR</text>
+  <text x="250" y="385" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="black" text-transform="uppercase">PLACE</text>
+  
+  <!-- Center text -->
+  <text x="200" y="185" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="black" text-anchor="middle" dominant-baseline="middle" text-transform="uppercase">PLACE YOUR</text>
+  <text x="200" y="225" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="black" text-anchor="middle" dominant-baseline="middle" text-transform="uppercase">DESIGN HERE</text>
+  
+  <!-- Dotted lines from corners converging to center text -->
+  <line x1="10" y1="25" x2="140" y2="185" stroke="black" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="390" y1="25" x2="260" y2="185" stroke="black" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="10" y1="385" x2="140" y2="225" stroke="black" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="390" y1="385" x2="260" y2="225" stroke="black" stroke-width="2" stroke-dasharray="5,5"/>
+</svg>
+

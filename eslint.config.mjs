@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Exclude temporary package folder
+    "mockup-system-package/**",
   ]),
 ]);
 
