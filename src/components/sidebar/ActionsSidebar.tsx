@@ -5,6 +5,7 @@ import { analyzeContrast, analyzeDensity, ContrastAnalysis, DensityAnalysis } fr
 import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupModal from '@/components/mockups/MockupModal';
 import ScaleExportModal from '@/components/export/ScaleExportModal';
+import SeamAnalyzer from '@/components/analysis/SeamAnalyzer';
 import { getMockupTemplate, getAllMockupTypes } from '@/lib/mockups/mockupTemplates';
 
 interface ActionsSidebarProps {
@@ -23,6 +24,27 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
+  const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [isPro] = useState(false); // TODO: Replace with actual Pro subscription check
+
+  // Create canvas from image for seam analysis
+  useEffect(() => {
+    if (!image) {
+      setTileCanvas(null);
+      return;
+    }
+
+    // Create a canvas with the exact image dimensions
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(image, 0, 0);
+      setTileCanvas(canvas);
+    }
+  }, [image]);
 
   useEffect(() => {
     if (!image) {
@@ -160,6 +182,17 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 )}
               </div>
             )}
+
+            {/* Seam Analyzer */}
+            <SeamAnalyzer
+              canvas={tileCanvas}
+              repeatType={
+                repeatType === 'full-drop' ? 'fulldrop' :
+                repeatType === 'half-drop' ? 'halfdrop' :
+                'halfbrick'
+              }
+              isPro={isPro}
+            />
           </div>
         )}
       </div>
