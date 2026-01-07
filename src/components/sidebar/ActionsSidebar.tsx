@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { analyzeContrast, analyzeDensity, ContrastAnalysis, DensityAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupModal from '@/components/mockups/MockupModal';
+import ScaleExportModal from '@/components/export/ScaleExportModal';
 import { getMockupTemplate, getAllMockupTypes } from '@/lib/mockups/mockupTemplates';
 
 interface ActionsSidebarProps {
@@ -13,13 +14,15 @@ interface ActionsSidebarProps {
   tileHeight: number;
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   zoom: number;
+  originalFilename: string | null;
 }
 
-export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom }: ActionsSidebarProps) {
+export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename }: ActionsSidebarProps) {
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [densityAnalysis, setDensityAnalysis] = useState<DensityAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
+  const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
 
   useEffect(() => {
     if (!image) {
@@ -64,20 +67,22 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         </h2>
         <div className="space-y-2">
           <button 
-            className="w-full px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors"
+            onClick={() => setIsEasyscaleModalOpen(true)}
+            disabled={!image}
+            className="w-full px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#f1737c' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e05a65'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1737c'}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.backgroundColor = '#e05a65';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.backgroundColor = '#f1737c';
+              }
+            }}
           >
-            Download PNG
-          </button>
-          <button 
-            className="w-full px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors"
-            style={{ backgroundColor: '#f1737c' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e05a65'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1737c'}
-          >
-            Download PDF
+            Easyscale Export
           </button>
         </div>
       </div>
@@ -212,6 +217,21 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           Reference only - not for download
         </p>
       </div>
+
+      {/* Scale Export Modal */}
+      {isEasyscaleModalOpen && image && (
+        <ScaleExportModal
+          image={image}
+          repeatType={
+            repeatType === 'full-drop' ? 'fulldrop' :
+            repeatType === 'half-drop' ? 'halfdrop' :
+            'halfbrick'
+          }
+          currentDPI={dpi}
+          originalFilename={originalFilename}
+          onClose={() => setIsEasyscaleModalOpen(false)}
+        />
+      )}
     </aside>
   );
 }

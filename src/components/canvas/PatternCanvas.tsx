@@ -2,6 +2,8 @@
 import Ruler from './Ruler';
 import { useEffect, useRef, useState } from 'react';
 import { PatternTiler, RepeatType } from '@/lib/tiling/PatternTiler';
+import ScaleExportModal from '@/components/export/ScaleExportModal';
+import UpgradeModal from '@/components/export/UpgradeModal';
 
 // Extract DPI from image file metadata
 async function extractDpiFromFile(file: File | Blob): Promise<number | null> {
@@ -299,6 +301,11 @@ export default function PatternCanvas() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   
+  // Scale Export Modal state
+  const [showScaleModal, setShowScaleModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isPro] = useState(false); // TODO: Replace with actual Pro subscription check
+  
   // Convert display zoom (0-200) to actual zoom (0.01-5.0)
   // 100 on slider = 0.15 actual zoom (our default "tester view")
   const displayZoomToActualZoom = (displayValue: number): number => {
@@ -345,17 +352,41 @@ export default function PatternCanvas() {
     if (!canvasRef.current || !image) return;
 
     const canvas = canvasRef.current;
-    const tiler = new PatternTiler(canvas);
     
-    // Calculate display DPI conversion (scale image from its DPI to screen 96 DPI)
-    const displayScale = (96 / dpi) * viewZoom;
+    // Calculate displayed tile size based on ACTUAL DPI and zoom
+    // Don't convert to 96 DPI - use the image's actual DPI
+    // Wait, that simplifies to:
+    const displayWidth = image.width * viewZoom;
+    const displayHeight = image.height * viewZoom;
+    
+    // #region agent log
+    console.log('🎨 RENDERING - Pattern rendering started:', {
+      imageWidth: image.width,
+      imageHeight: image.height,
+      dpi,
+      viewZoom,
+      displayWidth,
+      displayHeight,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      canvasStyleWidth: canvas.style.width,
+      canvasStyleHeight: canvas.style.height,
+      canvasSizeWidth: canvasSize.width,
+      canvasSizeHeight: canvasSize.height,
+    });
+    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:343',message:'Pattern rendering started',data:{imageWidth:image.width,imageHeight:image.height,dpi,viewZoom,displayWidth,displayHeight,canvasWidth:canvas.width,canvasHeight:canvas.height,canvasSizeWidth:canvasSize.width,canvasSizeHeight:canvasSize.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    // Pass canvas size to PatternTiler so it uses correct dimensions
+    const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
     
     // Create scaled image for display
     const scaledCanvas = document.createElement('canvas');
-    const displayWidth = image.width * displayScale;
-    const displayHeight = image.height * displayScale;
     scaledCanvas.width = displayWidth;
     scaledCanvas.height = displayHeight;
+    
+    // Store dimensions immediately for ruler calculations (BEFORE async operations)
+    setTileDisplaySize({ width: scaledCanvas.width, height: scaledCanvas.height });
     
     const ctx = scaledCanvas.getContext('2d');
     
@@ -363,55 +394,72 @@ export default function PatternCanvas() {
       ctx.drawImage(image, 0, 0, scaledCanvas.width, scaledCanvas.height);
       const scaledImg = new Image();
       scaledImg.onload = () => {
-        // Store the displayed tile size for ruler calculations (in callback to avoid setState in effect)
-        setTileDisplaySize({ width: displayWidth, height: displayHeight });
+        console.log('🎨 SCALED IMAGE SIZE:', scaledCanvas.width, '×', scaledCanvas.height);
+        console.log('🎨 TILE PHYSICAL SIZE:', image.width / dpi, '×', image.height / dpi, 'inches');
+        console.log('🎨 EXPECTED DISPLAY SIZE:', (image.width / dpi) * dpi * viewZoom, 'pixels');
+        
+        // #region agent log
+        console.log('🖼️ SCALED IMAGE - Loaded:', {
+          scaledImgWidth: scaledImg.width,
+          scaledImgHeight: scaledImg.height,
+          displayWidth,
+          displayHeight,
+        });
+        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:366',message:'Scaled image loaded',data:{scaledImgWidth:scaledImg.width,scaledImgHeight:scaledImg.height,displayWidth,displayHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         
         // Render the tiled pattern
         tiler.render(scaledImg, repeatType);
         
-        // Draw tile outline if enabled (after pattern is rendered)
+        // #region agent log
+        console.log('🔲 PATTERN TILED - Pattern rendered:', {
+          repeatType,
+          tileWidthPx: scaledImg.width,
+          tileHeightPx: scaledImg.height,
+        });
+        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:371',message:'Pattern tiled',data:{repeatType,tileWidthPx:scaledImg.width,tileHeightPx:scaledImg.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        
+        // Draw tile outline if enabled
         if (showTileOutline) {
           requestAnimationFrame(() => {
             const canvasCtx = canvas.getContext('2d');
             if (canvasCtx) {
-              console.log('Drawing tile outline...');
-              console.log('Canvas size:', canvas.width, canvas.height);
-              console.log('Tile size:', displayWidth, displayHeight);
-              console.log('Repeat type:', repeatType);
+              // Use the ACTUAL scaled image dimensions, not recalculated values
+              const actualTileWidth = scaledCanvas.width;
+              const actualTileHeight = scaledCanvas.height;
               
-              // For Full Drop: tiles are on a perfect grid starting at 0,0
-              // Draw the second tile (1st column, 1st row after origin)
               let outlineX = 0;
               let outlineY = 0;
               
-              // For Half Drop: columns alternate with vertical offset
               if (repeatType === 'half-drop') {
-                // Draw a tile in column 1 (which is offset down by half height)
-                outlineX = displayWidth;
-                outlineY = displayHeight / 2;
+                outlineX = actualTileWidth;
+                outlineY = actualTileHeight / 2;
               }
               
-              // For Half Brick: rows alternate with horizontal offset
               if (repeatType === 'half-brick') {
-                // Draw a tile in row 1 (which is offset right by half width)
-                outlineX = displayWidth / 2;
-                outlineY = displayHeight;
+                outlineX = actualTileWidth / 2;
+                outlineY = actualTileHeight;
               }
               
-              console.log('Outline position:', outlineX, outlineY);
+              console.log('📦 OUTLINE DRAWING:', {
+                actualTileWidth,
+                actualTileHeight,
+                outlineX,
+                outlineY
+              });
               
-              // Draw hot pink outline
-              canvasCtx.strokeStyle = '#ff1493'; // Hot pink
+              canvasCtx.strokeStyle = '#ff1493';
               canvasCtx.lineWidth = 6;
               canvasCtx.setLineDash([]);
-              canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
+              canvasCtx.strokeRect(outlineX + 3, outlineY + 3, actualTileWidth - 6, actualTileHeight - 6);
             }
           });
         }
       };
       scaledImg.src = scaledCanvas.toDataURL();
     }
-  }, [image, repeatType, viewZoom, dpi, showTileOutline]);
+  }, [image, repeatType, viewZoom, dpi, showTileOutline, canvasSize]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -629,6 +677,39 @@ export default function PatternCanvas() {
             </p>
           </div>
         )}
+
+        {/* Export Section */}
+        {image && (
+          <div className="mb-8">
+            <label className="block text-sm font-semibold mb-2">
+              Export
+            </label>
+            <div className="space-y-2">
+              <div className="relative group">
+                <button
+                  onClick={() => {
+                    if (isPro) {
+                      setShowScaleModal(true);
+                    } else {
+                      setShowUpgradeModal(true);
+                    }
+                  }}
+                  className="w-full px-4 py-2 text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 flex items-center justify-center gap-2"
+                  disabled={!image}
+                >
+                  {!isPro && <span>🔒</span>}
+                  <span>Scale & Export</span>
+                </button>
+                {!isPro && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                    Upgrade to Pro
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Canvas Area with Rulers */}
@@ -652,13 +733,26 @@ export default function PatternCanvas() {
         <div className="flex">
           <div className="w-[30px] h-[30px] bg-gray-200 border-b border-r border-gray-300" />
           <div className="flex-1 overflow-hidden">
-            {image && tileDisplaySize.width > 0 ? (
+            {image ? (
               <Ruler
                 orientation="horizontal"
                 length={canvasSize.width}
                 scale={1}
                 unit="in"
-                pixelsPerUnit={tileDisplaySize.width / (image.width / dpi)}
+                pixelsPerUnit={(() => {
+                  const tileWidthInches = image.width / dpi;
+                  const displayWidthPixels = image.width * viewZoom;
+                  const ppu = displayWidthPixels / tileWidthInches;
+                  console.log('🔢 RULER PPU CALC:', {
+                    imageWidth: image.width,
+                    dpi,
+                    viewZoom,
+                    tileWidthInches,
+                    displayWidthPixels,
+                    pixelsPerUnit: ppu
+                  });
+                  return ppu;
+                })()}
               />
             ) : (
               <div className="h-[30px] bg-gray-200" />
@@ -669,13 +763,17 @@ export default function PatternCanvas() {
         {/* Canvas with left ruler */}
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[30px] overflow-hidden">
-            {image && tileDisplaySize.height > 0 ? (
+            {image ? (
               <Ruler
                 orientation="vertical"
                 length={canvasSize.height}
                 scale={1}
                 unit="in"
-                pixelsPerUnit={tileDisplaySize.height / (image.height / dpi)}
+                pixelsPerUnit={(() => {
+                  const tileHeightInches = image.height / dpi;
+                  const displayHeightPixels = image.height * viewZoom;
+                  return displayHeightPixels / tileHeightInches;
+                })()}
               />
             ) : (
               <div className="w-[30px] bg-gray-200" />
@@ -769,6 +867,27 @@ export default function PatternCanvas() {
           </div>
         </div>
       </div>
+
+      {/* Scale Export Modal */}
+      {showScaleModal && image && (
+        <ScaleExportModal
+          image={image}
+          repeatType={
+            repeatType === 'full-drop' ? 'fulldrop' :
+            repeatType === 'half-drop' ? 'halfdrop' :
+            'halfbrick'
+          }
+          currentDPI={dpi}
+          originalFilename={null}
+          onClose={() => setShowScaleModal(false)}
+        />
+      )}
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 }

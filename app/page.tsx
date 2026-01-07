@@ -14,6 +14,7 @@ export default function Home() {
   const [dpi, setDpi] = useState<number>(150);
   const [zoom, setZoom] = useState<number>(100);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [showTileOutline, setShowTileOutline] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -51,6 +52,7 @@ export default function Home() {
             setTileWidth(detectedWidth);
             setTileHeight(detectedHeight);
             setImage(img);
+            setOriginalFilename(null); // Paste doesn't have filename
             setIsLoading(false);
           };
           
@@ -70,6 +72,10 @@ export default function Home() {
   }, [dpi]);
 
   const handleFileUpload = async (file: File) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:72',message:'File upload started',data:{fileName:file.name,fileSize:file.size,fileType:file.type,currentDpi:dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'M'})}).catch(()=>{});
+    // #endregion
+    
     console.log('File upload started:', file.name);
     setIsLoading(true);
     
@@ -79,28 +85,61 @@ export default function Home() {
       console.log('Extracting DPI from file...');
       const extractedDpi = await extractDpiFromFile(file);
       console.log('Extracted DPI:', extractedDpi);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:80',message:'DPI extraction result',data:{extractedDpi,fallbackDpi:dpi,willUse:extractedDpi||dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
+      // #endregion
+      
       if (extractedDpi) {
         detectedDpi = extractedDpi;
         setDpi(extractedDpi);
+      } else {
+        // If no DPI found, default to 150 (common print DPI)
+        detectedDpi = 150;
+        setDpi(150);
       }
     } catch (error) {
-      console.warn('Could not extract DPI from image, using default:', error);
+      console.warn('Could not extract DPI from image, using default 150:', error);
+      detectedDpi = 150;
+      setDpi(150);
     }
     
     // Load the image AFTER DPI detection
     const img = new Image();
     img.onload = () => {
       console.log('Image loaded:', img.width, 'x', img.height);
+      
       // Auto-detect tile dimensions from image using detected DPI
-      const finalDpi = detectedDpi || 96; // Fallback to 96 if no DPI detected
+      // Always use detectedDpi (which is now guaranteed to be set)
+      const finalDpi = detectedDpi;
       console.log('Using DPI:', finalDpi);
+      
+      // Calculate physical dimensions: pixels / DPI = inches
       const detectedWidth = img.width / finalDpi;
       const detectedHeight = img.height / finalDpi;
+      
       console.log('Detected dimensions:', detectedWidth, 'x', detectedHeight, 'inches');
+      console.log('Calculation: width =', img.width, '/', finalDpi, '=', detectedWidth);
+      console.log('Calculation: height =', img.height, '/', finalDpi, '=', detectedHeight);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:95',message:'Calculating tile dimensions',data:{imageWidth:img.width,imageHeight:img.height,finalDpi,detectedWidth,detectedHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
+      // #endregion
+      
+      // Set the tile dimensions - these will update the input fields
       setTileWidth(detectedWidth);
       setTileHeight(detectedHeight);
       setImage(img);
+      
+      // Extract and store original filename (without extension)
+      const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+      setOriginalFilename(filenameWithoutExt);
+      
       setIsLoading(false);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:105',message:'Tile dimensions set',data:{tileWidth:detectedWidth,tileHeight:detectedHeight,dpi:finalDpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+      // #endregion
     };
     
     img.onerror = (error) => {
@@ -133,17 +172,22 @@ export default function Home() {
               console.warn('Could not extract DPI from pasted image:', error);
             }
             
-            // Load the image
-            const img = new Image();
-            img.onload = () => {
-              const finalDpi = detectedDpi || 96; // Fallback to 96 if no DPI detected
-              const detectedWidth = img.width / finalDpi;
-              const detectedHeight = img.height / finalDpi;
-              setTileWidth(detectedWidth);
-              setTileHeight(detectedHeight);
-              setImage(img);
-              setIsLoading(false);
-            };
+          // Load the image
+          const img = new Image();
+          img.onload = () => {
+            // Use detected DPI or default to 150
+            const finalDpi = detectedDpi || 150;
+            
+            // Calculate physical dimensions: pixels / DPI = inches
+            const detectedWidth = img.width / finalDpi;
+            const detectedHeight = img.height / finalDpi;
+            
+            setTileWidth(detectedWidth);
+            setTileHeight(detectedHeight);
+            setImage(img);
+            setOriginalFilename(null); // Paste doesn't have filename
+            setIsLoading(false);
+          };
             
             img.onerror = () => {
               setIsLoading(false);
@@ -214,6 +258,7 @@ export default function Home() {
             tileHeight={tileHeight}
             repeatType={repeatType}
             zoom={zoom}
+            originalFilename={originalFilename}
           />
         </div>
       </div>
