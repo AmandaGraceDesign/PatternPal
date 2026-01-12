@@ -295,7 +295,7 @@ export default function MockupRenderer({
   if (template.approach === 'css' || !patternImage || !mockupImage) {
     return (
       <div
-        className="relative aspect-square bg-slate-800 border border-slate-700 rounded-md overflow-hidden cursor-pointer group select-none"
+        className="relative aspect-square bg-white border border-[#92afa5]/30 rounded-md overflow-hidden cursor-pointer group select-none"
         onClick={onClick}
         onContextMenu={handleContextMenu}
         onDragStart={handleDragStart}
@@ -309,9 +309,9 @@ export default function MockupRenderer({
           onContextMenu={handleContextMenu}
           onDragStart={handleDragStart}
         />
-        <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 bg-white/0 group-hover:bg-white/20 transition-colors flex items-center justify-center pointer-events-none">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="text-[10px] text-slate-300 text-center px-2">{template.name}</div>
+            <div className="text-[10px] text-[#705046] text-center px-2">{template.name}</div>
           </div>
         </div>
       </div>
@@ -321,7 +321,7 @@ export default function MockupRenderer({
   // Canvas approach - render pattern on mockup
   return (
     <div
-      className="relative aspect-square bg-slate-800 border border-slate-700 rounded-md overflow-hidden cursor-pointer group select-none"
+      className="relative aspect-square bg-white border border-[#92afa5]/30 rounded-md overflow-hidden cursor-pointer group select-none"
       onClick={onClick}
       onContextMenu={handleContextMenu}
       onDragStart={handleDragStart}
@@ -329,20 +329,20 @@ export default function MockupRenderer({
     >
       <canvas
         ref={canvasRef}
-        className="w-full h-full object-contain pointer-events-none"
+        className="w-full h-full object-contain pointer-events-none mockup-canvas"
         style={{ maxWidth: '100%', height: 'auto' }}
         draggable={false}
         onContextMenu={handleContextMenu}
         onDragStart={handleDragStart}
       />
       {isRendering && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 pointer-events-none">
-          <div className="text-[10px] text-slate-300">Rendering...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-white/50 pointer-events-none">
+          <div className="text-[10px] text-[#705046]">Rendering...</div>
         </div>
       )}
-      <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center pointer-events-none">
+      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/20 transition-colors flex items-center justify-center pointer-events-none">
         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="text-[10px] text-slate-300 text-center px-2">{template.name}</div>
+          <div className="text-[10px] text-[#705046] text-center px-2">{template.name}</div>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TopBar from '@/components/layout/TopBar';
 import PatternSetupSidebar from '@/components/sidebar/PatternSetupSidebar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
@@ -17,6 +17,7 @@ export default function Home() {
   const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [showTileOutline, setShowTileOutline] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Handle paste from clipboard globally
   useEffect(() => {
@@ -131,6 +132,10 @@ export default function Home() {
       setTileHeight(detectedHeight);
       setImage(img);
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:132',message:'IMAGE STATE SET',data:{imageWidth:img.width,imageHeight:img.height,imageNaturalWidth:img.naturalWidth,imageNaturalHeight:img.naturalHeight,imageComplete:img.complete,imageSrc:img.src.substring(0,100),tileWidth:detectedWidth,tileHeight:detectedHeight,dpi:finalDpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
       // Extract and store original filename (without extension)
       const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
       setOriginalFilename(filenameWithoutExt);
@@ -205,7 +210,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900">
+    <div className="min-h-screen flex flex-col bg-white">
       {/* Top Bar */}
       <TopBar />
 
@@ -240,11 +245,15 @@ export default function Home() {
             zoom={zoom}
             showTileOutline={showTileOutline}
             onZoomChange={setZoom}
+            canvasRef={canvasRef}
           />
+          {/* #region agent log */}
+          {(()=>{fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:234',message:'PatternPreviewCanvas props',data:{hasImage:!!image,imageWidth:image?.width,imageHeight:image?.height,imageNaturalWidth:image?.naturalWidth,imageNaturalHeight:image?.naturalHeight,imageComplete:image?.complete,repeatType,zoom,dpi,showTileOutline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});return null;})()}
+          {/* #endregion */}
           
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 z-50 pointer-events-none">
-              <div className="text-sm text-slate-300">Loading...</div>
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50 pointer-events-none">
+              <div className="text-sm text-gray-900">Loading...</div>
             </div>
           )}
         </div>
@@ -259,6 +268,7 @@ export default function Home() {
             repeatType={repeatType}
             zoom={zoom}
             originalFilename={originalFilename}
+            canvasRef={canvasRef}
           />
         </div>
       </div>

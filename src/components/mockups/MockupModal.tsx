@@ -7,9 +7,10 @@ interface MockupModalProps {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
+  onDownload?: () => void;
 }
 
-export default function MockupModal({ isOpen, onClose, children, title }: MockupModalProps) {
+export default function MockupModal({ isOpen, onClose, children, title, onDownload }: MockupModalProps) {
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -39,36 +40,48 @@ export default function MockupModal({ isOpen, onClose, children, title }: Mockup
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#fff6e4]/90 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative max-w-[90vw] max-h-[90vh] bg-slate-800 rounded-lg shadow-2xl overflow-hidden"
+        className="relative max-w-[90vw] max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {title && (
-          <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-200 transition-colors"
-              aria-label="Close"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#ffe4e7]">
+            <h3 className="text-sm font-semibold text-[#294051]">{title}</h3>
+            <div className="flex items-center gap-2">
+              {onDownload && (
+                <button
+                  onClick={onDownload}
+                  className="px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-all duration-200 hover:opacity-90"
+                  style={{ backgroundColor: '#f1737c' }}
+                  aria-label="Download"
+                >
+                  Download
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-[#705046] hover:text-[#294051] transition-all duration-200"
+                aria-label="Close"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { analyzeContrast, analyzeDensity, ContrastAnalysis, DensityAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupModal from '@/components/mockups/MockupModal';
-import ScaleExportModal from '@/components/export/ScaleExportModal';
+import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
 import SeamAnalyzer from '@/components/analysis/SeamAnalyzer';
 import { getMockupTemplate, getAllMockupTypes } from '@/lib/mockups/mockupTemplates';
 
@@ -16,16 +16,18 @@ interface ActionsSidebarProps {
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   zoom: number;
   originalFilename: string | null;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
 }
 
-export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename }: ActionsSidebarProps) {
+export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef }: ActionsSidebarProps) {
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [densityAnalysis, setDensityAnalysis] = useState<DensityAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [isPro] = useState(false); // TODO: Replace with actual Pro subscription check
+  const [isPro] = useState(true); // TODO: Replace with actual Pro subscription check - TEMPORARILY TRUE FOR TESTING
+  const [intendedUse, setIntendedUse] = useState<'fabric' | 'wallpaper' | 'blender/tonal' | 'unspecified'>('unspecified');
 
   // Create canvas from image for seam analysis
   useEffect(() => {
@@ -34,14 +36,29 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
       return;
     }
 
-    // Create a canvas with the exact image dimensions
+    // Create a canvas with the exact image dimensions (NO DPR scaling)
     const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
+    // CRITICAL: Use naturalWidth/naturalHeight, NOT width/height (avoids DPR scaling)
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
     const ctx = canvas.getContext('2d');
     
     if (ctx) {
+      // Draw at 1:1 scale (no width/height params = no scaling)
       ctx.drawImage(image, 0, 0);
+      
+      // CRITICAL DEBUG: Verify canvas matches image dimensions
+      console.log('🔍 Analysis canvas creation:', {
+        imageNaturalWidth: image.naturalWidth,
+        imageNaturalHeight: image.naturalHeight,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        imageDisplayWidth: image.width,
+        imageDisplayHeight: image.height,
+        match: canvas.width === image.naturalWidth && canvas.height === image.naturalHeight,
+        warning: canvas.width !== image.naturalWidth ? '❌ DIMENSION MISMATCH - Analysis will be wrong!' : '✅ Dimensions match'
+      });
+      
       setTileCanvas(canvas);
     }
   }, [image]);
@@ -57,7 +74,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     
     // Run analyses
     try {
-      const contrast = analyzeContrast(image, 'unspecified'); // TODO: Add intended use selector
+      const contrast = analyzeContrast(image, intendedUse);
       let density = analyzeDensity(image, dpi, tileWidth, tileHeight);
       
       // Add combined risk note if heavy coverage + very low contrast + high detail
@@ -79,23 +96,25 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     } finally {
       setIsAnalyzing(false);
     }
-  }, [image, dpi, tileWidth, tileHeight]);
+  }, [image, dpi, tileWidth, tileHeight, intendedUse]);
   return (
-    <aside className="w-72 bg-slate-900 border-l border-slate-700 p-6 overflow-y-auto">
+    <aside className="w-72 bg-white border-l border-[#e5e7eb] p-6 overflow-y-auto">
       {/* Export Section */}
       <div className="mb-8">
-        <h2 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
-          Export
-        </h2>
+        <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
+          <h2 className="text-xs font-bold text-[#294051] uppercase tracking-wider">
+            Export
+          </h2>
+        </div>
         <div className="space-y-2">
           <button 
             onClick={() => setIsEasyscaleModalOpen(true)}
             disabled={!image}
-            className="w-full px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2.5 text-xs font-semibold text-white rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#f1737c' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#e05a65';
+                e.currentTarget.style.backgroundColor = '#ff8a94';
               }
             }}
             onMouseLeave={(e) => {
@@ -106,23 +125,95 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           >
             Easyscale Export
           </button>
+          
+          <button 
+            onClick={() => {
+              if (!canvasRef.current || !image) return;
+              
+              const canvas = canvasRef.current;
+              const dataURL = canvas.toDataURL('image/png');
+              const link = document.createElement('a');
+              link.download = originalFilename ? `${originalFilename}-pattern.png` : 'pattern.png';
+              link.href = dataURL;
+              link.click();
+            }}
+            disabled={!image || !canvasRef.current}
+            className="w-full px-4 py-2.5 text-xs font-semibold bg-white text-[#294051] rounded-md border border-[#e5e7eb] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f5f5]"
+          >
+            Download PNG
+          </button>
+          
+          <button 
+            onClick={async () => {
+              if (!canvasRef.current || !image) return;
+              
+              try {
+                // Dynamic import for jsPDF to avoid SSR issues
+                const { default: jsPDF } = await import('jspdf');
+                
+                const canvas = canvasRef.current;
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Calculate PDF dimensions maintaining aspect ratio
+                const pdfWidth = 8.5; // inches (US Letter width)
+                const aspectRatio = canvas.height / canvas.width;
+                const pdfHeight = pdfWidth * aspectRatio;
+                
+                const pdf = new jsPDF({
+                  orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+                  unit: 'in',
+                  format: [pdfWidth, pdfHeight]
+                });
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save(originalFilename ? `${originalFilename}-pattern.pdf` : 'pattern.pdf');
+              } catch (error) {
+                console.error('PDF export failed:', error);
+                alert('PDF export failed. Please try again.');
+              }
+            }}
+            disabled={!image || !canvasRef.current}
+            className="w-full px-4 py-2.5 text-xs font-semibold bg-white text-[#294051] rounded-md border border-[#e5e7eb] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f5f5]"
+          >
+            Download PDF
+          </button>
         </div>
       </div>
 
       {/* Analysis Section */}
       <div className="mb-8">
-        <h2 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
-          Analysis
-        </h2>
+        <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
+          <h2 className="text-xs font-bold text-[#294051] uppercase tracking-wider">
+            Analysis
+          </h2>
+        </div>
         
         {!image && (
-          <div className="text-xs text-slate-500 text-center py-4">
+          <div className="text-xs text-[#6b7280] text-center py-4">
             Upload a pattern tile to see analysis
           </div>
         )}
         
+        {image && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-[#294051] mb-2">
+              Intended Use
+            </label>
+            <select
+              value={intendedUse}
+              onChange={(e) => setIntendedUse(e.target.value as typeof intendedUse)}
+              className="w-full px-3 py-2 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#f1737c] focus:border-transparent"
+            >
+              <option value="unspecified">Unspecified</option>
+              <option value="fabric">Fabric</option>
+              <option value="wallpaper">Wallpaper</option>
+              <option value="blender/tonal">Blender/Tonal</option>
+            </select>
+          </div>
+        )}
+        
         {isAnalyzing && (
-          <div className="text-xs text-slate-400 text-center py-4">
+          <div className="text-xs text-[#6b7280] text-center py-4">
             Analyzing...
           </div>
         )}
@@ -131,23 +222,23 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           <div className="space-y-4">
             {/* Contrast Analysis */}
             {contrastAnalysis && (
-              <div className="p-3 bg-slate-800 border border-slate-700 rounded-md">
+              <div className="p-3 bg-white border border-[#e5e7eb] rounded-md">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-200">
+                  <span className="text-xs font-semibold text-[#294051]">
                     {contrastAnalysis.label}
                   </span>
-                  <span className={`px-2 py-0.5 text-[10px] font-medium rounded ${
-                    contrastAnalysis.severity === 'none' ? 'bg-emerald-900/50 text-emerald-300' :
-                    contrastAnalysis.severity === 'info' ? 'bg-blue-900/50 text-blue-300' :
-                    'bg-orange-900/50 text-orange-300'
+                  <span className={`px-2 py-0.5 text-[10px] font-medium rounded uppercase ${
+                    contrastAnalysis.severity === 'none' ? 'bg-emerald-100 text-emerald-700' :
+                    contrastAnalysis.severity === 'info' ? 'bg-blue-100 text-blue-700' :
+                    'bg-orange-100 text-orange-700'
                   }`}>
                     {contrastAnalysis.band.toUpperCase().replace('_', ' ')}
                   </span>
                 </div>
-                <div className="text-xs text-slate-400 mb-2">
+                <div className="text-xs text-[#374151] mb-2">
                   Global contrast: {(contrastAnalysis.globalContrast * 100).toFixed(0)}%
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-sm text-[#374151] leading-relaxed">
                   {contrastAnalysis.message}
                 </p>
               </div>
@@ -155,27 +246,31 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             
             {/* Density Analysis */}
             {densityAnalysis && (
-              <div className="p-3 bg-slate-800 border border-slate-700 rounded-md">
+              <div className="p-3 bg-white border border-[#e5e7eb] rounded-md">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-200">
+                  <span className="text-xs font-semibold text-[#294051]">
                     {densityAnalysis.label}
                   </span>
-                  <span className="px-2 py-0.5 text-[10px] font-medium rounded bg-slate-700 text-slate-400 uppercase">
+                  <span className={`px-2 py-0.5 text-[10px] font-medium rounded uppercase ${
+                    densityAnalysis.coverageBand === 'light' ? 'bg-[#e5e7eb] text-[#294051]' :
+                    densityAnalysis.coverageBand === 'medium' ? 'bg-[#f9c97d] text-white' :
+                    'bg-[#f1737c] text-white'
+                  }`}>
                     {densityAnalysis.coverageBand}
                   </span>
                 </div>
                 
-                <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                <p className="text-sm text-[#374151] leading-relaxed mb-2">
                   {densityAnalysis.description}
                 </p>
                 
-                <p className="text-xs text-slate-400 leading-relaxed italic">
+                <p className="text-xs text-[#6b7280] leading-relaxed italic">
                   {densityAnalysis.contextHint}
                 </p>
                 
                 {densityAnalysis.combinedNote && (
-                  <div className="mt-2 pt-2 border-t border-slate-700">
-                    <p className="text-xs text-orange-300 leading-relaxed">
+                  <div className="mt-2 pt-2 border-t border-[#e5e7eb]">
+                    <p className="text-xs text-orange-700 leading-relaxed">
                       ⚠️ {densityAnalysis.combinedNote}
                     </p>
                   </div>
@@ -199,9 +294,11 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
       {/* Mockups Section */}
       <div>
-        <h2 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
-          Mockups
-        </h2>
+        <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
+          <h2 className="text-xs font-bold text-[#294051] uppercase tracking-wider">
+            Mockups
+          </h2>
+        </div>
         <div className="grid grid-cols-3 gap-2 mb-3">
           {(['onesie', 'fabric-swatch', 'wallpaper'] as const).map((mockupType) => {
             const template = getMockupTemplate(mockupType);
@@ -229,8 +326,24 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             isOpen={!!selectedMockup}
             onClose={() => setSelectedMockup(null)}
             title={getMockupTemplate(selectedMockup as any)?.name}
+            onDownload={() => {
+              // Find the canvas element in the mockup renderer
+              const mockupCanvas = document.querySelector('.mockup-canvas') as HTMLCanvasElement;
+              if (mockupCanvas) {
+                const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
+                const link = document.createElement('a');
+                const template = getMockupTemplate(selectedMockup as any);
+                link.download = originalFilename 
+                  ? `${originalFilename}-${template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup'}.png`
+                  : `mockup-${template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup'}.png`;
+                link.href = dataURL;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            }}
           >
-            <div className="flex items-center justify-center bg-slate-900 rounded-lg p-4">
+            <div className="flex items-center justify-center bg-white rounded-lg p-4">
               <div className="w-full max-w-2xl">
                 <MockupRenderer
                   template={getMockupTemplate(selectedMockup as any)}
@@ -246,23 +359,17 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             </div>
           </MockupModal>
         )}
-        <p className="text-[10px] text-slate-500 text-center">
-          Reference only - not for download
-        </p>
       </div>
 
-      {/* Scale Export Modal */}
-      {isEasyscaleModalOpen && image && (
-        <ScaleExportModal
-          image={image}
-          repeatType={
-            repeatType === 'full-drop' ? 'fulldrop' :
-            repeatType === 'half-drop' ? 'halfdrop' :
-            'halfbrick'
-          }
-          currentDPI={dpi}
-          originalFilename={originalFilename}
+      {/* Easyscale Export Modal */}
+      {isEasyscaleModalOpen && (
+        <EasyscaleExportModal
+          isOpen={isEasyscaleModalOpen}
           onClose={() => setIsEasyscaleModalOpen(false)}
+          image={image}
+          currentDPI={dpi}
+          tileWidth={tileWidth}
+          tileHeight={tileHeight}
         />
       )}
     </aside>

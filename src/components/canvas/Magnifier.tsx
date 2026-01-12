@@ -4,13 +4,15 @@ import { useEffect, useRef } from 'react';
 
 interface MagnifierProps {
   sourceCanvas: HTMLCanvasElement;
-  x: number;
-  y: number;
+  x: number; // Canvas coordinates for source
+  y: number; // Canvas coordinates for source
   zoom: number;
   size: number;
+  screenX?: number; // Screen coordinates for positioning (optional, falls back to x)
+  screenY?: number; // Screen coordinates for positioning (optional, falls back to y)
 }
 
-export default function Magnifier({ sourceCanvas, x, y, zoom, size }: MagnifierProps) {
+export default function Magnifier({ sourceCanvas, x, y, zoom, size, screenX, screenY }: MagnifierProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -52,6 +54,10 @@ export default function Magnifier({ sourceCanvas, x, y, zoom, size }: MagnifierP
     ctx.strokeRect(0, 0, size, size);
   }, [sourceCanvas, x, y, zoom, size]);
 
+  // Use screen coordinates for positioning if provided, otherwise use canvas coordinates
+  const displayX = screenX !== undefined ? screenX : x;
+  const displayY = screenY !== undefined ? screenY : y;
+
   return (
     <canvas
       ref={canvasRef}
@@ -59,8 +65,8 @@ export default function Magnifier({ sourceCanvas, x, y, zoom, size }: MagnifierP
       height={size}
       className="absolute rounded-lg shadow-2xl border-4 border-blue-500 pointer-events-none"
       style={{
-        left: `${x - size / 2}px`,
-        top: `${y - size / 2}px`,
+        left: `${displayX - size / 2}px`,
+        top: `${displayY - size / 2}px`,
         zIndex: 1000,
       }}
     />
