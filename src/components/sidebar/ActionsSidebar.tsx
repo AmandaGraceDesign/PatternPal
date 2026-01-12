@@ -27,7 +27,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isPro] = useState(true); // TODO: Replace with actual Pro subscription check - TEMPORARILY TRUE FOR TESTING
-  const [intendedUse, setIntendedUse] = useState<'fabric' | 'wallpaper' | 'blender/tonal' | 'unspecified'>('unspecified');
 
   // Create canvas from image for seam analysis
   useEffect(() => {
@@ -74,7 +73,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     
     // Run analyses
     try {
-      const contrast = analyzeContrast(image, intendedUse);
+      const contrast = analyzeContrast(image, 'unspecified');
       let density = analyzeDensity(image, dpi, tileWidth, tileHeight);
       
       // Add combined risk note if heavy coverage + very low contrast + high detail
@@ -96,7 +95,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     } finally {
       setIsAnalyzing(false);
     }
-  }, [image, dpi, tileWidth, tileHeight, intendedUse]);
+  }, [image, dpi, tileWidth, tileHeight]);
   return (
     <aside className="w-72 bg-white border-l border-[#e5e7eb] p-6 overflow-y-auto">
       {/* Export Section */}
@@ -194,24 +193,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           </div>
         )}
         
-        {image && (
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-[#294051] mb-2">
-              Intended Use
-            </label>
-            <select
-              value={intendedUse}
-              onChange={(e) => setIntendedUse(e.target.value as typeof intendedUse)}
-              className="w-full px-3 py-2 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#f1737c] focus:border-transparent"
-            >
-              <option value="unspecified">Unspecified</option>
-              <option value="fabric">Fabric</option>
-              <option value="wallpaper">Wallpaper</option>
-              <option value="blender/tonal">Blender/Tonal</option>
-            </select>
-          </div>
-        )}
-        
         {isAnalyzing && (
           <div className="text-xs text-[#6b7280] text-center py-4">
             Analyzing...
@@ -281,6 +262,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             {/* Seam Analyzer */}
             <SeamAnalyzer
               canvas={tileCanvas}
+              image={image}
               repeatType={
                 repeatType === 'full-drop' ? 'fulldrop' :
                 repeatType === 'half-drop' ? 'halfdrop' :

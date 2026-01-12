@@ -1,0 +1,487 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
+interface SeamInspectorProps {
+  image: HTMLImageElement | null;
+  isOpen: boolean;
+  onClose: () => void;
+  repeatType: 'full-drop' | 'half-drop' | 'half-brick';
+}
+
+type SeamType = 'horizontal' | 'vertical' | 'intersection';
+type SeamSection = 'start' | 'middle' | 'end';
+
+// Helper function to create a 2x2 grid of tiles showing actual repeat
+function createTileGrid(
+  image: HTMLImageElement,
+  repeatType: 'full-drop' | 'half-drop' | 'half-brick'
+): HTMLCanvasElement {
+  const tileW = image.width;
+  const tileH = image.height;
+  
+  const gridCanvas = document.createElement('canvas');
+  const extraWidth = repeatType === 'half-brick' ? tileW / 2 : 0;
+  const extraHeight = repeatType === 'half-drop' ? tileH / 2 : 0;
+  gridCanvas.width = tileW * 2 + extraWidth;
+  gridCanvas.height = tileH * 2 + extraHeight;
+  
+  const ctx = gridCanvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  
+  // Draw 4 tiles in 2x2 grid
+  // Top-left tile (0, 0)
+  ctx.drawImage(image, 0, 0);
+  
+  // Top-right tile
+  let topRightX = tileW;
+  let topRightY = 0;
+  if (repeatType === 'half-drop') {
+    topRightY = tileH / 2;
+  }
+  ctx.drawImage(image, topRightX, topRightY);
+  
+  // Bottom-left tile
+  let bottomLeftX = 0;
+  let bottomLeftY = tileH;
+  if (repeatType === 'half-brick') {
+    bottomLeftX = tileW / 2;
+  }
+  ctx.drawImage(image, bottomLeftX, bottomLeftY);
+  
+  // Bottom-right tile
+  let bottomRightX = tileW;
+  let bottomRightY = tileH;
+  if (repeatType === 'half-drop') {
+    bottomRightY = tileH + tileH / 2;
+  } else if (repeatType === 'half-brick') {
+    bottomRightX = tileW + tileW / 2;
+  }
+  ctx.drawImage(image, bottomRightX, bottomRightY);
+  
+  return gridCanvas;
+}
+
+export default function SeamInspector({ image, isOpen, onClose, repeatType }: SeamInspectorProps) {
+  const [seamType, setSeamType] = useState<SeamType>('intersection');
+  const [zoomLevel, setZoomLevel] = useState<number>(200); // Continuous zoom (percentage)
+  const [seamSection, setSeamSection] = useState<SeamSection>('middle');
+  const [showPinkLines, setShowPinkLines] = useState(true);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  
+  // Pan state (in screen pixels, converted to source pixels when rendering)
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    
+    if (isOpen) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleArrows = (e: KeyboardEvent) => {
+      if (!isOpen || seamType === 'intersection') return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSeamSection(prev => 
+          prev === 'middle' ? 'start' : prev === 'end' ? 'middle' : prev
+        );
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSeamSection(prev => 
+          prev === 'middle' ? 'end' : prev === 'start' ? 'middle' : prev
+        );
+      }
+    };
+    
+    window.addEventListener('keydown', handleArrows);
+    return () => window.removeEventListener('keydown', handleArrows);
+  }, [isOpen, seamType]);
+
+  // Measure container size
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+    
+    const updateSize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
+      }
+    };
+    
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, [isOpen]);
+
+  // Reset pan when changing views (but not when toggling pink lines)
+  useEffect(() => {
+    setPanOffset({ x: 0, y: 0 });
+  }, [seamType, zoomLevel, seamSection]);
+
+  // Render seam view
+  useEffect(() => {
+    if (!image || !canvasRef.current || !isOpen || containerSize.width === 0 || containerSize.height === 0) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const zoomFactor = zoomLevel / 100;
+    
+    // Canvas always fills container (accounting for padding)
+    const padding = 48; // 24px padding on each side
+    const canvasWidth = containerSize.width - padding;
+    const canvasHeight = containerSize.height - padding;
+    
+    canvas.width = canvasWidth * dpr;
+    canvas.height = canvasHeight * dpr;
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
+    
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    if (seamType === 'intersection') {
+      // Create 2x2 grid showing actual repeat
+      const gridCanvas = createTileGrid(image, repeatType);
+      const tileW = image.width;
+      const tileH = image.height;
+      
+      // Intersection is at (tileW, tileH) in the grid
+      // Source size = canvas size / zoom factor (higher zoom = smaller source region)
+      const sourceSize = Math.min(canvasWidth, canvasHeight) / zoomFactor;
+      const cornerSize = Math.min(tileW, tileH) * 0.25;
+      
+      // Use the smaller of: calculated source size or actual corner size
+      const actualSourceSize = Math.min(sourceSize, cornerSize * 2);
+      
+      // Extract intersection area from grid (centered at tileW, tileH)
+      // Apply pan offset (convert screen pixels to source pixels)
+      const sourceX = tileW - actualSourceSize / 2 - panOffset.x / zoomFactor;
+      const sourceY = tileH - actualSourceSize / 2 - panOffset.y / zoomFactor;
+      
+      // Clamp to grid bounds
+      const clampedX = Math.max(0, Math.min(sourceX, gridCanvas.width - actualSourceSize));
+      const clampedY = Math.max(0, Math.min(sourceY, gridCanvas.height - actualSourceSize));
+      
+      ctx.drawImage(
+        gridCanvas,
+        clampedX, clampedY, actualSourceSize, actualSourceSize,
+        0, 0, canvasWidth, canvasHeight
+      );
+      
+      // Draw pink crosshair at center
+      if (showPinkLines) {
+        ctx.strokeStyle = '#ff1493';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, canvasHeight / 2);
+        ctx.lineTo(canvasWidth, canvasHeight / 2);
+        ctx.moveTo(canvasWidth / 2, 0);
+        ctx.lineTo(canvasWidth / 2, canvasHeight);
+        ctx.stroke();
+      }
+      
+    } else if (seamType === 'horizontal') {
+      // Create 2x2 grid
+      const gridCanvas = createTileGrid(image, repeatType);
+      const tileW = image.width;
+      const tileH = image.height;
+      
+      // Source dimensions based on zoom (higher zoom = smaller source region)
+      const sourceWidth = canvasWidth / zoomFactor;
+      const sourceHeight = canvasHeight / zoomFactor;
+      
+      // Calculate which section to show
+      const sectionWidth = tileW / 3;
+      const baseSourceX = seamSection === 'start' ? 0 : 
+                         seamSection === 'middle' ? sectionWidth : 
+                         sectionWidth * 2;
+      
+      // Horizontal seam is at y = tileH in the grid
+      // Center the view on the seam, apply pan offset
+      const sourceX = baseSourceX - (sourceWidth - sectionWidth) / 2 - panOffset.x / zoomFactor;
+      const clampedSourceX = Math.max(0, Math.min(sourceX, gridCanvas.width - sourceWidth));
+      const sourceY = tileH - sourceHeight / 2 - panOffset.y / zoomFactor;
+      const clampedSourceY = Math.max(0, Math.min(sourceY, gridCanvas.height - sourceHeight));
+      
+      // Draw from grid to fill entire canvas
+      ctx.drawImage(
+        gridCanvas,
+        clampedSourceX, clampedSourceY, sourceWidth, sourceHeight,
+        0, 0, canvasWidth, canvasHeight
+      );
+      
+      // Draw pink seam line at center
+      if (showPinkLines) {
+        ctx.strokeStyle = '#ff1493';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, canvasHeight / 2);
+        ctx.lineTo(canvasWidth, canvasHeight / 2);
+        ctx.stroke();
+      }
+      
+    } else {
+      // Vertical seam
+      const gridCanvas = createTileGrid(image, repeatType);
+      const tileW = image.width;
+      const tileH = image.height;
+      
+      // Source dimensions based on zoom (higher zoom = smaller source region)
+      const sourceWidth = canvasWidth / zoomFactor;
+      const sourceHeight = canvasHeight / zoomFactor;
+      
+      // Calculate which section to show
+      const sectionHeight = tileH / 3;
+      const baseSourceY = seamSection === 'start' ? 0 : 
+                         seamSection === 'middle' ? sectionHeight : 
+                         sectionHeight * 2;
+      
+      // Vertical seam is at x = tileW in the grid
+      // Center the view on the seam, apply pan offset
+      const sourceX = tileW - sourceWidth / 2 - panOffset.x / zoomFactor;
+      const clampedSourceX = Math.max(0, Math.min(sourceX, gridCanvas.width - sourceWidth));
+      const sourceY = baseSourceY - (sourceHeight - sectionHeight) / 2 - panOffset.y / zoomFactor;
+      const clampedSourceY = Math.max(0, Math.min(sourceY, gridCanvas.height - sourceHeight));
+      
+      // Draw from grid to fill entire canvas
+      ctx.drawImage(
+        gridCanvas,
+        clampedSourceX, clampedSourceY, sourceWidth, sourceHeight,
+        0, 0, canvasWidth, canvasHeight
+      );
+      
+      // Draw pink seam line at center
+      if (showPinkLines) {
+        ctx.strokeStyle = '#ff1493';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(canvasWidth / 2, 0);
+        ctx.lineTo(canvasWidth / 2, canvasHeight);
+        ctx.stroke();
+      }
+    }
+  }, [image, seamType, zoomLevel, seamSection, showPinkLines, repeatType, isOpen, containerSize, panOffset]);
+
+  if (!isOpen || !image) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-xl flex flex-col"
+        style={{ width: '80vw', height: '80vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb]">
+          <h2 className="text-xl font-bold text-[#294051]">Seam Inspector</h2>
+          <button
+            onClick={onClose}
+            className="text-[#6b7280] hover:text-[#374151] text-2xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Controls */}
+        <div className="px-6 py-4 border-b border-[#e5e7eb] space-y-3">
+          {/* Seam Type Selector */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setSeamType('intersection');
+                setSeamSection('middle');
+              }}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                seamType === 'intersection'
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              Seam Intersection
+            </button>
+            <button
+              onClick={() => {
+                setSeamType('horizontal');
+                setSeamSection('middle');
+              }}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                seamType === 'horizontal'
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              Top/Bottom Seam
+            </button>
+            <button
+              onClick={() => {
+                setSeamType('vertical');
+                setSeamSection('middle');
+              }}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                seamType === 'vertical'
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              Left/Right Seam
+            </button>
+          </div>
+
+          {/* Show Pink Lines Toggle */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showPinkLines}
+                onChange={(e) => setShowPinkLines(e.target.checked)}
+                className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#f1737c]/20"
+                style={{ accentColor: '#f1737c' }}
+              />
+              <span className="text-sm font-semibold text-[#374151]">
+                Show Seam Lines
+              </span>
+            </label>
+          </div>
+
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-[#374151]">Zoom:</span>
+            <button
+              onClick={() => setZoomLevel(prev => Math.max(50, prev - 25))}
+              className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              onClick={() => setZoomLevel(200)}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                Math.abs(zoomLevel - 200) < 10
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              200%
+            </button>
+            <button
+              onClick={() => setZoomLevel(400)}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                Math.abs(zoomLevel - 400) < 10
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              400%
+            </button>
+            <button
+              onClick={() => setZoomLevel(800)}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                Math.abs(zoomLevel - 800) < 10
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              800%
+            </button>
+            <button
+              onClick={() => setZoomLevel(prev => Math.min(1600, prev + 25))}
+              className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <span className="text-sm text-[#6b7280] ml-2">
+              {Math.round(zoomLevel)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Canvas Container */}
+        <div 
+          ref={containerRef}
+          className="flex-1 bg-[#294051] flex items-center justify-center p-6 overflow-hidden"
+          style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+          onMouseDown={(e) => {
+            setIsPanning(true);
+            setDragStart({ x: e.clientX, y: e.clientY });
+            setPanStart(panOffset);
+          }}
+          onMouseMove={(e) => {
+            if (!isPanning) return;
+            const deltaX = e.clientX - dragStart.x;
+            const deltaY = e.clientY - dragStart.y;
+            setPanOffset({
+              x: panStart.x + deltaX,
+              y: panStart.y + deltaY
+            });
+          }}
+          onMouseUp={() => setIsPanning(false)}
+          onMouseLeave={() => setIsPanning(false)}
+        >
+          <canvas ref={canvasRef} className="block shadow-lg" />
+        </div>
+
+        {/* Navigation & Footer */}
+        <div className="px-6 py-4 border-t border-[#e5e7eb] space-y-3">
+          {/* Section Navigation - only show for horizontal/vertical, not intersection */}
+          {seamType !== 'intersection' && (
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={() => setSeamSection(prev => 
+                  prev === 'middle' ? 'start' : prev === 'end' ? 'middle' : prev
+                )}
+                disabled={seamSection === 'start'}
+                className="px-4 py-2 bg-[#e5e7eb] text-[#374151] rounded-lg font-semibold hover:bg-[#d1d5db] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Previous Section
+              </button>
+              <span className="text-sm text-[#6b7280]">
+                {seamType === 'horizontal' ? 
+                  (seamSection === 'start' ? 'Left' : seamSection === 'middle' ? 'Center' : 'Right') :
+                  (seamSection === 'start' ? 'Top' : seamSection === 'middle' ? 'Middle' : 'Bottom')
+                }
+              </span>
+              <button
+                onClick={() => setSeamSection(prev => 
+                  prev === 'middle' ? 'end' : prev === 'start' ? 'middle' : prev
+                )}
+                disabled={seamSection === 'end'}
+                className="px-4 py-2 bg-[#e5e7eb] text-[#374151] rounded-lg font-semibold hover:bg-[#d1d5db] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next Section →
+              </button>
+            </div>
+          )}
+
+          {/* Helper Text */}
+          <p className="text-sm text-[#6b7280] text-center">
+            💡 Look for color breaks or pattern misalignment at the seam line
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

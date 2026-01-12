@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { PatternTiler, RepeatType } from '@/lib/tiling/PatternTiler';
 import Ruler from './Ruler';
 import { createSeamlessDefaultPattern } from '@/lib/utils/imageUtils';
-import Magnifier from './Magnifier';
-import MiniMap from './MiniMap';
 
 interface PatternPreviewCanvasProps {
   image: HTMLImageElement | null;
@@ -52,14 +50,6 @@ export default function PatternPreviewCanvas({
   // Panning state
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  
-  // Magnifier state
-  const [showMagnifier, setShowMagnifier] = useState(false);
-  const [magnifierPos, setMagnifierPos] = useState({ x: 0, y: 0, canvasX: 0, canvasY: 0 });
-  
-  // MiniMap state
-  const [showMiniMap, setShowMiniMap] = useState(true);
-  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
 
   // Set device pixel ratio and canvas size
   useEffect(() => {
@@ -735,20 +725,6 @@ export default function PatternPreviewCanvas({
             }}
             onMouseMove={(e) => {
               const scrollContainer = e.currentTarget;
-              const rect = canvasRef.current?.getBoundingClientRect();
-              
-              if (rect) {
-                const canvasX = e.clientX - rect.left + scrollContainer.scrollLeft;
-                const canvasY = e.clientY - rect.top + scrollContainer.scrollTop;
-                setCursorPos({ x: canvasX, y: canvasY });
-                // Store both screen position (for magnifier display) and canvas position (for magnifier source)
-                setMagnifierPos({ 
-                  x: e.clientX, 
-                  y: e.clientY,
-                  canvasX,
-                  canvasY
-                });
-              }
               
               if (!isPanning) return;
               const dx = panStart.x - e.clientX;
@@ -756,14 +732,8 @@ export default function PatternPreviewCanvas({
               scrollContainer.scrollLeft = dx;
               scrollContainer.scrollTop = dy;
             }}
-            onMouseEnter={() => {
-              if (image) {
-                setShowMagnifier(true);
-              }
-            }}
             onMouseLeave={() => {
               setIsPanning(false);
-              setShowMagnifier(false);
             }}
             onMouseUp={() => {
               setIsPanning(false);
@@ -774,40 +744,6 @@ export default function PatternPreviewCanvas({
               ref={canvasRef}
               className="block"
             />
-            
-            {/* Magnifier */}
-            {showMagnifier && canvasRef.current && image && (
-              <Magnifier
-                sourceCanvas={canvasRef.current}
-                x={magnifierPos.canvasX}
-                y={magnifierPos.canvasY}
-                zoom={3}
-                size={200}
-                screenX={magnifierPos.x}
-                screenY={magnifierPos.y}
-              />
-            )}
-            
-            {/* MiniMap */}
-            {showMiniMap && image && (
-              <MiniMap
-                image={image}
-                cursorX={cursorPos.x}
-                cursorY={cursorPos.y}
-                tileWidth={tileWidth}
-                tileHeight={tileHeight}
-                displayScale={(() => {
-                  // Calculate displayScale: pixels per inch for the displayed tile
-                  // displayedTileWidthPixels = image.width * viewZoom
-                  // tileWidthInches = tileWidth
-                  // displayScale = displayedTileWidthPixels / tileWidthInches
-                  const viewZoom = displayZoomToActualZoom(zoom);
-                  const displayedTileWidthPixels = image.width * viewZoom;
-                  return displayedTileWidthPixels / tileWidth;
-                })()}
-                repeatType={repeatType}
-              />
-            )}
           </div>
         </div>
       </div>
