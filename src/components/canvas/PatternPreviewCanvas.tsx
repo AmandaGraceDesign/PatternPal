@@ -142,10 +142,10 @@ export default function PatternPreviewCanvas({
         
         const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
         
-        // Calculate tile size to fit canvas dynamically
-        // Aim for ~8-10 tiles across for good visual density
-        const tilesAcross = 5; // Was 8, make it 5 for larger tiles
-        const baseTileSize = Math.round(canvasSize.width / tilesAcross);
+        // Get the container size (viewport), not canvas size
+        const viewportWidth = window.innerWidth;
+        const tilesAcross = 5;
+        const baseTileSize = Math.round(viewportWidth / tilesAcross);
 
         // Apply zoom to tile size
         const viewZoom = displayZoomToActualZoom(zoom);
@@ -153,6 +153,7 @@ export default function PatternPreviewCanvas({
         const displayHeight = displayWidth; // Keep square
 
         console.log('🔍 DEFAULT PATTERN - Calculated size:', {
+          viewportWidth,
           canvasWidth: canvasSize.width,
           tilesAcross,
           baseTileSize,
