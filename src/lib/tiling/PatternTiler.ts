@@ -30,8 +30,8 @@ export class PatternTiler {
   }
 
   clear() {
-    // Fill with navy background before clearing
-    this.ctx.fillStyle = '#294051'; // navy blue background
+    // Fill with white background before clearing
+    this.ctx.fillStyle = '#ffffff'; // white background
     this.ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
     // Clear any remaining artifacts
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);

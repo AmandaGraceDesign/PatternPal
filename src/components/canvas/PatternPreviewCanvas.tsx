@@ -125,7 +125,7 @@ export default function PatternPreviewCanvas({
     canvasCtx.imageSmoothingQuality = 'high';
     
     // Clear canvas (using display coordinates since context is scaled)
-    canvasCtx.fillStyle = '#294051'; // navy blue background
+    canvasCtx.fillStyle = '#ffffff'; // white background
     canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
     if (!image) {
@@ -380,7 +380,7 @@ export default function PatternPreviewCanvas({
       </div>
 
       {/* Canvas Preview Area with Rulers */}
-      <div className="flex-1 flex flex-col bg-[#294051] overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
         {/* Top ruler */}
         <div className="flex border-b border-[#e5e7eb]">
           <div className="w-[30px] h-[30px] bg-[#e5e7eb] border-r border-[#d1d5db]" />
@@ -415,7 +415,7 @@ export default function PatternPreviewCanvas({
             )}
           </div>
           <div 
-            className="flex-1 overflow-auto bg-[#294051] relative"
+            className="flex-1 overflow-auto bg-white relative"
             style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto', cursor: isPanning ? 'grabbing' : 'grab' }}
             onWheel={(e) => {
               if (e.ctrlKey || e.metaKey) {
