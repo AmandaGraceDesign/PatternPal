@@ -30,27 +30,32 @@ export class PatternTiler {
   }
 
   clear() {
-    // Use display dimensions since context is scaled
+    // Fill with navy background before clearing
+    this.ctx.fillStyle = '#294051'; // navy blue background
+    this.ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
+    // Clear any remaining artifacts
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
   }
 
   renderFullDrop(image: HTMLImageElement) {
     const w = image.width;
     const h = image.height;
-    const cols = Math.ceil(this.displayWidth / w) + 1;
-    const rows = Math.ceil(this.displayHeight / h) + 1;
+    
+    console.log('🔍 PatternTiler.renderFullDrop:', {
+      imageWidth: w,
+      imageHeight: h,
+      displayWidth: this.displayWidth,
+      displayHeight: this.displayHeight,
+    });
+    
+    // Add extra tiles to ensure full canvas coverage
+    const cols = Math.ceil(this.displayWidth / w) + 2;
+    const rows = Math.ceil(this.displayHeight / h) + 2;
 
-    for (let x = 0; x < cols; x++) {
-      const x0 = Math.round(x * w);
-      const x1 = Math.round((x + 1) * w);
-      const drawW = x1 - x0;
-
-      for (let y = 0; y < rows; y++) {
-        const y0 = Math.round(y * h);
-        const y1 = Math.round((y + 1) * h);
-        const drawH = y1 - y0;
-
-        this.ctx.drawImage(image, x0, y0, drawW, drawH);
+    // Start from -1 to cover edges
+    for (let x = -1; x < cols; x++) {
+      for (let y = -1; y < rows; y++) {
+        this.ctx.drawImage(image, x * w, y * h, w, h);
       }
     }
   }

@@ -144,7 +144,7 @@ export default function PatternPreviewCanvas({
         
         // Calculate tile size to fit canvas dynamically
         // Aim for ~8-10 tiles across for good visual density
-        const tilesAcross = 8;
+        const tilesAcross = 5; // Was 8, make it 5 for larger tiles
         const baseTileSize = Math.round(canvasSize.width / tilesAcross);
 
         // Apply zoom to tile size
