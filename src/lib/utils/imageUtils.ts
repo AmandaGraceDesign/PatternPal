@@ -179,6 +179,124 @@ function detectFileType(view: DataView): string {
   return 'UNKNOWN';
 }
 
+/**
+ * Create a seamless default pattern using the placeholder jpg design
+ * This pattern tiles perfectly by ensuring edges match
+ * @param size Optional size for the pattern (default: 800). Recommended: power-of-2 (256, 512) for better scaling
+ */
+export function createSeamlessDefaultPattern(size: number = 800): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    
+    const ctx = canvas.getContext('2d')!;
+
+    // Load the placeholder jpg
+    const img = new Image();
+    img.src = '/place_design_here.jpg';
+    
+    img.onload = () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'imageUtils.ts:197',message:'Default pattern SVG loaded',data:{svgWidth:img.width,svgHeight:img.height,canvasWidth:canvas.width,canvasHeight:canvas.height,expectedSize:400},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
+      // Draw the jpg to canvas first (scale jpg to requested size)
+      ctx.drawImage(img, 0, 0, size, size);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'imageUtils.ts:200',message:'SVG drawn to canvas, checking edge pixels',data:{checkingEdgePixels:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+      // Check edge pixels before clearing
+      const beforeTop = ctx.getImageData(0, 0, size, 1);
+      const beforeBottom = ctx.getImageData(0, size - 1, size, 1);
+      const beforeLeft = ctx.getImageData(0, 0, 1, size);
+      const beforeRight = ctx.getImageData(size - 1, 0, 1, size);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'imageUtils.ts:207',message:'Edge pixels before clearing',data:{topEdgeSample:[...beforeTop.data.slice(0,12)],bottomEdgeSample:[...beforeBottom.data.slice(0,12)],leftEdgeSample:[...beforeLeft.data.slice(0,12)],rightEdgeSample:[...beforeRight.data.slice(0,12)]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+     
+      resolve(canvas);
+    };
+    
+    img.onerror = () => {
+      // Fallback: recreate the design programmatically if SVG fails
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Center text (scale font size proportionally)
+      ctx.fillStyle = '#000000';
+      const fontSize = Math.round(size * 0.09); // ~9% of size (was 36px for 400px)
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('PLACE YOUR', size / 2, size * 0.4625);
+      ctx.fillText('DESIGN HERE', size / 2, size * 0.5625);
+      
+      // Dotted lines from corners (simplified - just draw lines)
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      
+      const margin = size * 0.025; // 2.5% margin
+      const lineStartX = margin;
+      const lineStartY = margin;
+      const lineEndX = size - margin - size * 0.15;
+      const lineEndY = size * 0.4625;
+      
+      ctx.beginPath();
+      ctx.moveTo(lineStartX, lineStartY);
+      ctx.lineTo(lineEndX, lineEndY);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(size - lineStartX, lineStartY);
+      ctx.lineTo(size - lineEndX, lineEndY);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(lineStartX, size - lineStartY);
+      ctx.lineTo(lineEndX, size * 0.5625);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(size - lineStartX, size - lineStartY);
+      ctx.lineTo(size - lineEndX, size * 0.5625);
+      ctx.stroke();
+      
+      // Clear edges for seamless tiling
+      ctx.fillStyle = '#ffffff';
+      const edgeBorder = 3;
+      ctx.fillRect(0, 0, size, edgeBorder);
+      ctx.fillRect(0, size - edgeBorder, size, edgeBorder);
+      ctx.fillRect(0, 0, edgeBorder, size);
+      ctx.fillRect(size - edgeBorder, 0, edgeBorder, size);
+      
+      resolve(canvas);
+    };
+    
+    // Load image from public folder
+    img.src = '/place_design_here.jpg';
+  });
+}
+
+/**
+ * Convert canvas to HTMLImageElement
+ */
+export function canvasToImage(canvas: HTMLCanvasElement): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to convert canvas to image'));
+    img.src = canvas.toDataURL('image/png');
+  });
+}
+
+
 
 
 
