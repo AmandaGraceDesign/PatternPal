@@ -149,7 +149,8 @@ export default function PatternPreviewCanvas({
 
         // Apply zoom to tile size
         const viewZoom = displayZoomToActualZoom(zoom);
-        const displayWidth = Math.round(baseTileSize * viewZoom);
+        // Make default pattern 10% larger on page load
+        const displayWidth = Math.round(baseTileSize * viewZoom * 1.1);
         const displayHeight = displayWidth; // Keep square
 
         console.log('🔍 DEFAULT PATTERN - Calculated size:', {
