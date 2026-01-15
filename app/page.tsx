@@ -31,17 +31,38 @@ export default function Home() {
           if (!blob) continue;
 
           setIsLoading(true);
-          
-          // Try to extract DPI
+
+          // Try to extract DPI with smart detection
           let detectedDpi = dpi;
           try {
             const extractedDpi = await extractDpiFromFile(blob);
-            if (extractedDpi) {
+
+            // Smart DPI detection logic (same as file upload)
+            // Common print DPI values: 150, 200, 300, 600
+            const isCommonPrintDpi = extractedDpi && (
+              extractedDpi === 150 ||
+              extractedDpi === 200 ||
+              extractedDpi === 300 ||
+              extractedDpi === 600
+            );
+
+            if (isCommonPrintDpi) {
               detectedDpi = extractedDpi;
               setDpi(extractedDpi);
+              console.log('Using extracted DPI from paste:', extractedDpi);
+            } else if (extractedDpi === 72 || extractedDpi === 96) {
+              detectedDpi = 150;
+              setDpi(150);
+              console.log('Web DPI detected in paste (' + extractedDpi + '), upgrading to 150 DPI');
+            } else {
+              detectedDpi = 150;
+              setDpi(150);
+              console.log('Unusual or missing DPI in paste (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
             }
           } catch (error) {
-            console.warn('Could not extract DPI from pasted image:', error);
+            console.warn('Could not extract DPI from pasted image, using default 150:', error);
+            detectedDpi = 150;
+            setDpi(150);
           }
           
           // Load the image
@@ -86,18 +107,35 @@ export default function Home() {
       console.log('Extracting DPI from file...');
       const extractedDpi = await extractDpiFromFile(file);
       console.log('Extracted DPI:', extractedDpi);
-      
+
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:80',message:'DPI extraction result',data:{extractedDpi,fallbackDpi:dpi,willUse:extractedDpi||dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
       // #endregion
-      
-      if (extractedDpi) {
+
+      // Smart DPI detection logic
+      // Common print DPI values: 150, 200, 300, 600
+      const isCommonPrintDpi = extractedDpi && (
+        extractedDpi === 150 ||
+        extractedDpi === 200 ||
+        extractedDpi === 300 ||
+        extractedDpi === 600
+      );
+
+      if (isCommonPrintDpi) {
+        // Common print DPI detected - use it
         detectedDpi = extractedDpi;
         setDpi(extractedDpi);
-      } else {
-        // If no DPI found, default to 150 (common print DPI)
+        console.log('Using extracted DPI:', extractedDpi);
+      } else if (extractedDpi === 72 || extractedDpi === 96) {
+        // Web/screen DPI detected - upgrade to minimum print DPI
         detectedDpi = 150;
         setDpi(150);
+        console.log('Web DPI detected (' + extractedDpi + '), upgrading to 150 DPI for print');
+      } else {
+        // Unusual DPI (like 512) or no DPI - default to 150 (minimum for Easyscale)
+        detectedDpi = 150;
+        setDpi(150);
+        console.log('Unusual or missing DPI (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
       }
     } catch (error) {
       console.warn('Could not extract DPI from image, using default 150:', error);
@@ -155,60 +193,6 @@ export default function Home() {
     img.src = URL.createObjectURL(file);
   };
 
-  const handlePaste = async () => {
-    try {
-      const clipboardItems = await navigator.clipboard.read();
-      
-      for (const item of clipboardItems) {
-        if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
-          const blob = await item.getType('image/png') || await item.getType('image/jpeg');
-          if (blob) {
-            setIsLoading(true);
-            
-            // Try to extract DPI
-            let detectedDpi = dpi; // Use current DPI as fallback
-            try {
-              const extractedDpi = await extractDpiFromFile(blob);
-              if (extractedDpi) {
-                detectedDpi = extractedDpi;
-                setDpi(extractedDpi);
-              }
-            } catch (error) {
-              console.warn('Could not extract DPI from pasted image:', error);
-            }
-            
-          // Load the image
-          const img = new Image();
-          img.onload = () => {
-            // Use detected DPI or default to 150
-            const finalDpi = detectedDpi || 150;
-            
-            // Calculate physical dimensions: pixels / DPI = inches
-            const detectedWidth = img.width / finalDpi;
-            const detectedHeight = img.height / finalDpi;
-            
-            setTileWidth(detectedWidth);
-            setTileHeight(detectedHeight);
-            setImage(img);
-            setOriginalFilename(null); // Paste doesn't have filename
-            setIsLoading(false);
-          };
-            
-            img.onerror = () => {
-              setIsLoading(false);
-              console.error('Failed to load pasted image');
-            };
-            
-            img.src = URL.createObjectURL(blob);
-            break;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to read clipboard:', error);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Top Bar */}
@@ -230,7 +214,6 @@ export default function Home() {
             onDpiChange={setDpi}
             onShowTileOutlineChange={setShowTileOutline}
             onFileUpload={handleFileUpload}
-            onPaste={handlePaste}
           />
         </div>
 
