@@ -80,12 +80,11 @@ export default function PatternPreviewCanvas({
   }, []);
 
   // Convert display zoom (0-200) to actual zoom
+  // Use a linear scale for smooth zooming
   const displayZoomToActualZoom = (displayValue: number): number => {
-    if (displayValue <= 100) {
-      return 0.01 + (displayValue / 100) * 0.14;
-    } else {
-      return 0.15 + ((displayValue - 100) / 100) * 4.85;
-    }
+    // Linear mapping: 0% -> 0.02x, 100% -> 0.2x, 200% -> 0.4x
+    // This gives smooth, predictable zoom behavior with smaller default size
+    return (displayValue / 100) * 0.2;
   };
 
   // Render pattern with zoom
