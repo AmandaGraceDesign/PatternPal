@@ -125,57 +125,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             Easyscale Export
           </button>
           
-          <button 
-            onClick={() => {
-              if (!canvasRef.current || !image) return;
-              
-              const canvas = canvasRef.current;
-              const dataURL = canvas.toDataURL('image/png');
-              const link = document.createElement('a');
-              link.download = originalFilename ? `${originalFilename}-pattern.png` : 'pattern.png';
-              link.href = dataURL;
-              link.click();
-            }}
-            disabled={!image || !canvasRef.current}
-            className="w-full px-4 py-2.5 text-xs font-semibold bg-white text-[#294051] rounded-md border border-[#e5e7eb] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f5f5]"
-          >
-            Download PNG
-          </button>
-          
-          <button 
-            onClick={async () => {
-              if (!canvasRef.current || !image) return;
-              
-              try {
-                // Dynamic import for jsPDF to avoid SSR issues
-                const { default: jsPDF } = await import('jspdf');
-                
-                const canvas = canvasRef.current;
-                const imgData = canvas.toDataURL('image/png');
-                
-                // Calculate PDF dimensions maintaining aspect ratio
-                const pdfWidth = 8.5; // inches (US Letter width)
-                const aspectRatio = canvas.height / canvas.width;
-                const pdfHeight = pdfWidth * aspectRatio;
-                
-                const pdf = new jsPDF({
-                  orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
-                  unit: 'in',
-                  format: [pdfWidth, pdfHeight]
-                });
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(originalFilename ? `${originalFilename}-pattern.pdf` : 'pattern.pdf');
-              } catch (error) {
-                console.error('PDF export failed:', error);
-                alert('PDF export failed. Please try again.');
-              }
-            }}
-            disabled={!image || !canvasRef.current}
-            className="w-full px-4 py-2.5 text-xs font-semibold bg-white text-[#294051] rounded-md border border-[#e5e7eb] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f5f5]"
-          >
-            Download PDF
-          </button>
         </div>
       </div>
 

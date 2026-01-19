@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PatternTiler, RepeatType } from '@/lib/tiling/PatternTiler';
 import Ruler from './Ruler';
-import { createSeamlessDefaultPattern } from '@/lib/utils/imageUtils';
 
 interface PatternPreviewCanvasProps {
   image: HTMLImageElement | null;
@@ -14,7 +13,6 @@ interface PatternPreviewCanvasProps {
   zoom: number;
   showTileOutline: boolean;
   onZoomChange: (zoom: number) => void;
-  canvasRef?: React.RefObject<HTMLCanvasElement>;
 }
 
 export default function PatternPreviewCanvas({
@@ -26,28 +24,17 @@ export default function PatternPreviewCanvas({
   zoom,
   showTileOutline,
   onZoomChange,
-  canvasRef: externalCanvasRef,
 }: PatternPreviewCanvasProps) {
-  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
-  const canvasRef = externalCanvasRef || internalCanvasRef;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [tileDisplaySize, setTileDisplaySize] = useState({ width: 0, height: 0 });
   const [dpr, setDpr] = useState(1);
   const [containerHeight, setContainerHeight] = useState(0);
-  const imageRef = useRef<HTMLImageElement | null>(null);
-  
-  // Keep ref in sync with image prop
-  useEffect(() => {
-    imageRef.current = image;
-  }, [image]);
-  
-  // Panning state
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   // Set device pixel ratio and canvas size
   useEffect(() => {
     const currentDpr = window.devicePixelRatio || 1;
+    // Use ref or move to callback to avoid setState in effect
     const updateCanvasSize = () => {
       setDpr(currentDpr);
       if (canvasRef.current) {
@@ -80,7 +67,6 @@ export default function PatternPreviewCanvas({
         
         console.log('Canvas size set:', displaySize, 'x', displaySize, 'at DPR:', currentDpr, '(internal:', displaySize * currentDpr, ')');
         console.log('Container size set:', containerSize, '(120% of viewport height)');
-        
         setCanvasSize({ width: displaySize, height: displaySize });
         setContainerHeight(containerSize);
       }
@@ -114,6 +100,7 @@ export default function PatternPreviewCanvas({
     if (!canvasCtx) return;
     
     // Re-apply DPR scaling (in case context was reset)
+    // Get current DPR
     const currentDpr = window.devicePixelRatio || 1;
     
     // Reset transform and apply DPR scale
@@ -125,71 +112,51 @@ export default function PatternPreviewCanvas({
     canvasCtx.imageSmoothingQuality = 'high';
     
     // Clear canvas (using display coordinates since context is scaled)
-    canvasCtx.fillStyle = '#ffffff'; // white background
+    canvasCtx.fillStyle = '#0f172a'; // slate-900
     canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
     if (!image) {
-      // Render seamless default pattern from JPG
-      const defaultPatternSize = 800;
-      createSeamlessDefaultPattern(defaultPatternSize).then((defaultPatternCanvas) => {
-        // Check if image was set while async was running
-        if (imageRef.current) return;
-        
-        console.log('🔍 DEFAULT PATTERN - Canvas received:', {
-          patternCanvasWidth: defaultPatternCanvas.width,
-          patternCanvasHeight: defaultPatternCanvas.height,
-        });
-        
+      // Render placeholder pattern
+      const placeholderImg = new Image();
+      placeholderImg.onload = () => {
         const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
         
-        // Get the container size (viewport), not canvas size
-        const viewportWidth = window.innerWidth;
-        const tilesAcross = 5;
-        const baseTileSize = Math.round(viewportWidth / tilesAcross);
-
-        // Apply zoom to tile size
-        const viewZoom = displayZoomToActualZoom(zoom);
-        // Make default pattern 10% larger on page load
-        const displayWidth = Math.round(baseTileSize * viewZoom * 1.1);
-        const displayHeight = displayWidth; // Keep square
-
-        console.log('🔍 DEFAULT PATTERN - Calculated size:', {
-          viewportWidth,
-          canvasWidth: canvasSize.width,
-          tilesAcross,
-          baseTileSize,
-          viewZoom,
-          displayWidth,
-          displayHeight,
-        });
+        // Use default tile size for placeholder (18x18 inches at 150 DPI)
+        const defaultDpi = 150;
+        const defaultTileWidth = 18;
+        const defaultTileHeight = 18;
+        const placeholderWidth = defaultTileWidth * defaultDpi; // 2700px
+        const placeholderHeight = defaultTileHeight * defaultDpi; // 2700px
         
+        // Calculate display scale at 50% (0.5)
+        const viewZoom = displayZoomToActualZoom(zoom);
+        const displayScale = (96 / defaultDpi) * viewZoom * 0.5; // 50% scale
+        
+        const displayWidth = Math.round(placeholderWidth * displayScale);
+        const displayHeight = Math.round(placeholderHeight * displayScale);
         setTileDisplaySize({ width: displayWidth, height: displayHeight });
         
-        // Scale the 800x800 pattern down to displayWidth x displayHeight
+        // Create scaled placeholder - scale by DPR for better quality
         const scaledCanvas = document.createElement('canvas');
-        scaledCanvas.width = displayWidth;
-        scaledCanvas.height = displayHeight;
+        scaledCanvas.width = displayWidth * dpr;
+        scaledCanvas.height = displayHeight * dpr;
         
         const scaledCtx = scaledCanvas.getContext('2d');
         if (scaledCtx) {
-          // Use nearest-neighbor to preserve seamless edges
-          scaledCtx.imageSmoothingEnabled = false;
-          scaledCtx.drawImage(defaultPatternCanvas, 0, 0, displayWidth, displayHeight);
+          // Scale context by DPR
+          scaledCtx.scale(dpr, dpr);
           
-          const patternImg = new Image();
-          patternImg.onload = () => {
-            // Check again if image was set during image load
-            if (imageRef.current) return;
+          scaledCtx.imageSmoothingEnabled = true;
+          scaledCtx.imageSmoothingQuality = 'high';
+          scaledCtx.drawImage(placeholderImg, 0, 0, displayWidth, displayHeight);
+          
+          const scaledImg = new Image();
+          scaledImg.onload = () => {
+            tiler.render(scaledImg, repeatType);
             
-            console.log('🔍 DEFAULT PATTERN - Image loaded:', {
-              imgWidth: patternImg.width,
-              imgHeight: patternImg.height,
-            });
-            
-            tiler.render(patternImg, repeatType);
-            
-            // Draw tile outline for default pattern if enabled
+            // Draw tile outline for placeholder if enabled
             if (showTileOutline) {
+              // Re-apply DPR scaling
               const currentDpr = window.devicePixelRatio || 1;
               canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
               canvasCtx.scale(currentDpr, currentDpr);
@@ -197,73 +164,97 @@ export default function PatternPreviewCanvas({
               canvasCtx.imageSmoothingEnabled = true;
               canvasCtx.imageSmoothingQuality = 'high';
               
+              // For Full Drop: tiles are on a perfect grid starting at 0,0
               let outlineX = 0;
               let outlineY = 0;
               
+              // For Half Drop: columns alternate with vertical offset
               if (repeatType === 'half-drop') {
                 outlineX = displayWidth;
                 outlineY = displayHeight / 2;
               }
               
+              // For Half Brick: rows alternate with horizontal offset
               if (repeatType === 'half-brick') {
                 outlineX = displayWidth / 2;
                 outlineY = displayHeight;
               }
               
-              canvasCtx.strokeStyle = '#ff1493';
+              // Draw hot pink outline
+              canvasCtx.strokeStyle = '#ff1493'; // Hot pink
               canvasCtx.lineWidth = 6;
               canvasCtx.setLineDash([]);
               canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
             }
           };
-          patternImg.src = scaledCanvas.toDataURL('image/png');
+          scaledImg.src = scaledCanvas.toDataURL('image/png');
         }
-      }).catch((error) => {
-        console.error('Failed to load default pattern:', error);
-      });
+      };
+      placeholderImg.src = '/placeholder-pattern.svg';
       return;
     }
 
     // Render actual pattern
     console.log('Rendering pattern...');
-    
     const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
-    
-    // Calculate displayed tile size based on ACTUAL DPI and zoom
+
+    // Calculate display size based on physical tile dimensions and zoom
+    // The tile should be displayed at a size where tileWidth inches = displayWidth pixels
     const viewZoom = displayZoomToActualZoom(zoom);
-    const displayWidth = image.width * viewZoom;
-    const displayHeight = image.height * viewZoom;
-    
+
+    // Calculate how many pixels should represent the physical tile dimensions at current zoom
+    // Using the same calculation as the ruler: displayPixels = tileInches * pixelsPerInch
+    // At zoom 100%, we want the tile to appear at its physical size relative to screen DPI (96)
+    // So pixelsPerInch at zoom 100% = 96
+    const pixelsPerInch = 96 * viewZoom;
+
+    const displayWidth = Math.round(tileWidth * pixelsPerInch);
+    const displayHeight = Math.round(tileHeight * pixelsPerInch);
+
+    console.log('🎯 DISPLAY SIZE CALC:', {
+      tileWidth,
+      tileHeight,
+      dpi,
+      zoom,
+      viewZoom,
+      pixelsPerInch,
+      displayWidth,
+      displayHeight,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      imageDPI: dpi,
+      devicePixelRatio: dpr,
+    });
+
     // Create a scaled version of the image for tiling
+    // DON'T scale by DPR here - PatternTiler uses image.width/height directly
+    // The main canvas handles DPR scaling, not the tile image
     const scaledCanvas = document.createElement('canvas');
-    scaledCanvas.width = displayWidth * dpr;
-    scaledCanvas.height = displayHeight * dpr;
-    
-    // Store dimensions immediately for ruler calculations
-    setTileDisplaySize({ width: displayWidth, height: displayHeight });
-    
+    scaledCanvas.width = displayWidth;
+    scaledCanvas.height = displayHeight;
+
     const scaledCtx = scaledCanvas.getContext('2d');
-    
+
     if (scaledCtx) {
-      // Scale context by DPR
-      scaledCtx.scale(dpr, dpr);
-      
       // Enable high-quality image smoothing
       scaledCtx.imageSmoothingEnabled = true;
       scaledCtx.imageSmoothingQuality = 'high';
-      
-      // Draw original image to scaled canvas with high quality
+
+      // Draw original image scaled to display size
       scaledCtx.drawImage(image, 0, 0, displayWidth, displayHeight);
       
-      // Create image from canvas
+      // Create image from canvas - use PNG for lossless quality
       const scaledImg = new Image();
       scaledImg.onload = () => {
-        // Check if image was removed while async was running
-        if (!imageRef.current) return;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:229',message:'Scaled image loaded, starting render',data:{displayWidth,displayHeight,repeatType,zoom,showTileOutline,imageWidth:image.width,imageHeight:image.height,dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         
         console.log('Scaled image loaded, rendering pattern...');
+        // Store tile display size in callback to avoid setState in effect
+        setTileDisplaySize({ width: displayWidth, height: displayHeight });
         
-        // Re-apply DPR scaling before rendering pattern
+        // Re-apply DPR scaling before rendering pattern (in case it was reset)
         const currentDpr = window.devicePixelRatio || 1;
         canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
         canvasCtx.scale(currentDpr, currentDpr);
@@ -273,59 +264,89 @@ export default function PatternPreviewCanvas({
         // Render the tiled pattern
         tiler.render(scaledImg, repeatType);
         
-        // Draw tile outline if enabled
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:246',message:'Pattern tiled, checking context state',data:{showTileOutline,transformA:canvasCtx.getTransform().a,transformD:canvasCtx.getTransform().d,transformE:canvasCtx.getTransform().e,transformF:canvasCtx.getTransform().f},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:234',message:'Pattern tiled, about to draw outline',data:{showTileOutline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+        
+        // Draw tile outline if enabled (after pattern is rendered)
+        // Draw synchronously to ensure it happens every render and uses current values
         if (showTileOutline) {
-          // Re-apply DPR scaling
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:238',message:'Drawing tile outline',data:{showTileOutline,repeatType,displayWidth,displayHeight,zoom,canvasSizeWidth:canvasSize.width,canvasSizeHeight:canvasSize.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          
+          // Re-apply DPR scaling to ensure it's correct after PatternTiler.render()
+          // PatternTiler might have modified the context, so we need to ensure our transform is correct
           const currentDpr = window.devicePixelRatio || 1;
           canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
           canvasCtx.scale(currentDpr, currentDpr);
           canvasCtx.imageSmoothingEnabled = true;
           canvasCtx.imageSmoothingQuality = 'high';
           
-          // Calculate pixels per unit using the SAME formula as the ruler
-          const viewZoom = displayZoomToActualZoom(zoom);
-          const tileWidthInches = image.width / dpi;
-          const displayWidthPixels = image.width * viewZoom;
-          
-          const tileHeightInches = image.height / dpi;
-          const displayHeightPixels = image.height * viewZoom;
-          
-          // Use the actual displayed pixel dimensions
-          const outlineWidthPx = displayWidthPixels;
-          const outlineHeightPx = displayHeightPixels;
-          
-          // Calculate outline position
-          const tileW = outlineWidthPx;
-          const tileH = outlineHeightPx;
+          // Calculate outline position to match where PatternTiler actually draws tiles
+          // PatternTiler uses scaledImg.width and scaledImg.height (which equals displayWidth/Height)
+          const tileW = displayWidth;  // Scaled image width = tile width
+          const tileH = displayHeight; // Scaled image height = tile height
           
           let outlineX = 0;
           let outlineY = 0;
           
           // Match the exact logic PatternTiler uses for positioning
           if (repeatType === 'full-drop') {
+            // Full drop: x=0, y=0 -> first tile at (0, 0)
             outlineX = Math.round(0 * tileW);
             outlineY = Math.round(0 * tileH);
           } else if (repeatType === 'half-drop') {
+            // Half drop: column 1 (x=1), row -1 with offset
+            // x0 = Math.round(1 * tileW) = tileW
+            // logicalY = (-1 * tileH) + (tileH / 2) = -tileH/2
+            // y0 = Math.round(-tileH/2)
+            // If negative, we want the first visible tile, which would be at y=0 for column 0
+            // For column 1, first visible is at approximately tileH/2
             outlineX = Math.round(1 * tileW);
             const logicalY = (-1 * tileH) + (tileH / 2);
             outlineY = Math.round(logicalY);
+            // If negative, find first positive position
             if (outlineY < 0) {
               outlineY = Math.round(tileH / 2);
             }
           } else if (repeatType === 'half-brick') {
+            // Half brick: row 1 (y=1), column -1 with offset
+            // y0 = Math.round(1 * tileH) = tileH
+            // logicalX = (-1 * tileW) + (tileW / 2) = -tileW/2
+            // x0 = Math.round(-tileW/2)
+            // If negative, we want the first visible tile, which would be at x=0 for row 0
+            // For row 1, first visible is at approximately tileW/2
             const logicalX = (-1 * tileW) + (tileW / 2);
             outlineX = Math.round(logicalX);
             outlineY = Math.round(1 * tileH);
+            // If negative, find first positive position
             if (outlineX < 0) {
               outlineX = Math.round(tileW / 2);
             }
           }
           
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:275',message:'Outline position calculation details',data:{repeatType,tileW,tileH,outlineX,outlineY,displayWidth,displayHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+          // #endregion
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:260',message:'Outline position calculated',data:{outlineX,outlineY,displayWidth,displayHeight,repeatType,currentDpr},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          
           // Draw hot pink outline
-          canvasCtx.strokeStyle = '#ff1493';
+          canvasCtx.strokeStyle = '#ff1493'; // Hot pink
           canvasCtx.lineWidth = 6;
           canvasCtx.setLineDash([]);
-          canvasCtx.strokeRect(outlineX + 3, outlineY + 3, outlineWidthPx - 6, outlineHeightPx - 6);
+          canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:270',message:'Outline drawn',data:{outlineX:outlineX+3,outlineY:outlineY+3,outlineWidth:displayWidth-6,outlineHeight:displayHeight-6,transformAfterA:canvasCtx.getTransform().a,transformAfterD:canvasCtx.getTransform().d},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
         }
       };
       
@@ -339,28 +360,76 @@ export default function PatternPreviewCanvas({
   }, [image, repeatType, zoom, dpi, showTileOutline, canvasSize, dpr]);
 
   // Calculate pixels per unit for ruler
-  const horizontalPixelsPerUnit = image ? (() => {
-    const tileWidthInches = image.width / dpi;
-    const displayWidthPixels = image.width * displayZoomToActualZoom(zoom);
-    return displayWidthPixels / tileWidthInches;
-  })() : 96;
+  // tileDisplaySize is the scaled tile size in pixels on screen
+  // To convert to inches: divide by 96 (screen DPI)
+  // pixelsPerUnit = pixels per inch = 96 (since screen is 96 DPI)
+  // But we need to account for the scaled tile size
+  // If scaled tile is displayWidth pixels, that represents scaledTileInches = displayWidth / 96
+  // So pixelsPerUnit should be: displayWidth / scaledTileInches = 96
+  // But wait - the ruler needs to know how many pixels = 1 inch in the current view
   
-  const verticalPixelsPerUnit = image ? (() => {
-    const tileHeightInches = image.height / dpi;
-    const displayHeightPixels = image.height * displayZoomToActualZoom(zoom);
-    return displayHeightPixels / tileHeightInches;
-  })() : 96;
+  // Actually, the ruler's pixelsPerUnit should be: how many screen pixels = 1 inch
+  // Since screen is 96 DPI, 1 inch = 96 pixels always
+  // But the ruler is showing the pattern's coordinate system, not screen coordinates
+  
+  // Let me think: if the pattern tile is scaled, we want the ruler to show inches based on the scaled size
+  // If original tile is 8" and we zoom to 200%, the scaled tile is 16" in the pattern space
+  // The ruler should show 0, 16, 32, 48... not 0, 8, 16, 24
+  
+  // So pixelsPerUnit = tileDisplaySize.width / scaledTileInches
+  // scaledTileInches = originalTileInches * zoomFactor
+  // But zoomFactor is not simple - it's viewZoom
+  
+  // Actually, simpler: tileDisplaySize.width is the pixel size of the scaled tile
+  // To get inches: divide by 96
+  // But we want pixelsPerUnit such that the ruler shows the right scale
+  // If tileDisplaySize.width pixels = scaledTileInches inches
+  // Then pixelsPerUnit = tileDisplaySize.width / scaledTileInches
+  
+  // But we need scaledTileInches. How do we get that?
+  // We have: originalTileInches = image.width / dpi
+  // We have: viewZoom = displayZoomToActualZoom(zoom)
+  // We have: displayScale = (96 / dpi) * viewZoom
+  // We have: displayWidth = image.width * displayScale = image.width * (96 / dpi) * viewZoom
+  // So: displayWidth / 96 = (image.width / dpi) * viewZoom = originalTileInches * viewZoom = scaledTileInches
+  
+  // So: scaledTileInches = tileDisplaySize.width / 96
+  // And: pixelsPerUnit = tileDisplaySize.width / scaledTileInches = tileDisplaySize.width / (tileDisplaySize.width / 96) = 96
+  
+  // That doesn't make sense. Let me reconsider.
+  
+  // The ruler shows inches. The pattern is scaled. 
+  // If the pattern tile is 8" original and we zoom 2x, it becomes 16" in display
+  // The ruler should show 0, 16, 32, 48...
+  // So 1 inch on the ruler = ? pixels on screen
+  
+  // If 16" of pattern = tileDisplaySize.width pixels
+  // Then 1" of pattern = tileDisplaySize.width / 16 pixels
+  // So pixelsPerUnit = tileDisplaySize.width / scaledTileInches
+  
+  // scaledTileInches = originalTileInches * zoomMultiplier
+  // But zoomMultiplier is not viewZoom directly...
+  
+  // Calculate pixels per unit for ruler
+  // This must match exactly how we scale the pattern image
+  // At zoom 100%, we want 96 pixels per inch (screen DPI)
+  // Then multiply by viewZoom to get the actual pixels per inch at current zoom
+  const viewZoom = displayZoomToActualZoom(zoom);
+  const pixelsPerInch = 96 * viewZoom;
+
+  const horizontalPixelsPerUnit = image ? pixelsPerInch : 96;
+  const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-slate-900">
       {/* Header with Zoom Slider */}
-      <div className="h-12 border-b border-[#e5e7eb] px-6 flex items-center justify-between bg-white">
+      <div className="h-12 border-b border-slate-700 px-6 flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
-          <label className="text-xs text-[#374151] font-semibold whitespace-nowrap">
+          <label className="text-xs text-slate-300 whitespace-nowrap">
             Zoom: {Math.round(zoom)}%
           </label>
           <div className="flex items-center gap-2 flex-1">
-            <span className="text-xs text-[#6b7280] whitespace-nowrap">0%</span>
+            <span className="text-xs text-slate-400 whitespace-nowrap">0%</span>
             <input
               type="range"
               min="0"
@@ -371,21 +440,21 @@ export default function PatternPreviewCanvas({
                 const newZoom = parseInt(e.target.value);
                 onZoomChange(Math.max(0, Math.min(200, newZoom)));
               }}
-              className="flex-1 h-1.5 bg-[#e5e7eb] rounded-lg appearance-none cursor-pointer"
+              className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
               style={{ accentColor: '#f1737c' }}
             />
-            <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
+            <span className="text-xs text-slate-400 whitespace-nowrap">200%</span>
           </div>
         </div>
       </div>
 
       {/* Canvas Preview Area with Rulers */}
-      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+      <div className="flex-1 flex flex-col bg-slate-800 overflow-hidden">
         {/* Top ruler */}
-        <div className="flex border-b border-[#e5e7eb]">
-          <div className="w-[30px] h-[30px] bg-[#e5e7eb] border-r border-[#d1d5db]" />
+        <div className="flex border-b border-slate-700">
+          <div className="w-[30px] h-[30px] bg-slate-700 border-r border-slate-600" />
           <div className="flex-1 overflow-hidden">
-            {image ? (
+            {tileDisplaySize.width > 0 && image ? (
               <Ruler
                 orientation="horizontal"
                 length={canvasSize.width}
@@ -394,15 +463,15 @@ export default function PatternPreviewCanvas({
                 pixelsPerUnit={horizontalPixelsPerUnit}
               />
             ) : (
-              <div className="h-[30px] bg-[#e5e7eb]" />
+              <div className="h-[30px] bg-slate-700" />
             )}
           </div>
         </div>
         
         {/* Canvas with left ruler */}
         <div className="flex flex-1 overflow-auto">
-          <div className="w-[30px] overflow-hidden border-r border-[#d1d5db]">
-            {image ? (
+          <div className="w-[30px] overflow-hidden border-r border-slate-700">
+            {tileDisplaySize.height > 0 && image ? (
               <Ruler
                 orientation="vertical"
                 length={canvasSize.height}
@@ -411,78 +480,14 @@ export default function PatternPreviewCanvas({
                 pixelsPerUnit={verticalPixelsPerUnit}
               />
             ) : (
-              <div className="w-[30px] bg-[#e5e7eb]" />
+              <div className="w-[30px] bg-slate-700" />
             )}
           </div>
           <div 
-            className="flex-1 overflow-auto bg-white relative"
-            style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto', cursor: isPanning ? 'grabbing' : 'grab' }}
-            onWheel={(e) => {
-              if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (!canvasRef.current || !image) return;
-                
-                const rect = canvasRef.current.getBoundingClientRect();
-                const scrollContainer = e.currentTarget;
-                
-                const mouseX = e.clientX - rect.left + scrollContainer.scrollLeft;
-                const mouseY = e.clientY - rect.top + scrollContainer.scrollTop;
-                
-                const zoomDelta = -e.deltaY * 0.05;
-                const newZoom = Math.max(0, Math.min(200, zoom + zoomDelta));
-                
-                const newViewZoom = displayZoomToActualZoom(newZoom);
-                const currentViewZoom = displayZoomToActualZoom(zoom);
-                
-                const newDisplayWidth = image.width * newViewZoom;
-                const newDisplayHeight = image.height * newViewZoom;
-                
-                const currentDisplayWidth = image.width * currentViewZoom;
-                const currentDisplayHeight = image.height * currentViewZoom;
-                
-                const percentX = mouseX / currentDisplayWidth;
-                const percentY = mouseY / currentDisplayHeight;
-                
-                const newMouseX = percentX * newDisplayWidth;
-                const newMouseY = percentY * newDisplayHeight;
-                
-                const scrollDeltaX = newMouseX - mouseX;
-                const scrollDeltaY = newMouseY - mouseY;
-                
-                onZoomChange(newZoom);
-                
-                requestAnimationFrame(() => {
-                  scrollContainer.scrollLeft += scrollDeltaX;
-                  scrollContainer.scrollTop += scrollDeltaY;
-                });
-              }
-            }}
-            onMouseDown={(e) => {
-              const scrollContainer = e.currentTarget;
-              setIsPanning(true);
-              setPanStart({
-                x: e.clientX + scrollContainer.scrollLeft,
-                y: e.clientY + scrollContainer.scrollTop,
-              });
-            }}
-            onMouseMove={(e) => {
-              const scrollContainer = e.currentTarget;
-              
-              if (!isPanning) return;
-              const dx = panStart.x - e.clientX;
-              const dy = panStart.y - e.clientY;
-              scrollContainer.scrollLeft = dx;
-              scrollContainer.scrollTop = dy;
-            }}
-            onMouseLeave={() => {
-              setIsPanning(false);
-            }}
-            onMouseUp={() => {
-              setIsPanning(false);
-            }}
+            className="flex-1 overflow-auto bg-slate-900 relative"
+            style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto' }}
           >
+            {/* Canvas - always rendered */}
             <canvas
               ref={canvasRef}
               className="block"
@@ -493,3 +498,4 @@ export default function PatternPreviewCanvas({
     </div>
   );
 }
+

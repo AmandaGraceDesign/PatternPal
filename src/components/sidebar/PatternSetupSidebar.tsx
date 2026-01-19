@@ -42,10 +42,10 @@ export default function PatternSetupSidebar({
   };
 
   return (
-    <aside className="w-72 bg-slate-900 border-r border-slate-700 p-6 overflow-y-auto">
+    <aside className="w-72 bg-white border-r border-[#e5e7eb] p-6 overflow-y-auto">
       {/* Repeat Type Section */}
       <div className="mb-8">
-        <h2 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
           Repeat Type
         </h2>
         <div className="space-y-2">
@@ -59,7 +59,7 @@ export default function PatternSetupSidebar({
               className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
               style={{ accentColor: '#f1737c' }}
             />
-            <span className="text-sm text-slate-200 group-hover:text-slate-100">
+            <span className="text-sm text-[#374151] group-hover:text-[#294051]">
               Full Drop
             </span>
           </label>
@@ -70,10 +70,10 @@ export default function PatternSetupSidebar({
               value="half-drop"
               checked={repeatType === 'half-drop'}
               onChange={(e) => onRepeatTypeChange(e.target.value as 'half-drop')}
-              className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+              className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
               style={{ accentColor: '#f1737c' }}
             />
-            <span className="text-sm text-slate-200 group-hover:text-slate-100">
+            <span className="text-sm text-[#374151] group-hover:text-[#294051]">
               Half Drop
             </span>
           </label>
@@ -84,10 +84,10 @@ export default function PatternSetupSidebar({
               value="half-brick"
               checked={repeatType === 'half-brick'}
               onChange={(e) => onRepeatTypeChange(e.target.value as 'half-brick')}
-              className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+              className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
               style={{ accentColor: '#f1737c' }}
             />
-            <span className="text-sm text-slate-200 group-hover:text-slate-100">
+            <span className="text-sm text-[#374151] group-hover:text-[#294051]">
               Half Brick
             </span>
           </label>
@@ -96,64 +96,37 @@ export default function PatternSetupSidebar({
 
       {/* Tile Info Section */}
       <div className="mb-8">
-        <h2 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
           Tile Info
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Width (in)</label>
+            <label className="block text-xs text-[#6b7280] mb-1.5">Width (in)</label>
             <input
               type="number"
               value={tileWidth}
-              onChange={(e) => onTileWidthChange(parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-1"
-              style={{ '--tw-ring-color': '#f1737c' } as React.CSSProperties}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#f1737c';
-                e.currentTarget.style.boxShadow = '0 0 0 1px #f1737c';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '';
-                e.currentTarget.style.boxShadow = '';
-              }}
+              disabled
+              className="w-full px-3 py-2 text-sm bg-[#f5f5f5] border border-[#e5e7eb] rounded-md text-[#374151] cursor-not-allowed"
               step="0.1"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Height (in)</label>
+            <label className="block text-xs text-[#6b7280] mb-1.5">Height (in)</label>
             <input
               type="number"
               value={tileHeight}
-              onChange={(e) => onTileHeightChange(parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-1"
-              style={{ '--tw-ring-color': '#f1737c' } as React.CSSProperties}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#f1737c';
-                e.currentTarget.style.boxShadow = '0 0 0 1px #f1737c';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '';
-                e.currentTarget.style.boxShadow = '';
-              }}
+              disabled
+              className="w-full px-3 py-2 text-sm bg-[#f5f5f5] border border-[#e5e7eb] rounded-md text-[#374151] cursor-not-allowed"
               step="0.1"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">DPI</label>
+            <label className="block text-xs text-[#6b7280] mb-1.5">DPI</label>
             <input
               type="number"
               value={dpi}
-              onChange={(e) => onDpiChange(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-1"
-              style={{ '--tw-ring-color': '#f1737c' } as React.CSSProperties}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#f1737c';
-                e.currentTarget.style.boxShadow = '0 0 0 1px #f1737c';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '';
-                e.currentTarget.style.boxShadow = '';
-              }}
+              disabled
+              className="w-full px-3 py-2 text-sm bg-[#f5f5f5] border border-[#e5e7eb] rounded-md text-[#374151] cursor-not-allowed"
             />
           </div>
         </div>
@@ -166,16 +139,16 @@ export default function PatternSetupSidebar({
             type="checkbox"
             checked={showTileOutline}
             onChange={(e) => onShowTileOutlineChange(e.target.checked)}
-            className="mr-2 w-4 h-4 border-slate-600 rounded focus:ring-1 bg-slate-800"
+            className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
             style={{ accentColor: '#f1737c' }}
           />
-          <span className="text-sm text-slate-200">Show Tile Outline</span>
+          <span className="text-sm text-[#374151]">Show Tile Outline</span>
         </label>
       </div>
 
       {/* Upload/Paste Section */}
       <div>
-        <h2 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
           Upload Tile
         </h2>
         <div className="space-y-2">
@@ -186,16 +159,22 @@ export default function PatternSetupSidebar({
               onChange={handleFileChange}
               className="hidden"
             />
-            <span className="block w-full px-4 py-2.5 text-xs font-medium text-center bg-slate-800 border border-slate-700 rounded-md text-slate-200 hover:bg-slate-700 cursor-pointer transition-colors">
+            <span
+              className="block w-full px-4 py-2.5 text-xs font-semibold text-center text-white rounded-md cursor-pointer transition-all duration-200"
+              style={{ backgroundColor: '#f1737c' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#ff8a94';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#f1737c';
+              }}
+            >
               Choose File
             </span>
           </label>
-          <button
-            onClick={onPaste}
-            className="w-full px-4 py-2.5 text-xs font-medium bg-slate-800 border border-slate-700 rounded-md text-slate-200 hover:bg-slate-700 transition-colors"
-          >
-            Paste from Clipboard
-          </button>
+          <p className="text-xs text-[#6b7280] text-center">
+            Paste your design by using CMD+V
+          </p>
         </div>
       </div>
     </aside>

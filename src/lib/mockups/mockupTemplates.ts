@@ -71,7 +71,7 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     description: 'See your pattern on baby clothing',
     templateImage: '/mockups/onesie.png',
     image: '/mockups/onesie.png',
-    maskImage: '/mockups/onesie_mask.png?v=2',
+    maskImage: '/mockups/onesie_mask_color.png',
     category: 'apparel',
     patternArea: {
       x: 0,         // Start at left edge
