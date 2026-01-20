@@ -144,17 +144,18 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
 
     const dpr = window.devicePixelRatio || 1;
     const zoomFactor = zoomLevel / 100;
-    
-    // Canvas always fills container (accounting for padding)
+
+    // Make canvas square (use smaller dimension) and account for padding
     const padding = 48; // 24px padding on each side
-    const canvasWidth = containerSize.width - padding;
-    const canvasHeight = containerSize.height - padding;
-    
+    const maxSize = Math.min(containerSize.width, containerSize.height) - padding;
+    const canvasWidth = maxSize;
+    const canvasHeight = maxSize;
+
     canvas.width = canvasWidth * dpr;
     canvas.height = canvasHeight * dpr;
     canvas.style.width = `${canvasWidth}px`;
     canvas.style.height = `${canvasHeight}px`;
-    
+
     ctx.scale(dpr, dpr);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -198,6 +199,60 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
         ctx.moveTo(canvasWidth / 2, 0);
         ctx.lineTo(canvasWidth / 2, canvasHeight);
         ctx.stroke();
+      }
+
+      // Draw grid overlay showing tile boundaries
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+
+      // Calculate where tile boundaries are in screen coordinates
+      // The seam intersection is at the center, so tiles are at ±1/2 intervals
+      const tileBoundaryOffsets = [-0.5, 0.5]; // Positions relative to center
+
+      tileBoundaryOffsets.forEach(offset => {
+        // Vertical lines (tile boundaries left and right of center)
+        const x = canvasWidth / 2 + (offset * tileW * zoomFactor);
+        if (x >= 0 && x <= canvasWidth) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvasHeight);
+          ctx.stroke();
+        }
+
+        // Horizontal lines (tile boundaries above and below center)
+        const y = canvasHeight / 2 + (offset * tileH * zoomFactor);
+        if (y >= 0 && y <= canvasHeight) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvasWidth, y);
+          ctx.stroke();
+        }
+      });
+
+      ctx.setLineDash([]); // Reset dash pattern
+
+      // Add quadrant labels (only at low zoom when tiles are visible)
+      if (zoomLevel <= 300) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const labelOffsets = [
+          { x: -0.75, y: -0.75, label: 'Tile 1' },
+          { x: 0.75, y: -0.75, label: 'Tile 2' },
+          { x: -0.75, y: 0.75, label: 'Tile 3' },
+          { x: 0.75, y: 0.75, label: 'Tile 4' }
+        ];
+
+        labelOffsets.forEach(({ x, y, label }) => {
+          const screenX = canvasWidth / 2 + (x * tileW * zoomFactor);
+          const screenY = canvasHeight / 2 + (y * tileH * zoomFactor);
+          if (screenX >= 0 && screenX <= canvasWidth && screenY >= 0 && screenY <= canvasHeight) {
+            ctx.fillText(label, screenX, screenY);
+          }
+        });
       }
       
     } else if (seamType === 'horizontal') {
@@ -307,47 +362,68 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
 
         {/* Controls */}
         <div className="px-6 py-4 border-b border-[#e5e7eb] space-y-3">
+          {/* View Description */}
+          <div className="bg-[#f5f5f5] p-3 rounded-lg">
+            <p className="text-sm text-[#294051] font-medium">
+              {seamType === 'intersection' &&
+                '4-Corner Intersection: Shows where all four tiles meet. Pink crosshair marks the seam intersection.'}
+              {seamType === 'horizontal' &&
+                'Top/Bottom Seam: Inspecting where top and bottom edges meet.'}
+              {seamType === 'vertical' &&
+                'Left/Right Seam: Inspecting where left and right edges meet.'}
+            </p>
+          </div>
+
           {/* Seam Type Selector */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setSeamType('intersection');
-                setSeamSection('middle');
-              }}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                seamType === 'intersection'
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              Seam Intersection
-            </button>
-            <button
-              onClick={() => {
-                setSeamType('horizontal');
-                setSeamSection('middle');
-              }}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                seamType === 'horizontal'
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              Top/Bottom Seam
-            </button>
-            <button
-              onClick={() => {
-                setSeamType('vertical');
-                setSeamSection('middle');
-              }}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                seamType === 'vertical'
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              Left/Right Seam
-            </button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSeamType('intersection');
+                  setSeamSection('middle');
+                }}
+                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors ${
+                  seamType === 'intersection'
+                    ? 'bg-[#f1737c] text-white'
+                    : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                }`}
+              >
+                4-Corner Intersection (Recommended)
+              </button>
+            </div>
+            <details className="text-sm">
+              <summary className="cursor-pointer text-[#6b7280] hover:text-[#374151] font-medium">
+                Advanced: Individual Seam Inspection
+              </summary>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setSeamType('horizontal');
+                    setSeamSection('middle');
+                  }}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    seamType === 'horizontal'
+                      ? 'bg-[#f1737c] text-white'
+                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                  }`}
+                >
+                  Top/Bottom
+                </button>
+                <button
+                  onClick={() => {
+                    setSeamType('vertical');
+                    setSeamSection('middle');
+                  }}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    seamType === 'vertical'
+                      ? 'bg-[#f1737c] text-white'
+                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                  }`}
+                >
+                  Left/Right
+                </button>
+              </div>
+            </details>
           </div>
 
           {/* Show Pink Lines Toggle */}
@@ -477,9 +553,13 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
           )}
 
           {/* Helper Text */}
-          <p className="text-sm text-[#6b7280] text-center">
-            💡 Look for color breaks or pattern misalignment at the seam line
-          </p>
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+            <p className="text-sm text-blue-900">
+              <strong>💡 What to look for:</strong> Perfect seams show no visible breaks or misalignment where tiles meet.
+              {seamType === 'intersection' && ' Check all four quadrants where the pink lines cross.'}
+              {' '}Drag to pan, use zoom controls to inspect closely.
+            </p>
+          </div>
         </div>
       </div>
     </div>
