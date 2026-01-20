@@ -48,6 +48,11 @@ export default function EasyscaleExportModal({
     if (image && currentDPI) {
       const size = calculateOriginalSize(image, currentDPI);
       setCurrentSize({ width: size.width, height: size.height });
+
+      // If original DPI is less than 300 and user has 300 selected, switch to 150
+      if (currentDPI < 300 && selectedDPI === 300) {
+        setSelectedDPI(150);
+      }
     } else {
       setCurrentSize(null);
     }
@@ -218,7 +223,7 @@ export default function EasyscaleExportModal({
                       150 DPI (Standard)
                     </span>
                   </label>
-                  <label className="flex items-center cursor-pointer group">
+                  <label className={`flex items-center ${currentDPI >= 300 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
                     <input
                       type="radio"
                       name="dpi"
@@ -227,13 +232,18 @@ export default function EasyscaleExportModal({
                       onChange={() => setSelectedDPI(300)}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
-                      disabled={isExporting}
+                      disabled={isExporting || currentDPI < 300}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
                       300 DPI (High Quality)
                     </span>
                   </label>
                 </div>
+                {currentDPI < 300 && (
+                  <p className="text-xs text-[#6b7280] mt-2 italic">
+                    300 DPI export requires original file to be at least 300 DPI
+                  </p>
+                )}
               </div>
 
               {/* Format Selection */}
