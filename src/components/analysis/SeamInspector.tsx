@@ -12,52 +12,40 @@ interface SeamInspectorProps {
 type SeamType = 'horizontal' | 'vertical' | 'intersection';
 type SeamSection = 'start' | 'middle' | 'end';
 
-// Helper function to create a 2x2 grid of tiles showing actual repeat
+// Helper function to create a 4x4 grid of tiles showing actual repeat
 function createTileGrid(
   image: HTMLImageElement,
   repeatType: 'full-drop' | 'half-drop' | 'half-brick'
 ): HTMLCanvasElement {
-  const tileW = image.width;
-  const tileH = image.height;
+  const tileW = image.naturalWidth || image.width;
+  const tileH = image.naturalHeight || image.height;
+  const gridCols = 4;
+  const gridRows = 4;
   
   const gridCanvas = document.createElement('canvas');
   const extraWidth = repeatType === 'half-brick' ? tileW / 2 : 0;
   const extraHeight = repeatType === 'half-drop' ? tileH / 2 : 0;
-  gridCanvas.width = tileW * 2 + extraWidth;
-  gridCanvas.height = tileH * 2 + extraHeight;
+  gridCanvas.width = tileW * gridCols + extraWidth;
+  gridCanvas.height = tileH * gridRows + extraHeight;
   
   const ctx = gridCanvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  
-  // Draw 4 tiles in 2x2 grid
-  // Top-left tile (0, 0)
-  ctx.drawImage(image, 0, 0);
-  
-  // Top-right tile
-  let topRightX = tileW;
-  let topRightY = 0;
-  if (repeatType === 'half-drop') {
-    topRightY = tileH / 2;
+
+  // Draw tiles beyond edges to cover stagger offsets
+  for (let row = -1; row <= gridRows; row++) {
+    for (let col = -1; col <= gridCols; col++) {
+      let x = col * tileW;
+      let y = row * tileH;
+
+      if (repeatType === 'half-drop') {
+        y += col % 2 === 0 ? 0 : tileH / 2;
+      } else if (repeatType === 'half-brick') {
+        x += row % 2 === 0 ? 0 : tileW / 2;
+      }
+
+      ctx.drawImage(image, x, y, tileW, tileH);
+    }
   }
-  ctx.drawImage(image, topRightX, topRightY);
-  
-  // Bottom-left tile
-  let bottomLeftX = 0;
-  let bottomLeftY = tileH;
-  if (repeatType === 'half-brick') {
-    bottomLeftX = tileW / 2;
-  }
-  ctx.drawImage(image, bottomLeftX, bottomLeftY);
-  
-  // Bottom-right tile
-  let bottomRightX = tileW;
-  let bottomRightY = tileH;
-  if (repeatType === 'half-drop') {
-    bottomRightY = tileH + tileH / 2;
-  } else if (repeatType === 'half-brick') {
-    bottomRightX = tileW + tileW / 2;
-  }
-  ctx.drawImage(image, bottomRightX, bottomRightY);
   
   return gridCanvas;
 }
@@ -145,105 +133,83 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
     const dpr = window.devicePixelRatio || 1;
     const zoomFactor = zoomLevel / 100;
 
-    // Make canvas square (use smaller dimension) and account for padding
+    // Canvas fills available container area (accounting for padding)
     const padding = 48; // 24px padding on each side
-    const maxSize = Math.min(containerSize.width, containerSize.height) - padding;
-    const canvasWidth = maxSize;
-    const canvasHeight = maxSize;
+    const canvasWidth = Math.max(0, containerSize.width - padding);
+    const canvasHeight = Math.max(0, containerSize.height - padding);
 
     canvas.width = canvasWidth * dpr;
     canvas.height = canvasHeight * dpr;
     canvas.style.width = `${canvasWidth}px`;
     canvas.style.height = `${canvasHeight}px`;
 
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     if (seamType === 'intersection') {
-      const tileW = image.width;
-      const tileH = image.height;
+      // Create 2x2 grid showing actual repeat
+      const gridCanvas = createTileGrid(image, repeatType);
+      const tileW = image.naturalWidth || image.width;
+      const tileH = image.naturalHeight || image.height;
 
-      // Calculate how large each tile appears on screen based on zoom
-      // At 200% zoom (zoomFactor=2), tiles are 2x larger on screen
-      const screenTileW = tileW * zoomFactor;
-      const screenTileH = tileH * zoomFactor;
+      // Fill the entire view with a repeated grid, centered on the top-left corner intersection
+      const pattern = ctx.createPattern(gridCanvas, 'repeat');
+      if (pattern && typeof pattern.setTransform === 'function') {
+        const centerX = (canvasWidth / 2) + panOffset.x;
+        const centerY = (canvasHeight / 2) + panOffset.y;
+        const offsetX = centerX - (tileW * zoomFactor);
+        const offsetY = centerY - (tileH * zoomFactor);
 
-      // Calculate how many tiles we need to fill the canvas
-      const tilesNeededX = Math.ceil(canvasWidth / screenTileW) + 2;
-      const tilesNeededY = Math.ceil(canvasHeight / screenTileH) + 2;
+        pattern.setTransform(
+          new DOMMatrix()
+            .translate(offsetX, offsetY)
+            .scale(zoomFactor)
+        );
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      } else {
+        const gridW = gridCanvas.width;
+        const gridH = gridCanvas.height;
+        const scaledGridW = gridW * zoomFactor;
+        const scaledGridH = gridH * zoomFactor;
 
-      // The seam intersection starts at the center of the canvas
-      // Calculate offset from center based on pan
-      const offsetX = (canvasWidth / 2) + panOffset.x;
-      const offsetY = (canvasHeight / 2) + panOffset.y;
+        const baseOffsetX = (canvasWidth / 2) + panOffset.x - (tileW * zoomFactor);
+        const baseOffsetY = (canvasHeight / 2) + panOffset.y - (tileH * zoomFactor);
 
-      // Calculate the starting tile position (which tile is at top-left)
-      const startTileX = Math.floor(-offsetX / screenTileW);
-      const startTileY = Math.floor(-offsetY / screenTileH);
+        const startTileX = Math.floor((0 - baseOffsetX) / scaledGridW) - 1;
+        const startTileY = Math.floor((0 - baseOffsetY) / scaledGridH) - 1;
+        const tilesNeededX = Math.ceil(canvasWidth / scaledGridW) + 2;
+        const tilesNeededY = Math.ceil(canvasHeight / scaledGridH) + 2;
 
-      // Draw tiles to fill the entire canvas
-      for (let ty = startTileY; ty < startTileY + tilesNeededY; ty++) {
-        for (let tx = startTileX; tx < startTileX + tilesNeededX; tx++) {
-          // Calculate screen position for this tile
-          const screenX = offsetX + (tx * screenTileW);
-          const screenY = offsetY + (ty * screenTileH);
-
-          // Draw the tile
-          ctx.drawImage(
-            image,
-            0, 0, tileW, tileH,
-            screenX, screenY, screenTileW, screenTileH
-          );
+        for (let ty = startTileY; ty < startTileY + tilesNeededY; ty++) {
+          for (let tx = startTileX; tx < startTileX + tilesNeededX; tx++) {
+            const screenX = baseOffsetX + (tx * scaledGridW);
+            const screenY = baseOffsetY + (ty * scaledGridH);
+            ctx.drawImage(gridCanvas, screenX, screenY, scaledGridW, scaledGridH);
+          }
         }
       }
-      
-      // Draw pink crosshair at center
+
+      // Draw pink crosshair aligned with the tiled pattern intersection
       if (showPinkLines) {
         ctx.strokeStyle = '#ff1493';
         ctx.lineWidth = 3;
+        const crossX = (canvasWidth / 2) + panOffset.x;
+        const crossY = (canvasHeight / 2) + panOffset.y;
         ctx.beginPath();
-        ctx.moveTo(0, canvasHeight / 2);
-        ctx.lineTo(canvasWidth, canvasHeight / 2);
-        ctx.moveTo(canvasWidth / 2, 0);
-        ctx.lineTo(canvasWidth / 2, canvasHeight);
+        ctx.moveTo(0, crossY);
+        ctx.lineTo(canvasWidth, crossY);
+        ctx.moveTo(crossX, 0);
+        ctx.lineTo(crossX, canvasHeight);
         ctx.stroke();
       }
-
-      // Draw grid overlay showing tile boundaries
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
-
-      // Draw vertical tile boundary lines
-      for (let tx = startTileX; tx <= startTileX + tilesNeededX; tx++) {
-        const screenX = offsetX + (tx * screenTileW);
-        if (screenX >= 0 && screenX <= canvasWidth) {
-          ctx.beginPath();
-          ctx.moveTo(screenX, 0);
-          ctx.lineTo(screenX, canvasHeight);
-          ctx.stroke();
-        }
-      }
-
-      // Draw horizontal tile boundary lines
-      for (let ty = startTileY; ty <= startTileY + tilesNeededY; ty++) {
-        const screenY = offsetY + (ty * screenTileH);
-        if (screenY >= 0 && screenY <= canvasHeight) {
-          ctx.beginPath();
-          ctx.moveTo(0, screenY);
-          ctx.lineTo(canvasWidth, screenY);
-          ctx.stroke();
-        }
-      }
-
-      ctx.setLineDash([]); // Reset dash pattern
-      
     } else if (seamType === 'horizontal') {
       // Create 2x2 grid
       const gridCanvas = createTileGrid(image, repeatType);
-      const tileW = image.width;
-      const tileH = image.height;
+      const tileW = image.naturalWidth || image.width;
+      const tileH = image.naturalHeight || image.height;
       
       // Source dimensions based on zoom (higher zoom = smaller source region)
       const sourceWidth = canvasWidth / zoomFactor;
@@ -282,8 +248,8 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
     } else {
       // Vertical seam
       const gridCanvas = createTileGrid(image, repeatType);
-      const tileW = image.width;
-      const tileH = image.height;
+      const tileW = image.naturalWidth || image.width;
+      const tileH = image.naturalHeight || image.height;
       
       // Source dimensions based on zoom (higher zoom = smaller source region)
       const sourceWidth = canvasWidth / zoomFactor;
@@ -430,11 +396,21 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[#374151]">Zoom:</span>
             <button
-              onClick={() => setZoomLevel(prev => Math.max(50, prev - 25))}
+              onClick={() => setZoomLevel(prev => Math.max(100, prev - 25))}
               className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
               aria-label="Zoom out"
             >
               −
+            </button>
+            <button
+              onClick={() => setZoomLevel(100)}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                Math.abs(zoomLevel - 100) < 10
+                  ? 'bg-[#f1737c] text-white'
+                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+              }`}
+            >
+              100%
             </button>
             <button
               onClick={() => setZoomLevel(200)}
@@ -457,17 +433,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
               400%
             </button>
             <button
-              onClick={() => setZoomLevel(800)}
-              className={`px-3 py-1 rounded font-semibold transition-colors ${
-                Math.abs(zoomLevel - 800) < 10
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              800%
-            </button>
-            <button
-              onClick={() => setZoomLevel(prev => Math.min(1600, prev + 25))}
+              onClick={() => setZoomLevel(prev => Math.min(400, prev + 25))}
               className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
               aria-label="Zoom in"
             >
