@@ -14,6 +14,7 @@ interface MockupRendererProps {
   repeatType: RepeatType;
   zoom?: number;
   onClick?: () => void;
+  colorOverride?: string | null;
 }
 
 export default function MockupRenderer({
@@ -25,6 +26,7 @@ export default function MockupRenderer({
   repeatType,
   zoom,
   onClick,
+  colorOverride,
 }: MockupRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -112,7 +114,7 @@ export default function MockupRenderer({
       return best;
     };
 
-    // Pass 1: favor lighter tones
+    // Pass 1: favor lighter tones (works better for fabric appearance)
     let buckets = buildHistogram(180);
     let best = pickDominant(buckets);
 
@@ -142,7 +144,8 @@ export default function MockupRenderer({
     if (template.maskImage) {
       const img = new Image();
       img.onload = () => setMaskImage(img);
-      img.src = template.maskImage;
+      // Add cache-busting timestamp to force reload of updated images
+      img.src = `${template.maskImage}?v=${Date.now()}`;
     } else {
       setMaskImage(null);
     }
@@ -153,7 +156,8 @@ export default function MockupRenderer({
     if (isOnesie) {
       const img = new Image();
       img.onload = () => setColorMaskImage(img);
-      img.src = '/mockups/onesie_mask_color.png';
+      // Add cache-busting timestamp to force reload of updated images
+      img.src = `/mockups/onesie_mask_color.png?v=${Date.now()}`;
     } else {
       setColorMaskImage(null);
     }
@@ -331,7 +335,7 @@ export default function MockupRenderer({
             colorLayer.height = patternCanvas.height;
             const colorCtx = colorLayer.getContext('2d');
             if (colorCtx) {
-              colorCtx.fillStyle = extractBackgroundColor(patternImage);
+              colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
               colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
               colorCtx.globalCompositeOperation = 'destination-in';
               const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
@@ -354,7 +358,7 @@ export default function MockupRenderer({
             }
 
             tempCtx.globalCompositeOperation = 'multiply';
-            tempCtx.globalAlpha = 1;
+            tempCtx.globalAlpha = 0.9;
             tempCtx.drawImage(colorLayer, 0, 0);
 
             tempCtx.globalCompositeOperation = 'multiply';
@@ -396,7 +400,7 @@ export default function MockupRenderer({
             colorLayer.height = patternCanvas.height;
             const colorCtx = colorLayer.getContext('2d');
             if (colorCtx) {
-              colorCtx.fillStyle = extractBackgroundColor(patternImage);
+              colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
               colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
               colorCtx.globalCompositeOperation = 'destination-in';
               const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
@@ -446,7 +450,7 @@ export default function MockupRenderer({
     } else {
       setIsRendering(false);
     }
-  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom]);
+  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride]);
 
   // Prevent right-click and image copying
   const handleContextMenu = (e: React.MouseEvent) => {

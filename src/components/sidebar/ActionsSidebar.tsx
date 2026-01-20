@@ -24,6 +24,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [densityAnalysis, setDensityAnalysis] = useState<DensityAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
+  const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isPro] = useState(true); // TODO: Replace with actual Pro subscription check - TEMPORARILY TRUE FOR TESTING
@@ -255,7 +256,10 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         {selectedMockup && (
           <MockupModal
             isOpen={!!selectedMockup}
-            onClose={() => setSelectedMockup(null)}
+            onClose={() => {
+              setSelectedMockup(null);
+              setMockupColorOverride(null);
+            }}
             title={getMockupTemplate(selectedMockup as any)?.name}
             onDownload={() => {
               // Find the canvas element in the mockup renderer
@@ -264,7 +268,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
                 const link = document.createElement('a');
                 const template = getMockupTemplate(selectedMockup as any);
-                link.download = originalFilename 
+                link.download = originalFilename
                   ? `${originalFilename}-${template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup'}.png`
                   : `mockup-${template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup'}.png`;
                 link.href = dataURL;
@@ -274,18 +278,43 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               }
             }}
           >
-            <div className="flex items-center justify-center bg-white rounded-lg p-4">
-              <div className="w-full max-w-2xl">
-                <MockupRenderer
-                  template={getMockupTemplate(selectedMockup as any)}
-                  patternImage={image}
-                  tileWidth={tileWidth}
-                  tileHeight={tileHeight}
-                  dpi={dpi}
-                  repeatType={repeatType}
-                  zoom={zoom}
-                  onClick={() => {}}
-                />
+            <div className="flex flex-col gap-3">
+              {/* Color picker for onesie only */}
+              {selectedMockup === 'onesie' && (
+                <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
+                  <label className="text-xs font-medium text-[#294051]">Onesie Trim Color:</label>
+                  <input
+                    type="color"
+                    value={mockupColorOverride || '#ffffff'}
+                    onChange={(e) => setMockupColorOverride(e.target.value)}
+                    className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
+                  />
+                  {mockupColorOverride && (
+                    <button
+                      onClick={() => setMockupColorOverride(null)}
+                      className="text-xs text-[#705046] hover:text-[#294051] underline"
+                    >
+                      Reset to auto
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Mockup preview */}
+              <div className="flex items-center justify-center bg-white rounded-lg p-4">
+                <div className="w-full max-w-2xl">
+                  <MockupRenderer
+                    template={getMockupTemplate(selectedMockup as any)}
+                    patternImage={image}
+                    tileWidth={tileWidth}
+                    tileHeight={tileHeight}
+                    dpi={dpi}
+                    repeatType={repeatType}
+                    zoom={zoom}
+                    onClick={() => {}}
+                    colorOverride={mockupColorOverride}
+                  />
+                </div>
               </div>
             </div>
           </MockupModal>
