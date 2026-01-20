@@ -114,19 +114,19 @@ export default function EasyscaleExportModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#fff6e4]/90 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative max-w-2xl w-full max-h-[90vh] bg-slate-800 rounded-lg shadow-2xl overflow-hidden"
+        className="relative max-w-2xl w-full max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-200">Easyscale Export</h3>
+        <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#ffe4e7]">
+          <h3 className="text-sm font-semibold text-[#294051]">Easyscale Export</h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 transition-colors"
+            className="text-[#705046] hover:text-[#294051] transition-all duration-200"
             aria-label="Close"
             disabled={isExporting}
           >
@@ -150,16 +150,16 @@ export default function EasyscaleExportModal({
         <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
           {!image ? (
             <div className="text-center py-8">
-              <p className="text-sm text-slate-400">No pattern loaded. Please upload a pattern first.</p>
+              <p className="text-sm text-[#6b7280]">No pattern loaded. Please upload a pattern first.</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Current Pattern Info */}
-              <div className="p-4 bg-slate-900 rounded-md border border-slate-700">
-                <h4 className="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wide">
+              <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
+                <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
                   Current Pattern
                 </h4>
-                <div className="text-sm text-slate-200 space-y-1">
+                <div className="text-sm text-[#374151] space-y-1">
                   {currentSize && (
                     <>
                       <p>Size: {currentSize.width.toFixed(2)}" × {currentSize.height.toFixed(2)}"</p>
@@ -171,7 +171,7 @@ export default function EasyscaleExportModal({
 
               {/* Size Selection */}
               <div>
-                <h4 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
                   Select Sizes (Longest Side)
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
@@ -180,8 +180,8 @@ export default function EasyscaleExportModal({
                       key={size}
                       className={`flex items-center justify-center px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                         selectedSizes.includes(size)
-                          ? 'bg-slate-700 border-slate-600 text-slate-100'
-                          : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                          ? 'bg-[#ffe4e7] border-[#f1737c] text-[#294051]'
+                          : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
                       }`}
                     >
                       <input
@@ -199,7 +199,7 @@ export default function EasyscaleExportModal({
 
               {/* DPI Selection */}
               <div>
-                <h4 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
                   Target DPI
                 </h4>
                 <div className="flex gap-3">
@@ -210,11 +210,11 @@ export default function EasyscaleExportModal({
                       value="150"
                       checked={selectedDPI === 150}
                       onChange={() => setSelectedDPI(150)}
-                      className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
                       disabled={isExporting}
                     />
-                    <span className="text-sm text-slate-200 group-hover:text-slate-100">
+                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
                       150 DPI (Standard)
                     </span>
                   </label>
@@ -225,11 +225,11 @@ export default function EasyscaleExportModal({
                       value="300"
                       checked={selectedDPI === 300}
                       onChange={() => setSelectedDPI(300)}
-                      className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
                       disabled={isExporting}
                     />
-                    <span className="text-sm text-slate-200 group-hover:text-slate-100">
+                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
                       300 DPI (High Quality)
                     </span>
                   </label>
@@ -238,7 +238,7 @@ export default function EasyscaleExportModal({
 
               {/* Format Selection */}
               <div>
-                <h4 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
                   Format
                 </h4>
                 <div className="flex gap-3">
@@ -249,11 +249,11 @@ export default function EasyscaleExportModal({
                       value="png"
                       checked={format === 'png'}
                       onChange={() => setFormat('png')}
-                      className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
                       disabled={isExporting}
                     />
-                    <span className="text-sm text-slate-200 group-hover:text-slate-100">
+                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
                       PNG (Lossless)
                     </span>
                   </label>
@@ -264,11 +264,11 @@ export default function EasyscaleExportModal({
                       value="jpg"
                       checked={format === 'jpg'}
                       onChange={() => setFormat('jpg')}
-                      className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
                       disabled={isExporting}
                     />
-                    <span className="text-sm text-slate-200 group-hover:text-slate-100">
+                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
                       JPG (Smaller File)
                     </span>
                   </label>
@@ -282,18 +282,18 @@ export default function EasyscaleExportModal({
                     type="checkbox"
                     checked={includeOriginal}
                     onChange={(e) => setIncludeOriginal(e.target.checked)}
-                    className="mr-2 w-4 h-4 border-slate-600 rounded focus:ring-1 bg-slate-800"
+                    className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
                     style={{ accentColor: '#f1737c' }}
                     disabled={isExporting}
                   />
-                  <span className="text-sm text-slate-200">Include original tile in export</span>
+                  <span className="text-sm text-[#374151]">Include original tile in export</span>
                 </label>
               </div>
 
               {/* Preview */}
               {selectedSizes.length > 0 && (
-                <div className="p-3 bg-slate-900 rounded-md border border-slate-700">
-                  <p className="text-xs text-slate-400">
+                <div className="p-3 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
+                  <p className="text-xs text-[#6b7280]">
                     Will generate {fileCount} file{fileCount !== 1 ? 's' : ''} in the zip archive
                   </p>
                 </div>
@@ -301,8 +301,8 @@ export default function EasyscaleExportModal({
 
               {/* Error Message */}
               {error && (
-                <div className="p-3 bg-orange-900/20 border border-orange-700 rounded-md">
-                  <p className="text-xs text-orange-300">{error}</p>
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                  <p className="text-xs text-orange-700">{error}</p>
                 </div>
               )}
 
@@ -310,7 +310,7 @@ export default function EasyscaleExportModal({
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2.5 text-xs font-medium bg-slate-700 border border-slate-600 rounded-md text-slate-200 hover:bg-slate-600 transition-colors"
+                  className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
                   disabled={isExporting}
                 >
                   Cancel
