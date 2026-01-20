@@ -161,33 +161,55 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
     ctx.imageSmoothingQuality = 'high';
 
     if (seamType === 'intersection') {
-      // Create 2x2 grid showing actual repeat
-      const gridCanvas = createTileGrid(image, repeatType);
       const tileW = image.width;
       const tileH = image.height;
-      
-      // Intersection is at (tileW, tileH) in the grid
-      // Source size = canvas size / zoom factor (higher zoom = smaller source region)
-      const sourceSize = Math.min(canvasWidth, canvasHeight) / zoomFactor;
-      const cornerSize = Math.min(tileW, tileH) * 0.25;
-      
-      // Use the smaller of: calculated source size or actual corner size
-      const actualSourceSize = Math.min(sourceSize, cornerSize * 2);
-      
-      // Extract intersection area from grid (centered at tileW, tileH)
+
+      // Calculate scale: how many source pixels per screen pixel
+      // At 200% zoom, 1 screen pixel = 0.5 source pixels (zoomed in)
+      const scale = 1 / zoomFactor;
+
+      // Calculate the source region we need to cover the entire canvas
+      const sourceWidth = canvasWidth * scale;
+      const sourceHeight = canvasHeight * scale;
+
+      // The intersection point starts at (tileW, tileH) in the grid
       // Apply pan offset (convert screen pixels to source pixels)
-      const sourceX = tileW - actualSourceSize / 2 - panOffset.x / zoomFactor;
-      const sourceY = tileH - actualSourceSize / 2 - panOffset.y / zoomFactor;
-      
-      // Clamp to grid bounds
-      const clampedX = Math.max(0, Math.min(sourceX, gridCanvas.width - actualSourceSize));
-      const clampedY = Math.max(0, Math.min(sourceY, gridCanvas.height - actualSourceSize));
-      
-      ctx.drawImage(
-        gridCanvas,
-        clampedX, clampedY, actualSourceSize, actualSourceSize,
-        0, 0, canvasWidth, canvasHeight
-      );
+      const centerX = tileW + panOffset.x * scale;
+      const centerY = tileH + panOffset.y * scale;
+
+      // Calculate top-left corner of the source region
+      const sourceX = centerX - sourceWidth / 2;
+      const sourceY = centerY - sourceHeight / 2;
+
+      // Fill the entire canvas by tiling the pattern
+      // We need to tile enough to cover the viewport plus any panning offset
+      const tilesNeededX = Math.ceil(sourceWidth / tileW) + 2;
+      const tilesNeededY = Math.ceil(sourceHeight / tileH) + 2;
+
+      // Calculate which tile contains the top-left corner
+      const startTileX = Math.floor(sourceX / tileW);
+      const startTileY = Math.floor(sourceY / tileH);
+
+      // Draw tiles to fill the canvas
+      for (let ty = 0; ty < tilesNeededY; ty++) {
+        for (let tx = 0; tx < tilesNeededX; tx++) {
+          const tileWorldX = (startTileX + tx) * tileW;
+          const tileWorldY = (startTileY + ty) * tileH;
+
+          // Convert world position to screen position
+          const screenX = (tileWorldX - sourceX) / scale;
+          const screenY = (tileWorldY - sourceY) / scale;
+          const screenTileW = tileW / scale;
+          const screenTileH = tileH / scale;
+
+          // Draw the tile
+          ctx.drawImage(
+            image,
+            0, 0, tileW, tileH,
+            screenX, screenY, screenTileW, screenTileH
+          );
+        }
+      }
       
       // Draw pink crosshair at center
       if (showPinkLines) {
@@ -206,54 +228,31 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
       ctx.lineWidth = 1;
       ctx.setLineDash([5, 5]);
 
-      // Calculate where tile boundaries are in screen coordinates
-      // The seam intersection is at the center, so tiles are at ±1/2 intervals
-      const tileBoundaryOffsets = [-0.5, 0.5]; // Positions relative to center
-
-      tileBoundaryOffsets.forEach(offset => {
-        // Vertical lines (tile boundaries left and right of center)
-        const x = canvasWidth / 2 + (offset * tileW * zoomFactor);
-        if (x >= 0 && x <= canvasWidth) {
+      // Draw vertical tile boundary lines
+      for (let tx = startTileX; tx <= startTileX + tilesNeededX; tx++) {
+        const tileWorldX = tx * tileW;
+        const screenX = (tileWorldX - sourceX) / scale;
+        if (screenX >= 0 && screenX <= canvasWidth) {
           ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, canvasHeight);
+          ctx.moveTo(screenX, 0);
+          ctx.lineTo(screenX, canvasHeight);
           ctx.stroke();
         }
+      }
 
-        // Horizontal lines (tile boundaries above and below center)
-        const y = canvasHeight / 2 + (offset * tileH * zoomFactor);
-        if (y >= 0 && y <= canvasHeight) {
+      // Draw horizontal tile boundary lines
+      for (let ty = startTileY; ty <= startTileY + tilesNeededY; ty++) {
+        const tileWorldY = ty * tileH;
+        const screenY = (tileWorldY - sourceY) / scale;
+        if (screenY >= 0 && screenY <= canvasHeight) {
           ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(canvasWidth, y);
+          ctx.moveTo(0, screenY);
+          ctx.lineTo(canvasWidth, screenY);
           ctx.stroke();
         }
-      });
+      }
 
       ctx.setLineDash([]); // Reset dash pattern
-
-      // Add quadrant labels (only at low zoom when tiles are visible)
-      if (zoomLevel <= 300) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        const labelOffsets = [
-          { x: -0.75, y: -0.75, label: 'Tile 1' },
-          { x: 0.75, y: -0.75, label: 'Tile 2' },
-          { x: -0.75, y: 0.75, label: 'Tile 3' },
-          { x: 0.75, y: 0.75, label: 'Tile 4' }
-        ];
-
-        labelOffsets.forEach(({ x, y, label }) => {
-          const screenX = canvasWidth / 2 + (x * tileW * zoomFactor);
-          const screenY = canvasHeight / 2 + (y * tileH * zoomFactor);
-          if (screenX >= 0 && screenX <= canvasWidth && screenY >= 0 && screenY <= canvasHeight) {
-            ctx.fillText(label, screenX, screenY);
-          }
-        });
-      }
       
     } else if (seamType === 'horizontal') {
       // Create 2x2 grid
