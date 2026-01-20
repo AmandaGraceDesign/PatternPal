@@ -164,43 +164,30 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
       const tileW = image.width;
       const tileH = image.height;
 
-      // Calculate scale: how many source pixels per screen pixel
-      // At 200% zoom, 1 screen pixel = 0.5 source pixels (zoomed in)
-      const scale = 1 / zoomFactor;
+      // Calculate how large each tile appears on screen based on zoom
+      // At 200% zoom (zoomFactor=2), tiles are 2x larger on screen
+      const screenTileW = tileW * zoomFactor;
+      const screenTileH = tileH * zoomFactor;
 
-      // Calculate the source region we need to cover the entire canvas
-      const sourceWidth = canvasWidth * scale;
-      const sourceHeight = canvasHeight * scale;
+      // Calculate how many tiles we need to fill the canvas
+      const tilesNeededX = Math.ceil(canvasWidth / screenTileW) + 2;
+      const tilesNeededY = Math.ceil(canvasHeight / screenTileH) + 2;
 
-      // The intersection point starts at (tileW, tileH) in the grid
-      // Apply pan offset (convert screen pixels to source pixels)
-      const centerX = tileW + panOffset.x * scale;
-      const centerY = tileH + panOffset.y * scale;
+      // The seam intersection starts at the center of the canvas
+      // Calculate offset from center based on pan
+      const offsetX = (canvasWidth / 2) + panOffset.x;
+      const offsetY = (canvasHeight / 2) + panOffset.y;
 
-      // Calculate top-left corner of the source region
-      const sourceX = centerX - sourceWidth / 2;
-      const sourceY = centerY - sourceHeight / 2;
+      // Calculate the starting tile position (which tile is at top-left)
+      const startTileX = Math.floor(-offsetX / screenTileW);
+      const startTileY = Math.floor(-offsetY / screenTileH);
 
-      // Fill the entire canvas by tiling the pattern
-      // We need to tile enough to cover the viewport plus any panning offset
-      const tilesNeededX = Math.ceil(sourceWidth / tileW) + 2;
-      const tilesNeededY = Math.ceil(sourceHeight / tileH) + 2;
-
-      // Calculate which tile contains the top-left corner
-      const startTileX = Math.floor(sourceX / tileW);
-      const startTileY = Math.floor(sourceY / tileH);
-
-      // Draw tiles to fill the canvas
-      for (let ty = 0; ty < tilesNeededY; ty++) {
-        for (let tx = 0; tx < tilesNeededX; tx++) {
-          const tileWorldX = (startTileX + tx) * tileW;
-          const tileWorldY = (startTileY + ty) * tileH;
-
-          // Convert world position to screen position
-          const screenX = (tileWorldX - sourceX) / scale;
-          const screenY = (tileWorldY - sourceY) / scale;
-          const screenTileW = tileW / scale;
-          const screenTileH = tileH / scale;
+      // Draw tiles to fill the entire canvas
+      for (let ty = startTileY; ty < startTileY + tilesNeededY; ty++) {
+        for (let tx = startTileX; tx < startTileX + tilesNeededX; tx++) {
+          // Calculate screen position for this tile
+          const screenX = offsetX + (tx * screenTileW);
+          const screenY = offsetY + (ty * screenTileH);
 
           // Draw the tile
           ctx.drawImage(
@@ -230,8 +217,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
 
       // Draw vertical tile boundary lines
       for (let tx = startTileX; tx <= startTileX + tilesNeededX; tx++) {
-        const tileWorldX = tx * tileW;
-        const screenX = (tileWorldX - sourceX) / scale;
+        const screenX = offsetX + (tx * screenTileW);
         if (screenX >= 0 && screenX <= canvasWidth) {
           ctx.beginPath();
           ctx.moveTo(screenX, 0);
@@ -242,8 +228,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
 
       // Draw horizontal tile boundary lines
       for (let ty = startTileY; ty <= startTileY + tilesNeededY; ty++) {
-        const tileWorldY = ty * tileH;
-        const screenY = (tileWorldY - sourceY) / scale;
+        const screenY = offsetY + (ty * screenTileH);
         if (screenY >= 0 && screenY <= canvasHeight) {
           ctx.beginPath();
           ctx.moveTo(0, screenY);
