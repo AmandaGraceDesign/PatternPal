@@ -311,7 +311,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
         </div>
 
         {/* Controls */}
-        <div className="px-6 py-4 border-b border-[#e5e7eb] space-y-3">
+        <div className="px-6 py-4 border-b border-[#e5e7eb] space-y-4">
           {/* View Description */}
           <div className="bg-[#f5f5f5] p-3 rounded-lg">
             <p className="text-sm text-[#294051] font-medium">
@@ -324,124 +324,129 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
             </p>
           </div>
 
-          {/* Seam Type Selector */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setSeamType('intersection');
-                  setSeamSection('middle');
-                }}
-                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors ${
-                  seamType === 'intersection'
-                    ? 'bg-[#f1737c] text-white'
-                    : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-                }`}
-              >
-                4-Corner Intersection (Recommended)
-              </button>
-            </div>
-            <details className="text-sm">
-              <summary className="cursor-pointer text-[#6b7280] hover:text-[#374151] font-medium">
-                Advanced: Individual Seam Inspection
-              </summary>
-              <div className="flex gap-2 mt-2">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+            {/* Left column: Zoom + seam lines */}
+            <div className="flex flex-col gap-3 lg:flex-1">
+              {/* Show Pink Lines Toggle */}
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showPinkLines}
+                    onChange={(e) => setShowPinkLines(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#f1737c]/20"
+                    style={{ accentColor: '#f1737c' }}
+                  />
+                  <span className="text-sm font-semibold text-[#374151]">
+                    Show Seam Lines
+                  </span>
+                </label>
+              </div>
+
+              {/* Zoom Controls */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-[#374151]">Zoom:</span>
                 <button
-                  onClick={() => {
-                    setSeamType('horizontal');
-                    setSeamSection('middle');
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    seamType === 'horizontal'
-                      ? 'bg-[#f1737c] text-white'
-                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-                  }`}
+                  onClick={() => setZoomLevel(prev => Math.max(100, prev - 25))}
+                  className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
+                  aria-label="Zoom out"
                 >
-                  Top/Bottom
+                  −
                 </button>
                 <button
-                  onClick={() => {
-                    setSeamType('vertical');
-                    setSeamSection('middle');
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    seamType === 'vertical'
+                  onClick={() => setZoomLevel(100)}
+                  className={`px-3 py-1 rounded font-semibold transition-colors ${
+                    Math.abs(zoomLevel - 100) < 10
                       ? 'bg-[#f1737c] text-white'
                       : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                   }`}
                 >
-                  Left/Right
+                  100%
+                </button>
+                <button
+                  onClick={() => setZoomLevel(200)}
+                  className={`px-3 py-1 rounded font-semibold transition-colors ${
+                    Math.abs(zoomLevel - 200) < 10
+                      ? 'bg-[#f1737c] text-white'
+                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                  }`}
+                >
+                  200%
+                </button>
+                <button
+                  onClick={() => setZoomLevel(400)}
+                  className={`px-3 py-1 rounded font-semibold transition-colors ${
+                    Math.abs(zoomLevel - 400) < 10
+                      ? 'bg-[#f1737c] text-white'
+                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                  }`}
+                >
+                  400%
+                </button>
+                <button
+                  onClick={() => setZoomLevel(prev => Math.min(400, prev + 25))}
+                  className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <span className="text-sm text-[#6b7280] ml-2">
+                  {Math.round(zoomLevel)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Right column: View + advanced options */}
+            <div className="flex flex-col gap-2 lg:flex-1">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSeamType('intersection');
+                    setSeamSection('middle');
+                  }}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors ${
+                    seamType === 'intersection'
+                      ? 'bg-[#f1737c] text-white'
+                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                  }`}
+                >
+                  4-Corner Intersection (Recommended)
                 </button>
               </div>
-            </details>
-          </div>
-
-          {/* Show Pink Lines Toggle */}
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showPinkLines}
-                onChange={(e) => setShowPinkLines(e.target.checked)}
-                className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#f1737c]/20"
-                style={{ accentColor: '#f1737c' }}
-              />
-              <span className="text-sm font-semibold text-[#374151]">
-                Show Seam Lines
-              </span>
-            </label>
-          </div>
-
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-[#374151]">Zoom:</span>
-            <button
-              onClick={() => setZoomLevel(prev => Math.max(100, prev - 25))}
-              className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <button
-              onClick={() => setZoomLevel(100)}
-              className={`px-3 py-1 rounded font-semibold transition-colors ${
-                Math.abs(zoomLevel - 100) < 10
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              100%
-            </button>
-            <button
-              onClick={() => setZoomLevel(200)}
-              className={`px-3 py-1 rounded font-semibold transition-colors ${
-                Math.abs(zoomLevel - 200) < 10
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              200%
-            </button>
-            <button
-              onClick={() => setZoomLevel(400)}
-              className={`px-3 py-1 rounded font-semibold transition-colors ${
-                Math.abs(zoomLevel - 400) < 10
-                  ? 'bg-[#f1737c] text-white'
-                  : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
-              }`}
-            >
-              400%
-            </button>
-            <button
-              onClick={() => setZoomLevel(prev => Math.min(400, prev + 25))}
-              className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <span className="text-sm text-[#6b7280] ml-2">
-              {Math.round(zoomLevel)}%
-            </span>
+              <details className="text-sm">
+                <summary className="cursor-pointer text-[#6b7280] hover:text-[#374151] font-medium">
+                  Advanced: Individual Seam Inspection
+                </summary>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      setSeamType('horizontal');
+                      setSeamSection('middle');
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      seamType === 'horizontal'
+                        ? 'bg-[#f1737c] text-white'
+                        : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                    }`}
+                  >
+                    Top/Bottom
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSeamType('vertical');
+                      setSeamSection('middle');
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      seamType === 'vertical'
+                        ? 'bg-[#f1737c] text-white'
+                        : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                    }`}
+                  >
+                    Left/Right
+                  </button>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -470,39 +475,8 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
           <canvas ref={canvasRef} className="block shadow-lg" />
         </div>
 
-        {/* Navigation & Footer */}
-        <div className="px-6 py-4 border-t border-[#e5e7eb] space-y-3">
-          {/* Section Navigation - only show for horizontal/vertical, not intersection */}
-          {seamType !== 'intersection' && (
-            <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={() => setSeamSection(prev => 
-                  prev === 'middle' ? 'start' : prev === 'end' ? 'middle' : prev
-                )}
-                disabled={seamSection === 'start'}
-                className="px-4 py-2 bg-[#e5e7eb] text-[#374151] rounded-lg font-semibold hover:bg-[#d1d5db] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                ← Previous Section
-              </button>
-              <span className="text-sm text-[#6b7280]">
-                {seamType === 'horizontal' ? 
-                  (seamSection === 'start' ? 'Left' : seamSection === 'middle' ? 'Center' : 'Right') :
-                  (seamSection === 'start' ? 'Top' : seamSection === 'middle' ? 'Middle' : 'Bottom')
-                }
-              </span>
-              <button
-                onClick={() => setSeamSection(prev => 
-                  prev === 'middle' ? 'end' : prev === 'start' ? 'middle' : prev
-                )}
-                disabled={seamSection === 'end'}
-                className="px-4 py-2 bg-[#e5e7eb] text-[#374151] rounded-lg font-semibold hover:bg-[#d1d5db] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next Section →
-              </button>
-            </div>
-          )}
-
-          {/* Helper Text */}
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-[#e5e7eb]">
           <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
             <p className="text-sm text-blue-900">
               <strong>💡 What to look for:</strong> Perfect seams show no visible breaks or misalignment where tiles meet.
