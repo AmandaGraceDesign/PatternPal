@@ -14,14 +14,17 @@ export interface ContrastAnalysis {
   highDetail: boolean;
 }
 
-export interface DensityAnalysis {
-  coverageRatio: number; // 0-1
-  coverageBand: 'light' | 'medium' | 'heavy';
-  maxGapInches: number; // Largest contiguous background gap in print inches
+export interface CompositionAnalysis {
+  balanceScore: number; // 0-1, higher = more balanced
+  distributionPattern: 'all-over' | 'focal-point' | 'directional' | 'structured' | 'organic';
+  distributionConfidence: number; // 0-1
+  rhythmStrength: number; // 0-1
+  band: 'balanced' | 'dynamic' | 'asymmetric';
+  severity: 'none' | 'info' | 'warning';
   label: string;
-  description: string;
+  message: string;
   contextHint: string;
-  combinedNote?: string; // Optional combined risk note
+  weightGrid?: number[][]; // 3x3 grid (optional visualization)
 }
 
 /**
@@ -322,272 +325,408 @@ export function analyzeContrast(
 }
 
 /**
- * Find largest gap between motifs by sampling background regions
- * Returns the largest linear dimension of isolated gaps (not the entire background)
+ * Helper: Get saturation from RGB
  */
-function findLargestBackgroundGap(
-  imageData: ImageData,
-  isBackground: (r: number, g: number, b: number, a: number) => boolean
-): number {
+function getSaturation(r: number, g: number, b: number): number {
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const delta = max - min;
+
+  if (max === 0) return 0;
+  return delta / max;
+}
+
+/**
+ * Calculate visual weight grid (3x3) based on luminance and saturation
+ */
+function calculateVisualWeightGrid(imageData: ImageData): number[][] {
   const width = imageData.width;
   const height = imageData.height;
   const data = imageData.data;
-  const visited = new Set<number>();
-  let maxGapDimension = 0;
-  
-  // Sample at a coarser resolution to find gaps more efficiently
-  const sampleStep = Math.max(1, Math.floor(Math.min(width, height) / 100));
-  
-  for (let y = 0; y < height; y += sampleStep) {
-    for (let x = 0; x < width; x += sampleStep) {
-      const pixelKey = y * width + x;
-      
-      if (visited.has(pixelKey)) continue;
-      
+
+  const grid: number[][] = Array(3).fill(null).map(() => Array(3).fill(0));
+  const cellWidth = width / 3;
+  const cellHeight = height / 3;
+
+  // Sample every 4th pixel for performance
+  for (let y = 0; y < height; y += 4) {
+    for (let x = 0; x < width; x += 4) {
       const idx = (y * width + x) * 4;
       const r = data[idx];
       const g = data[idx + 1];
       const b = data[idx + 2];
       const a = data[idx + 3];
-      
-      if (!isBackground(r, g, b, a)) continue;
-      
-      // Flood fill to find contiguous background region
-      const stack: Array<[number, number]> = [[x, y]];
-      const regionPixels: Array<[number, number]> = [];
-      const regionVisited = new Set<number>();
-      let touchesEdge = false;
-      
-      while (stack.length > 0) {
-        const [cx, cy] = stack.pop()!;
-        const cKey = cy * width + cx;
-        
-        if (cx < 0 || cx >= width || cy < 0 || cy >= height) continue;
-        if (visited.has(cKey) || regionVisited.has(cKey)) continue;
-        
-        // Check if region touches image edge (likely the main background, not a gap)
-        if (cx === 0 || cx === width - 1 || cy === 0 || cy === height - 1) {
-          touchesEdge = true;
-        }
-        
-        const cIdx = (cy * width + cx) * 4;
-        const cr = data[cIdx];
-        const cg = data[cIdx + 1];
-        const cb = data[cIdx + 2];
-        const ca = data[cIdx + 3];
-        
-        if (!isBackground(cr, cg, cb, ca)) continue;
-        
-        regionVisited.add(cKey);
-        visited.add(cKey);
-        regionPixels.push([cx, cy]);
-        
-        // Check neighbors
-        stack.push([cx + 1, cy]);
-        stack.push([cx - 1, cy]);
-        stack.push([cx, cy + 1]);
-        stack.push([cx, cy - 1]);
-      }
-      
-      // Only consider regions that don't touch the edge (these are actual gaps between motifs)
-      // Also limit to reasonable gap sizes (not the entire background)
-      if (regionPixels.length > 0 && !touchesEdge && regionPixels.length < (width * height * 0.3)) {
-        // Calculate bounding box to get linear dimensions
-        let minX = regionPixels[0][0];
-        let maxX = regionPixels[0][0];
-        let minY = regionPixels[0][1];
-        let maxY = regionPixels[0][1];
-        
-        for (let i = 1; i < regionPixels.length; i++) {
-          const [px, py] = regionPixels[i];
-          if (px < minX) minX = px;
-          if (px > maxX) maxX = px;
-          if (py < minY) minY = py;
-          if (py > maxY) maxY = py;
-        }
-        
-        const gapWidth = maxX - minX + 1;
-        const gapHeight = maxY - minY + 1;
-        
-        // Use the larger dimension (width or height) as the gap size
-        const gapDimension = Math.max(gapWidth, gapHeight);
-        maxGapDimension = Math.max(maxGapDimension, gapDimension);
-      } else if (touchesEdge) {
-        // Mark edge-touching pixels as visited so we don't process them again
-        for (const [px, py] of regionPixels) {
-          visited.add(py * width + px);
-        }
-      }
+
+      if (a < 10) continue; // Skip transparent pixels
+
+      const luminance = getRelativeLuminance(r, g, b);
+      const saturation = getSaturation(r, g, b);
+
+      // Darkness = 1 - luminance (darker = heavier weight)
+      const darkness = 1 - luminance;
+
+      // Visual weight = darkness (60%) + saturation (40%)
+      const weight = (darkness * 0.6) + (saturation * 0.4);
+
+      // Determine which grid cell this pixel belongs to
+      const gridX = Math.min(2, Math.floor(x / cellWidth));
+      const gridY = Math.min(2, Math.floor(y / cellHeight));
+
+      grid[gridY][gridX] += weight;
     }
   }
-  
-  return maxGapDimension;
+
+  // Normalize by cell size (approximate pixel count per cell)
+  const cellArea = (cellWidth * cellHeight) / 16; // Divided by 16 due to sampling every 4th pixel
+  for (let y = 0; y < 3; y++) {
+    for (let x = 0; x < 3; x++) {
+      grid[y][x] = grid[y][x] / cellArea;
+    }
+  }
+
+  return grid;
 }
 
 /**
- * Analyze density and coverage of an image
+ * Analyze balance metrics from weight grid
  */
-export function analyzeDensity(
+function analyzeBalanceMetrics(grid: number[][]): {
+  leftRightBalance: number;
+  topBottomBalance: number;
+  centerRatio: number;
+  variance: number;
+  overallBalance: number;
+} {
+  // Calculate total weight for normalization
+  let totalWeight = 0;
+  for (let y = 0; y < 3; y++) {
+    for (let x = 0; x < 3; x++) {
+      totalWeight += grid[y][x];
+    }
+  }
+
+  if (totalWeight === 0) {
+    return {
+      leftRightBalance: 1,
+      topBottomBalance: 1,
+      centerRatio: 0,
+      variance: 0,
+      overallBalance: 1,
+    };
+  }
+
+  // Left vs Right
+  const leftWeight = grid[0][0] + grid[1][0] + grid[2][0];
+  const rightWeight = grid[0][2] + grid[1][2] + grid[2][2];
+  const leftRightBalance = 1 - Math.abs(leftWeight - rightWeight) / totalWeight;
+
+  // Top vs Bottom
+  const topWeight = grid[0][0] + grid[0][1] + grid[0][2];
+  const bottomWeight = grid[2][0] + grid[2][1] + grid[2][2];
+  const topBottomBalance = 1 - Math.abs(topWeight - bottomWeight) / totalWeight;
+
+  // Center vs Periphery
+  const centerWeight = grid[1][1];
+  const centerRatio = centerWeight / totalWeight;
+
+  // Variance (how evenly distributed)
+  const mean = totalWeight / 9;
+  let varianceSum = 0;
+  for (let y = 0; y < 3; y++) {
+    for (let x = 0; x < 3; x++) {
+      varianceSum += Math.pow(grid[y][x] - mean, 2);
+    }
+  }
+  const variance = Math.sqrt(varianceSum / 9) / (mean + 0.001); // Normalized
+
+  // Overall balance (weighted average)
+  const overallBalance = (leftRightBalance * 0.4) + (topBottomBalance * 0.4) + (1 - Math.min(1, variance)) * 0.2;
+
+  return {
+    leftRightBalance,
+    topBottomBalance,
+    centerRatio,
+    variance,
+    overallBalance,
+  };
+}
+
+/**
+ * Calculate horizontal gradient to detect left-to-right flow
+ */
+function calculateHorizontalGradient(grid: number[][]): number {
+  // Calculate average weight for left, middle, right columns
+  const left = (grid[0][0] + grid[1][0] + grid[2][0]) / 3;
+  const middle = (grid[0][1] + grid[1][1] + grid[2][1]) / 3;
+  const right = (grid[0][2] + grid[1][2] + grid[2][2]) / 3;
+
+  // Calculate correlation with increasing/decreasing gradient
+  const increasingCorr = (middle - left) + (right - middle);
+  const decreasingCorr = (left - middle) + (middle - right);
+
+  return Math.max(Math.abs(increasingCorr), Math.abs(decreasingCorr));
+}
+
+/**
+ * Calculate vertical gradient to detect top-to-bottom flow
+ */
+function calculateVerticalGradient(grid: number[][]): number {
+  // Calculate average weight for top, middle, bottom rows
+  const top = (grid[0][0] + grid[0][1] + grid[0][2]) / 3;
+  const middle = (grid[1][0] + grid[1][1] + grid[1][2]) / 3;
+  const bottom = (grid[2][0] + grid[2][1] + grid[2][2]) / 3;
+
+  // Calculate correlation with increasing/decreasing gradient
+  const increasingCorr = (middle - top) + (bottom - middle);
+  const decreasingCorr = (top - middle) + (middle - bottom);
+
+  return Math.max(Math.abs(increasingCorr), Math.abs(decreasingCorr));
+}
+
+/**
+ * Calculate symmetry score to detect grid patterns
+ */
+function calculateSymmetryScore(grid: number[][]): number {
+  let symmetryScore = 0;
+  let comparisons = 0;
+
+  // Check horizontal symmetry
+  for (let y = 0; y < 3; y++) {
+    const diff = Math.abs(grid[y][0] - grid[y][2]);
+    symmetryScore += 1 - Math.min(1, diff);
+    comparisons++;
+  }
+
+  // Check vertical symmetry
+  for (let x = 0; x < 3; x++) {
+    const diff = Math.abs(grid[0][x] - grid[2][x]);
+    symmetryScore += 1 - Math.min(1, diff);
+    comparisons++;
+  }
+
+  return symmetryScore / comparisons;
+}
+
+/**
+ * Calculate rhythm strength using autocorrelation (simplified)
+ */
+function calculateRhythmStrength(imageData: ImageData): number {
+  const width = imageData.width;
+  const height = imageData.height;
+  const data = imageData.data;
+
+  // Sample luminance values along horizontal and vertical lines
+  const sampleStep = Math.max(1, Math.floor(Math.min(width, height) / 50));
+  const samples: number[] = [];
+
+  // Sample middle row and middle column
+  const midY = Math.floor(height / 2);
+  const midX = Math.floor(width / 2);
+
+  for (let x = 0; x < width; x += sampleStep) {
+    const idx = (midY * width + x) * 4;
+    const lum = getRelativeLuminance(data[idx], data[idx + 1], data[idx + 2]);
+    samples.push(lum);
+  }
+
+  for (let y = 0; y < height; y += sampleStep) {
+    const idx = (y * width + midX) * 4;
+    const lum = getRelativeLuminance(data[idx], data[idx + 1], data[idx + 2]);
+    samples.push(lum);
+  }
+
+  if (samples.length < 4) return 0;
+
+  // Simple rhythm detection: count transitions
+  let transitions = 0;
+  const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+
+  for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1] > mean;
+    const curr = samples[i] > mean;
+    if (prev !== curr) transitions++;
+  }
+
+  // Normalize: more transitions = stronger rhythm
+  const rhythmStrength = Math.min(1, transitions / (samples.length * 0.4));
+
+  return rhythmStrength;
+}
+
+/**
+ * Classify distribution pattern
+ */
+function classifyDistributionPattern(
+  grid: number[][],
+  metrics: ReturnType<typeof analyzeBalanceMetrics>
+): { pattern: CompositionAnalysis['distributionPattern']; confidence: number } {
+  const horizontalGradient = calculateHorizontalGradient(grid);
+  const verticalGradient = calculateVerticalGradient(grid);
+  const symmetryScore = calculateSymmetryScore(grid);
+
+  // All-Over: Low variance, even distribution
+  if (metrics.variance < 0.15) {
+    return { pattern: 'all-over', confidence: 1 - metrics.variance };
+  }
+
+  // Focal Point: High center ratio
+  if (metrics.centerRatio > 0.4) {
+    return { pattern: 'focal-point', confidence: metrics.centerRatio };
+  }
+
+  // Directional: Strong gradient
+  const maxGradient = Math.max(horizontalGradient, verticalGradient);
+  if (maxGradient > 0.7) {
+    return { pattern: 'directional', confidence: Math.min(1, maxGradient) };
+  }
+
+  // Structured: High symmetry + medium variance
+  if (symmetryScore > 0.7 && metrics.variance > 0.15 && metrics.variance < 0.35) {
+    return { pattern: 'structured', confidence: symmetryScore };
+  }
+
+  // Organic: Default case
+  return { pattern: 'organic', confidence: 0.6 };
+}
+
+/**
+ * Generate composition feedback based on pattern analysis
+ */
+function generateCompositionFeedback(
+  pattern: CompositionAnalysis['distributionPattern'],
+  metrics: ReturnType<typeof analyzeBalanceMetrics>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _intendedUse: string
+): Pick<CompositionAnalysis, 'label' | 'message' | 'contextHint' | 'band' | 'severity'> {
+  const balanceScore = metrics.overallBalance;
+
+  // Determine band
+  let band: CompositionAnalysis['band'];
+  let severity: CompositionAnalysis['severity'];
+
+  if (balanceScore > 0.7) {
+    band = 'balanced';
+    severity = 'none';
+  } else if (balanceScore > 0.4) {
+    band = 'dynamic';
+    severity = 'info';
+  } else {
+    band = 'asymmetric';
+    severity = 'warning';
+  }
+
+  let label: string;
+  let message: string;
+  let contextHint: string;
+
+  // Pattern-specific messaging
+  switch (pattern) {
+    case 'all-over':
+      label = 'Composition: Balanced All-Over';
+      message = 'Visual weight is evenly distributed across the pattern, creating a harmonious all-over design.';
+      contextHint = 'This balanced composition works well for fabric yardage and wallpaper where you want consistent visual interest without dominant focal points.';
+      break;
+
+    case 'focal-point':
+      label = 'Composition: Centered Focal Point';
+      message = 'Visual weight concentrates toward the center, drawing the eye to a central motif.';
+      contextHint = 'This works beautifully for wallpaper panels or centered placement on products. For seamless repeats, ensure the transition to edges feels intentional.';
+      break;
+
+    case 'directional':
+      label = 'Composition: Directional Flow';
+      message = 'The pattern creates visual movement, guiding the eye across the design.';
+      contextHint = 'Directional patterns add dynamic energy. Consider how this flow works when the pattern repeats.';
+      break;
+
+    case 'structured':
+      label = 'Composition: Structured Grid';
+      message = 'Elements follow a geometric grid structure, creating order and rhythm.';
+      contextHint = 'The structured layout creates visual predictability and calm. This works especially well for modern, architectural interiors.';
+      break;
+
+    case 'organic':
+      label = 'Composition: Organic Distribution';
+      message = 'Elements are distributed irregularly, creating a natural, hand-drawn feel.';
+      contextHint = 'This organic composition feels relaxed and spontaneous. The varied spacing prevents monotony in large-scale installations.';
+      break;
+  }
+
+  // Override for asymmetric patterns
+  if (band === 'asymmetric') {
+    // Determine which side is heavier
+    let direction = '';
+    if (metrics.leftRightBalance < 0.6) {
+      const leftWeight = metrics.leftRightBalance < 0.5 ? 'right' : 'left';
+      direction = leftWeight === 'left' ? 'Left-Heavy' : 'Right-Heavy';
+    } else if (metrics.topBottomBalance < 0.6) {
+      const topWeight = metrics.topBottomBalance < 0.5 ? 'bottom' : 'top';
+      direction = topWeight === 'top' ? 'Top-Heavy' : 'Bottom-Heavy';
+    } else {
+      direction = 'Asymmetric';
+    }
+
+    label = `Composition: ${direction}`;
+    message = 'Visual weight concentrates in one area, creating strong asymmetry.';
+    contextHint = 'This composition can feel unbalanced across large areas. If this is intentional (e.g., for a border pattern), great! If you want more balance, consider redistributing elements.';
+  }
+
+  return { label, message, contextHint, band, severity };
+}
+
+/**
+ * Analyze composition and visual balance of a pattern
+ */
+export function analyzeComposition(
   image: HTMLImageElement,
-  dpi: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _tileWidth: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _tileHeight: number
-): DensityAnalysis {
-  // Downsample to 512x512 for analysis
-  const targetSize = 512;
+  intendedUse: 'fabric' | 'wallpaper' | 'blender/tonal' | 'unspecified' = 'unspecified'
+): CompositionAnalysis {
+  // Create a canvas to sample pixels (downsample to ~400x400 for consistency)
   const canvas = document.createElement('canvas');
+  const targetSize = 400;
   const scale = Math.min(1, targetSize / Math.max(image.width, image.height));
-  
+
   canvas.width = Math.floor(image.width * scale);
   canvas.height = Math.floor(image.height * scale);
-  
-  // Ensure we're close to 512x512
-  if (canvas.width > targetSize || canvas.height > targetSize) {
-    const finalScale = targetSize / Math.max(canvas.width, canvas.height);
-    canvas.width = Math.floor(canvas.width * finalScale);
-    canvas.height = Math.floor(canvas.height * finalScale);
-  }
-  
+
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     throw new Error('Could not get canvas context');
   }
-  
+
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  
-  // Extract dominant colors to identify background
-  const dominantColors = extractDominantColors(imageData, 8);
-  
-  // Identify background: typically the most common color
-  // Sort by count first (most common first)
-  const colorsWithLum = dominantColors.map(color => ({
-    ...color,
-    luminance: getRelativeLuminance(color.r, color.g, color.b),
-  })).sort((a, b) => b.count - a.count);
-  
-  // Background is most likely the most common color (by pixel count)
-  // This handles colored backgrounds better than just looking for the lightest
-  const backgroundColor = colorsWithLum[0];
-  
-  // Calculate how much more common the top color is than others
-  const topColorCount = colorsWithLum[0].count;
-  const secondColorCount = colorsWithLum.length > 1 ? colorsWithLum[1].count : 0;
-  const isDominantBackground = topColorCount > secondColorCount * 1.5; // Top color is significantly more common
-  
-  // Use adaptive threshold based on color distribution
-  // Calculate average color distance between dominant colors
-  let avgColorDist = 0;
-  let distCount = 0;
-  for (let i = 0; i < Math.min(4, colorsWithLum.length); i++) {
-    for (let j = i + 1; j < Math.min(4, colorsWithLum.length); j++) {
-      const dist = Math.sqrt(
-        Math.pow(colorsWithLum[i].r - colorsWithLum[j].r, 2) +
-        Math.pow(colorsWithLum[i].g - colorsWithLum[j].g, 2) +
-        Math.pow(colorsWithLum[i].b - colorsWithLum[j].b, 2)
-      );
-      avgColorDist += dist;
-      distCount++;
-    }
-  }
-  avgColorDist = distCount > 0 ? avgColorDist / distCount : 100;
-  
-  // Use adaptive threshold for background detection
-  // If the background is clearly dominant, we can be more generous
-  // But we need to be careful not to include foreground colors
-  const baseThreshold = isDominantBackground 
-    ? Math.max(35, Math.min(50, avgColorDist * 0.35)) // Cap at 50 to avoid being too generous
-    : Math.max(30, Math.min(45, avgColorDist * 0.3));
-  
-  // Function to determine if pixel is background
-  const isBackground = (r: number, g: number, b: number, a: number): boolean => {
-    if (a < 10) return true; // Transparent is background
-    
-    const luminance = getRelativeLuminance(r, g, b);
-    
-    // Check if it's very light (near-white/cream) - but only if background is also light
-    // This helps with light backgrounds but shouldn't affect dark backgrounds
-    if (backgroundColor.luminance > 0.7 && luminance > 0.85) return true;
-    
-    // Check if color is close to background color
-    const colorDist = Math.sqrt(
-      Math.pow(r - backgroundColor.r, 2) +
-      Math.pow(g - backgroundColor.g, 2) +
-      Math.pow(b - backgroundColor.b, 2)
-    );
-    
-    // Also check luminance similarity - if luminance is very different, it's likely foreground
-    const luminanceDiff = Math.abs(luminance - backgroundColor.luminance);
-    const maxLuminanceDiff = 0.15; // Allow some variation but not too much
-    
-    // Pixel is background if color is close AND luminance is similar
-    return colorDist < baseThreshold && luminanceDiff < maxLuminanceDiff;
-  };
-  
-  // Calculate coverage ratio
-  let foregroundPixels = 0;
-  const totalPixels = canvas.width * canvas.height;
-  
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const a = data[i + 3];
-    
-    if (!isBackground(r, g, b, a)) {
-      foregroundPixels++;
-    }
-  }
-  
-  const coverageRatio = foregroundPixels / totalPixels;
-  
-  // Find largest contiguous background gap
-  const maxGapPixels = findLargestBackgroundGap(imageData, isBackground);
-  
-  // Convert gap size to print inches
-  const pixelsPerInch = (canvas.width / image.width) * dpi;
-  const maxGapInches = maxGapPixels / pixelsPerInch;
-  
-  // Determine coverage band
-  let coverageBand: 'light' | 'medium' | 'heavy';
-  if (coverageRatio < 0.25) {
-    coverageBand = 'light';
-  } else if (coverageRatio < 0.6) {
-    coverageBand = 'medium';
-  } else {
-    coverageBand = 'heavy';
-  }
-  
-  // Generate descriptive label, description, and context hint
-  let label: string;
-  let description: string;
-  let contextHint: string;
-  
-  if (coverageBand === 'light') {
-    label = 'Coverage: Light';
-    description = `Motifs cover roughly ${Math.round(coverageRatio * 100)}% of the tile; background is very visible. Largest open spaces are about ${maxGapInches.toFixed(1)} in at print size.`;
-    contextHint = 'This reads as airy and spacious. Works well for large-scale wallpaper or designs where you want plenty of breathing room.';
-  } else if (coverageBand === 'medium') {
-    label = 'Coverage: Medium';
-    description = `Motifs cover roughly ${Math.round(coverageRatio * 100)}% of the tile with a balance of background and foreground. Largest open spaces are about ${maxGapInches.toFixed(1)} in at print size.`;
-    contextHint = 'This reads as a medium pattern density, suitable for many fabric and wallpaper applications.';
-  } else {
-    // heavy
-    label = 'Coverage: Heavy';
-    description = `Motifs cover roughly ${Math.round(coverageRatio * 100)}% of the tile with minimal background showing. Most open spaces are smaller than ${maxGapInches.toFixed(1)} in at print size.`;
-    contextHint = 'This reads as a continuous, high-energy surface, similar to a blender or maximalist all-over print. For small rooms or very large scales, it can feel intense; increase open space if you prefer a lighter look.';
-  }
-  
+
+  // Calculate visual weight grid
+  const weightGrid = calculateVisualWeightGrid(imageData);
+
+  // Analyze balance metrics
+  const metrics = analyzeBalanceMetrics(weightGrid);
+
+  // Classify distribution pattern
+  const { pattern, confidence } = classifyDistributionPattern(weightGrid, metrics);
+
+  // Calculate rhythm strength
+  const rhythmStrength = calculateRhythmStrength(imageData);
+
+  // Generate feedback
+  const feedback = generateCompositionFeedback(pattern, metrics, intendedUse);
+
   return {
-    coverageRatio,
-    coverageBand,
-    maxGapInches,
-    label,
-    description,
-    contextHint,
+    balanceScore: metrics.overallBalance,
+    distributionPattern: pattern,
+    distributionConfidence: confidence,
+    rhythmStrength,
+    band: feedback.band,
+    severity: feedback.severity,
+    label: feedback.label,
+    message: feedback.message,
+    contextHint: feedback.contextHint,
+    weightGrid,
   };
 }
+
 
