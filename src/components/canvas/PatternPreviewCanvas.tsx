@@ -162,23 +162,12 @@ export default function PatternPreviewCanvas({
               
               canvasCtx.imageSmoothingEnabled = true;
               canvasCtx.imageSmoothingQuality = 'high';
-              
-              // For Full Drop: tiles are on a perfect grid starting at 0,0
-              let outlineX = 0;
-              let outlineY = 0;
-              
-              // For Half Drop: columns alternate with vertical offset
-              if (repeatType === 'half-drop') {
-                outlineX = displayWidth;
-                outlineY = displayHeight / 2;
-              }
-              
-              // For Half Brick: rows alternate with horizontal offset
-              if (repeatType === 'half-brick') {
-                outlineX = displayWidth / 2;
-                outlineY = displayHeight;
-              }
-              
+
+              // Tile outline always starts at (0, 0) and shows the actual tile size
+              // regardless of repeat type
+              const outlineX = 0;
+              const outlineY = 0;
+
               // Draw hot pink outline
               canvasCtx.strokeStyle = '#ff1493'; // Hot pink
               canvasCtx.lineWidth = 6;
@@ -282,48 +271,10 @@ export default function PatternPreviewCanvas({
           canvasCtx.imageSmoothingEnabled = true;
           canvasCtx.imageSmoothingQuality = 'high';
           
-          // Calculate outline position to match where PatternTiler actually draws tiles
-          // PatternTiler uses scaledImg.width and scaledImg.height (which equals displayWidth/Height)
-          const tileW = displayWidth;  // Scaled image width = tile width
-          const tileH = displayHeight; // Scaled image height = tile height
-          
-          let outlineX = 0;
-          let outlineY = 0;
-          
-          // Match the exact logic PatternTiler uses for positioning
-          if (repeatType === 'full-drop') {
-            // Full drop: x=0, y=0 -> first tile at (0, 0)
-            outlineX = Math.round(0 * tileW);
-            outlineY = Math.round(0 * tileH);
-          } else if (repeatType === 'half-drop') {
-            // Half drop: column 1 (x=1), row -1 with offset
-            // x0 = Math.round(1 * tileW) = tileW
-            // logicalY = (-1 * tileH) + (tileH / 2) = -tileH/2
-            // y0 = Math.round(-tileH/2)
-            // If negative, we want the first visible tile, which would be at y=0 for column 0
-            // For column 1, first visible is at approximately tileH/2
-            outlineX = Math.round(1 * tileW);
-            const logicalY = (-1 * tileH) + (tileH / 2);
-            outlineY = Math.round(logicalY);
-            // If negative, find first positive position
-            if (outlineY < 0) {
-              outlineY = Math.round(tileH / 2);
-            }
-          } else if (repeatType === 'half-brick') {
-            // Half brick: row 1 (y=1), column -1 with offset
-            // y0 = Math.round(1 * tileH) = tileH
-            // logicalX = (-1 * tileW) + (tileW / 2) = -tileW/2
-            // x0 = Math.round(-tileW/2)
-            // If negative, we want the first visible tile, which would be at x=0 for row 0
-            // For row 1, first visible is at approximately tileW/2
-            const logicalX = (-1 * tileW) + (tileW / 2);
-            outlineX = Math.round(logicalX);
-            outlineY = Math.round(1 * tileH);
-            // If negative, find first positive position
-            if (outlineX < 0) {
-              outlineX = Math.round(tileW / 2);
-            }
-          }
+          // Tile outline always starts at (0, 0) and shows the actual tile size
+          // regardless of repeat type
+          const outlineX = 0;
+          const outlineY = 0;
           
           // #region agent log
           // #endregion
@@ -413,15 +364,15 @@ export default function PatternPreviewCanvas({
   const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-900">
+    <div className="flex-1 flex flex-col bg-white">
       {/* Header with Zoom Slider */}
-      <div className="h-12 border-b border-slate-700 px-6 flex items-center justify-between">
+      <div className="h-12 border-b border-[#e5e7eb] px-6 flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
-          <label className="text-xs text-slate-300 whitespace-nowrap">
+          <label className="text-xs text-[#294051] whitespace-nowrap">
             Zoom: {Math.round(zoom)}%
           </label>
           <div className="flex items-center gap-2 flex-1">
-            <span className="text-xs text-slate-400 whitespace-nowrap">0%</span>
+            <span className="text-xs text-[#6b7280] whitespace-nowrap">0%</span>
             <input
               type="range"
               min="0"
@@ -432,19 +383,19 @@ export default function PatternPreviewCanvas({
                 const newZoom = parseInt(e.target.value);
                 onZoomChange(Math.max(0, Math.min(200, newZoom)));
               }}
-              className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+              className="flex-1 h-1.5 bg-[#e5e7eb] rounded-lg appearance-none cursor-pointer"
               style={{ accentColor: '#f1737c' }}
             />
-            <span className="text-xs text-slate-400 whitespace-nowrap">200%</span>
+            <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
           </div>
         </div>
       </div>
 
       {/* Canvas Preview Area with Rulers */}
-      <div className="flex-1 flex flex-col bg-slate-800 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
         {/* Top ruler */}
-        <div className="flex border-b border-slate-700">
-          <div className="w-[30px] h-[30px] bg-slate-700 border-r border-slate-600" />
+        <div className="flex border-b border-[#cdcdcd]">
+          <div className="w-[30px] h-[30px] bg-[#cdcdcd] border-r border-[#cdcdcd]" />
           <div className="flex-1 overflow-hidden">
             {tileDisplaySize.width > 0 && image ? (
               <Ruler
@@ -455,14 +406,14 @@ export default function PatternPreviewCanvas({
                 pixelsPerUnit={horizontalPixelsPerUnit}
               />
             ) : (
-              <div className="h-[30px] bg-slate-700" />
+              <div className="h-[30px] bg-[#cdcdcd]" />
             )}
           </div>
         </div>
-        
+
         {/* Canvas with left ruler */}
         <div className="flex flex-1 overflow-auto">
-          <div className="w-[30px] overflow-hidden border-r border-slate-700">
+          <div className="w-[30px] overflow-hidden border-r border-[#cdcdcd]">
             {tileDisplaySize.height > 0 && image ? (
               <Ruler
                 orientation="vertical"
@@ -472,11 +423,11 @@ export default function PatternPreviewCanvas({
                 pixelsPerUnit={verticalPixelsPerUnit}
               />
             ) : (
-              <div className="w-[30px] bg-slate-700" />
+              <div className="w-[30px] bg-[#cdcdcd]" />
             )}
           </div>
-          <div 
-            className="flex-1 overflow-auto bg-slate-900 relative"
+          <div
+            className="flex-1 overflow-auto bg-white relative"
             style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto' }}
           >
             {/* Canvas - always rendered */}

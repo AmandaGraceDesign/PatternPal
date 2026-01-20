@@ -47,12 +47,12 @@ export default function Ruler({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    // Background - dark theme
-    ctx.fillStyle = '#1e293b'; // slate-800
+    // Background
+    ctx.fillStyle = '#cdcdcd';
     ctx.fillRect(0, 0, width, height);
 
-    // Border - dark theme
-    ctx.strokeStyle = '#475569'; // slate-600
+    // Border
+    ctx.strokeStyle = '#cdcdcd';
     ctx.lineWidth = 1;
     if (isHorizontal) {
       ctx.strokeRect(0, 0, width, height);
@@ -68,8 +68,8 @@ export default function Ruler({
       ctx.stroke();
     }
 
-    // Draw tick marks and labels - dark theme
-    ctx.fillStyle = '#cbd5e1'; // slate-300
+    // Draw tick marks and labels
+    ctx.fillStyle = '#374151'; // Dark gray for text
     ctx.font = '10px sans-serif';
     ctx.textAlign = isHorizontal ? 'center' : 'center';
     ctx.textBaseline = isHorizontal ? 'top' : 'middle';
