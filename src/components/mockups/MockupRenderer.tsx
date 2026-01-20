@@ -30,6 +30,105 @@ export default function MockupRenderer({
   const [isRendering, setIsRendering] = useState(false);
   const [mockupImage, setMockupImage] = useState<HTMLImageElement | null>(null);
   const [maskImage, setMaskImage] = useState<HTMLImageElement | null>(null);
+  const [colorMaskImage, setColorMaskImage] = useState<HTMLImageElement | null>(null);
+  const isOnesie = template.id === 'onesie';
+
+  const createMaskCanvas = (mask: HTMLImageElement, width: number, height: number) => {
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = width;
+    maskCanvas.height = height;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return null;
+
+    maskCtx.clearRect(0, 0, width, height);
+    maskCtx.drawImage(mask, 0, 0, width, height);
+
+    const imageData = maskCtx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const luminance = (r + g + b) / 3;
+
+      data[i] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+      data[i + 3] = luminance;
+    }
+
+    maskCtx.putImageData(imageData, 0, 0);
+    return maskCanvas;
+  };
+
+  const extractBackgroundColor = (img: HTMLImageElement): string => {
+    const sampleSize = 48;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = sampleSize;
+    tempCanvas.height = sampleSize;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return '#ffffff';
+
+    tempCtx.drawImage(img, 0, 0, sampleSize, sampleSize);
+    const { data } = tempCtx.getImageData(0, 0, sampleSize, sampleSize);
+
+    const buildHistogram = (minLuminance: number) => {
+      const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
+      const step = 16;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 10) continue;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const luminance = (r + g + b) / 3;
+        if (luminance < minLuminance) continue;
+
+        const qr = Math.min(255, Math.round(r / step) * step);
+        const qg = Math.min(255, Math.round(g / step) * step);
+        const qb = Math.min(255, Math.round(b / step) * step);
+        const key = `${qr},${qg},${qb}`;
+
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.count += 1;
+        } else {
+          buckets.set(key, { count: 1, r: qr, g: qg, b: qb });
+        }
+      }
+
+      return buckets;
+    };
+
+    const pickDominant = (buckets: Map<string, { count: number; r: number; g: number; b: number }>) => {
+      let best = { count: 0, r: 255, g: 255, b: 255 };
+      for (const bucket of buckets.values()) {
+        if (bucket.count > best.count) {
+          best = bucket;
+        }
+      }
+      return best;
+    };
+
+    // Pass 1: favor lighter tones
+    let buckets = buildHistogram(180);
+    let best = pickDominant(buckets);
+
+    // Pass 2: fallback to dominant color without luminance filter
+    if (best.count === 0) {
+      buckets = buildHistogram(0);
+      best = pickDominant(buckets);
+    }
+
+    if (best.count === 0) return '#ffffff';
+
+    return (
+      '#' +
+      [best.r, best.g, best.b].map((v) => v.toString(16).padStart(2, '0')).join('')
+    );
+  };
 
   // Load mockup base image
   useEffect(() => {
@@ -49,10 +148,20 @@ export default function MockupRenderer({
     }
   }, [template]);
 
+  // Load color mask for onesie only
+  useEffect(() => {
+    if (isOnesie) {
+      const img = new Image();
+      img.onload = () => setColorMaskImage(img);
+      img.src = '/mockups/onesie_mask_color.png';
+    } else {
+      setColorMaskImage(null);
+    }
+  }, [isOnesie]);
+
   // Render pattern on mockup
   useEffect(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:52',message:'Render effect triggered',data:{hasCanvas:!!canvasRef.current,hasMockupImage:!!mockupImage,hasPatternImage:!!patternImage,approach:template.approach,zoom},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
     // #endregion
     
     const canvas = canvasRef.current;
@@ -72,11 +181,15 @@ export default function MockupRenderer({
     canvas.height = mockupImage.height;
 
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:66',message:'Canvas setup',data:{canvasWidth:canvas.width,canvasHeight:canvas.height,mockupImageWidth:mockupImage.width,mockupImageHeight:mockupImage.height,patternAreaX:template.patternArea.x,patternAreaY:template.patternArea.y,patternAreaWidth:template.patternArea.width,patternAreaHeight:template.patternArea.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
 
     // Draw base mockup image
     ctx.drawImage(mockupImage, 0, 0);
+
+    if (isOnesie && (!maskImage || !colorMaskImage)) {
+      setIsRendering(false);
+      return;
+    }
 
     // Calculate pattern scale based on DPI conversion
     // Pattern is at 'dpi' DPI, but we want to display it at screen resolution (96 DPI)
@@ -96,7 +209,6 @@ export default function MockupRenderer({
     const viewZoom = displayZoomToActualZoom(zoom || 100);
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:90',message:'Zoom calculation',data:{displayZoom:zoom,viewZoom,patternImageWidth:patternImage.width,patternImageHeight:patternImage.height,dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
     // #endregion
     
     // Convert pattern dimensions from its DPI to screen DPI (96), then apply zoom
@@ -104,7 +216,6 @@ export default function MockupRenderer({
     const patternScreenHeight = patternImage.height * (96 / dpi) * viewZoom;
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:96',message:'Pattern screen dimensions',data:{patternScreenWidth,patternScreenHeight,patternAreaWidth:patternArea.width,patternAreaHeight:patternArea.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
     // #endregion
     
     // Calculate base scale to fit pattern area (at zoom = 1.0, which is viewZoom = 0.15)
@@ -128,7 +239,6 @@ export default function MockupRenderer({
     const scaledPatternHeight = basePatternScreenHeight * targetScale;
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:125',message:'Final scaled dimensions',data:{scaledPatternWidth,scaledPatternHeight,baseScale,viewZoom,zoomMultiplier,targetScale,basePatternScreenWidth,basePatternScreenHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
     // #endregion
 
     // Create a temporary canvas for the pattern
@@ -144,7 +254,6 @@ export default function MockupRenderer({
     }
 
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:87',message:'Pattern canvas created',data:{patternCanvasWidth:patternCanvas.width,patternCanvasHeight:patternCanvas.height,patternAreaWidth:patternArea.width,patternAreaHeight:patternArea.height,patternAreaX:patternArea.x,patternAreaY:patternArea.y},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
 
     // Fill background (transparent for now, will be masked)
@@ -177,7 +286,6 @@ export default function MockupRenderer({
         ctx.save();
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:175',message:'Drawing pattern to main canvas',data:{patternAreaX:patternArea.x,patternAreaY:patternArea.y,patternAreaWidth:patternArea.width,patternAreaHeight:patternArea.height,canvasWidth:canvas.width,canvasHeight:canvas.height,blendMode:template.blendMode,opacity:template.opacity,hasMask:!!maskImage},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
         
         // Map blend mode to canvas composite operation
@@ -193,7 +301,6 @@ export default function MockupRenderer({
         
         if (needsMultiplyMask) {
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:190',message:'Using multiply+mask approach',data:{patternAreaX:patternArea.x,patternAreaY:patternArea.y,patternCanvasWidth:patternCanvas.width,patternCanvasHeight:patternCanvas.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'M'})}).catch(()=>{});
           // #endregion
           
           // Create temp canvas for multiply blend + mask
@@ -217,22 +324,60 @@ export default function MockupRenderer({
             patternCanvas.width, patternCanvas.height
           );
           
-          // Step 2: Apply multiply blend between base and pattern
-          tempCtx.globalCompositeOperation = 'multiply';
-          tempCtx.globalAlpha = template.opacity ?? 1;
-          tempCtx.drawImage(patternCanvas, 0, 0);
+          if (isOnesie && colorMaskImage) {
+            // Onesie: build color + pattern layers and composite
+            const colorLayer = document.createElement('canvas');
+            colorLayer.width = patternCanvas.width;
+            colorLayer.height = patternCanvas.height;
+            const colorCtx = colorLayer.getContext('2d');
+            if (colorCtx) {
+              colorCtx.fillStyle = extractBackgroundColor(patternImage);
+              colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
+              colorCtx.globalCompositeOperation = 'destination-in';
+              const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
+              if (colorMaskCanvas) {
+                colorCtx.drawImage(colorMaskCanvas, 0, 0);
+              }
+            }
+
+            const patternLayer = document.createElement('canvas');
+            patternLayer.width = patternCanvas.width;
+            patternLayer.height = patternCanvas.height;
+            const patternLayerCtx = patternLayer.getContext('2d');
+            if (patternLayerCtx) {
+              patternLayerCtx.drawImage(patternCanvas, 0, 0);
+              patternLayerCtx.globalCompositeOperation = 'destination-in';
+              const patternMaskCanvas = createMaskCanvas(maskImage, patternArea.width, patternArea.height);
+              if (patternMaskCanvas) {
+                patternLayerCtx.drawImage(patternMaskCanvas, 0, 0);
+              }
+            }
+
+            tempCtx.globalCompositeOperation = 'multiply';
+            tempCtx.globalAlpha = 1;
+            tempCtx.drawImage(colorLayer, 0, 0);
+
+            tempCtx.globalCompositeOperation = 'multiply';
+            tempCtx.globalAlpha = template.opacity ?? 1;
+            tempCtx.drawImage(patternLayer, 0, 0);
+          } else {
+            // Step 2: Apply multiply blend between base and pattern
+            tempCtx.globalCompositeOperation = 'multiply';
+            tempCtx.globalAlpha = template.opacity ?? 1;
+            tempCtx.drawImage(patternCanvas, 0, 0);
+          }
           
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:210',message:'Multiply blend applied',data:{opacity:tempCtx.globalAlpha},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
           // #endregion
           
-          // Step 3: Apply mask to the multiplied result
-          tempCtx.globalCompositeOperation = 'destination-out';
-          tempCtx.globalAlpha = 1;
-          tempCtx.drawImage(maskImage, 0, 0, patternArea.width, patternArea.height);
+          // Step 3: Apply mask to the multiplied result (non-onesie only)
+          if (!isOnesie) {
+            tempCtx.globalCompositeOperation = 'destination-out';
+            tempCtx.globalAlpha = 1;
+            tempCtx.drawImage(maskImage, 0, 0, patternArea.width, patternArea.height);
+          }
           
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:218',message:'Mask applied to multiplied result',data:{maskWidth:patternArea.width,maskHeight:patternArea.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
           // #endregion
           
           // Step 4: Draw final result to main canvas (no blend mode needed)
@@ -243,13 +388,37 @@ export default function MockupRenderer({
         } else if (maskImage) {
           // Has mask but no multiply - apply mask to pattern canvas first
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:228',message:'Applying mask (no multiply)',data:{patternAreaWidth:patternArea.width,patternAreaHeight:patternArea.height,maskImageWidth:maskImage.width,maskImageHeight:maskImage.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           
-          // Black areas hide pattern, transparent/white areas show pattern
-          patternCtx.globalCompositeOperation = 'destination-out';
-          patternCtx.drawImage(maskImage, 0, 0, patternArea.width, patternArea.height);
-          
+          if (isOnesie && colorMaskImage) {
+            const colorLayer = document.createElement('canvas');
+            colorLayer.width = patternCanvas.width;
+            colorLayer.height = patternCanvas.height;
+            const colorCtx = colorLayer.getContext('2d');
+            if (colorCtx) {
+              colorCtx.fillStyle = extractBackgroundColor(patternImage);
+              colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
+              colorCtx.globalCompositeOperation = 'destination-in';
+              const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
+              if (colorMaskCanvas) {
+                colorCtx.drawImage(colorMaskCanvas, 0, 0);
+              }
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.globalAlpha = 1;
+              ctx.drawImage(colorLayer, patternArea.x, patternArea.y);
+            }
+
+            patternCtx.globalCompositeOperation = 'destination-in';
+            const patternMaskCanvas = createMaskCanvas(maskImage, patternArea.width, patternArea.height);
+            if (patternMaskCanvas) {
+              patternCtx.drawImage(patternMaskCanvas, 0, 0);
+            }
+          } else {
+            // Black areas hide pattern, transparent/white areas show pattern
+            patternCtx.globalCompositeOperation = 'destination-out';
+            patternCtx.drawImage(maskImage, 0, 0, patternArea.width, patternArea.height);
+          }
+
           // Then apply blend mode
           ctx.globalCompositeOperation = blendModeMap[template.blendMode || 'normal'] || 'source-over';
           ctx.globalAlpha = template.opacity ?? 1;
@@ -263,7 +432,6 @@ export default function MockupRenderer({
         }
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MockupRenderer.tsx:245',message:'Pattern drawn to main canvas',data:{drawnAtX:patternArea.x,drawnAtY:patternArea.y,patternCanvasWidth:patternCanvas.width,patternCanvasHeight:patternCanvas.height,mainCanvasWidth:canvas.width,mainCanvasHeight:canvas.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
         // #endregion
         
         ctx.restore();
@@ -278,7 +446,7 @@ export default function MockupRenderer({
     } else {
       setIsRendering(false);
     }
-  }, [template, mockupImage, maskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom]);
+  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom]);
 
   // Prevent right-click and image copying
   const handleContextMenu = (e: React.MouseEvent) => {

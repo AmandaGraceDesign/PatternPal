@@ -198,14 +198,12 @@ export function createSeamlessDefaultPattern(size: number = 800): Promise<HTMLCa
     
     img.onload = () => {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'imageUtils.ts:197',message:'Default pattern SVG loaded',data:{svgWidth:img.width,svgHeight:img.height,canvasWidth:canvas.width,canvasHeight:canvas.height,expectedSize:400},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       
       // Draw the jpg to canvas first (scale jpg to requested size)
       ctx.drawImage(img, 0, 0, size, size);
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'imageUtils.ts:200',message:'SVG drawn to canvas, checking edge pixels',data:{checkingEdgePixels:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
       
       // Check edge pixels before clearing
@@ -215,7 +213,6 @@ export function createSeamlessDefaultPattern(size: number = 800): Promise<HTMLCa
       const beforeRight = ctx.getImageData(size - 1, 0, 1, size);
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'imageUtils.ts:207',message:'Edge pixels before clearing',data:{topEdgeSample:[...beforeTop.data.slice(0,12)],bottomEdgeSample:[...beforeBottom.data.slice(0,12)],leftEdgeSample:[...beforeLeft.data.slice(0,12)],rightEdgeSample:[...beforeRight.data.slice(0,12)]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
       
      

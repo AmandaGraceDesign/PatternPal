@@ -246,7 +246,6 @@ export default function PatternPreviewCanvas({
       const scaledImg = new Image();
       scaledImg.onload = () => {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:229',message:'Scaled image loaded, starting render',data:{displayWidth,displayHeight,repeatType,zoom,showTileOutline,imageWidth:image.width,imageHeight:image.height,dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
         
         console.log('Scaled image loaded, rendering pattern...');
@@ -264,18 +263,15 @@ export default function PatternPreviewCanvas({
         tiler.render(scaledImg, repeatType);
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:246',message:'Pattern tiled, checking context state',data:{showTileOutline,transformA:canvasCtx.getTransform().a,transformD:canvasCtx.getTransform().d,transformE:canvasCtx.getTransform().e,transformF:canvasCtx.getTransform().f},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
         // #endregion
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:234',message:'Pattern tiled, about to draw outline',data:{showTileOutline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
         // #endregion
         
         // Draw tile outline if enabled (after pattern is rendered)
         // Draw synchronously to ensure it happens every render and uses current values
         if (showTileOutline) {
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:238',message:'Drawing tile outline',data:{showTileOutline,repeatType,displayWidth,displayHeight,zoom,canvasSizeWidth:canvasSize.width,canvasSizeHeight:canvasSize.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           
           // Re-apply DPR scaling to ensure it's correct after PatternTiler.render()
@@ -330,11 +326,9 @@ export default function PatternPreviewCanvas({
           }
           
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:275',message:'Outline position calculation details',data:{repeatType,tileW,tileH,outlineX,outlineY,displayWidth,displayHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
           // #endregion
           
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:260',message:'Outline position calculated',data:{outlineX,outlineY,displayWidth,displayHeight,repeatType,currentDpr},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
           // #endregion
           
           // Draw hot pink outline
@@ -344,7 +338,6 @@ export default function PatternPreviewCanvas({
           canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
           
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternPreviewCanvas.tsx:270',message:'Outline drawn',data:{outlineX:outlineX+3,outlineY:outlineY+3,outlineWidth:displayWidth-6,outlineHeight:displayHeight-6,transformAfterA:canvasCtx.getTransform().a,transformAfterD:canvasCtx.getTransform().d},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
         }
       };
