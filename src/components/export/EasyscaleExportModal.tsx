@@ -11,6 +11,7 @@ interface EasyscaleExportModalProps {
   currentDPI: number;
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   originalFilename: string | null;
+  isPro?: boolean;
 }
 
 const PRESET_SIZES = [2, 4, 6, 8, 10, 12, 18, 24];
@@ -34,10 +35,11 @@ export default function EasyscaleExportModal({
   currentDPI,
   repeatType,
   originalFilename,
+  isPro = false,
 }: EasyscaleExportModalProps) {
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
-  const [selectedDPI, setSelectedDPI] = useState<150 | 300>(300);
-  const [format, setFormat] = useState<'png' | 'jpg'>('png');
+  const [selectedDPI, setSelectedDPI] = useState<150 | 300>(isPro ? 300 : 150);
+  const [format, setFormat] = useState<'png' | 'jpg'>(isPro ? 'png' : 'jpg');
   const [includeOriginal, setIncludeOriginal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,9 +75,14 @@ export default function EasyscaleExportModal({
   }, [isOpen, onClose]);
 
   const handleSizeToggle = (size: number) => {
-    setSelectedSizes((prev) =>
-      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
-    );
+    if (!isPro) {
+      // Free users can only select one size
+      setSelectedSizes([size]);
+    } else {
+      setSelectedSizes((prev) =>
+        prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+      );
+    }
   };
 
   const handleExport = async () => {
@@ -176,9 +183,14 @@ export default function EasyscaleExportModal({
 
               {/* Size Selection */}
               <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Select Sizes (Longest Side)
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold text-[#294051] uppercase tracking-wide">
+                    Select Sizes (Longest Side)
+                  </h4>
+                  {!isPro && (
+                    <span className="text-[10px] text-[#6b7280] italic">Free: 1 size only</span>
+                  )}
+                </div>
                 <div className="grid grid-cols-4 gap-2">
                   {PRESET_SIZES.map((size) => (
                     <label
@@ -200,13 +212,23 @@ export default function EasyscaleExportModal({
                     </label>
                   ))}
                 </div>
+                {!isPro && selectedSizes.length > 0 && (
+                  <p className="text-xs text-[#6b7280] mt-2 italic">
+                    💡 Upgrade to Pro to export multiple sizes at once
+                  </p>
+                )}
               </div>
 
               {/* DPI Selection */}
               <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Target DPI
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold text-[#294051] uppercase tracking-wide">
+                    Target DPI
+                  </h4>
+                  {!isPro && (
+                    <span className="text-[10px] text-[#6b7280] italic">Free: 150 DPI only</span>
+                  )}
+                </div>
                 <div className="flex gap-3">
                   <label className="flex items-center cursor-pointer group">
                     <input
@@ -223,7 +245,7 @@ export default function EasyscaleExportModal({
                       150 DPI (Standard)
                     </span>
                   </label>
-                  <label className={`flex items-center ${currentDPI >= 300 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
+                  <label className={`flex items-center ${isPro && currentDPI >= 300 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
                     <input
                       type="radio"
                       name="dpi"
@@ -232,14 +254,19 @@ export default function EasyscaleExportModal({
                       onChange={() => setSelectedDPI(300)}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
-                      disabled={isExporting || currentDPI < 300}
+                      disabled={isExporting || currentDPI < 300 || !isPro}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      300 DPI (High Quality)
+                      300 DPI (High Quality) {!isPro && '🔒'}
                     </span>
                   </label>
                 </div>
-                {currentDPI < 300 && (
+                {!isPro && (
+                  <p className="text-xs text-[#6b7280] mt-2 italic">
+                    💡 Upgrade to Pro for 300 DPI exports
+                  </p>
+                )}
+                {isPro && currentDPI < 300 && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
                     300 DPI export requires original file to be at least 300 DPI
                   </p>
@@ -248,11 +275,16 @@ export default function EasyscaleExportModal({
 
               {/* Format Selection */}
               <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Format
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold text-[#294051] uppercase tracking-wide">
+                    Format
+                  </h4>
+                  {!isPro && (
+                    <span className="text-[10px] text-[#6b7280] italic">Free: JPG only</span>
+                  )}
+                </div>
                 <div className="flex gap-3">
-                  <label className="flex items-center cursor-pointer group">
+                  <label className={`flex items-center ${isPro ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
                     <input
                       type="radio"
                       name="format"
@@ -261,10 +293,10 @@ export default function EasyscaleExportModal({
                       onChange={() => setFormat('png')}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                       style={{ accentColor: '#f1737c' }}
-                      disabled={isExporting}
+                      disabled={isExporting || !isPro}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      PNG (Lossless)
+                      PNG (Lossless) {!isPro && '🔒'}
                     </span>
                   </label>
                   <label className="flex items-center cursor-pointer group">
@@ -283,21 +315,33 @@ export default function EasyscaleExportModal({
                     </span>
                   </label>
                 </div>
+                {!isPro && (
+                  <p className="text-xs text-[#6b7280] mt-2 italic">
+                    💡 Upgrade to Pro for PNG exports with transparency
+                  </p>
+                )}
               </div>
 
               {/* Include Original */}
               <div>
-                <label className="flex items-center cursor-pointer">
+                <label className={`flex items-center ${isPro ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                   <input
                     type="checkbox"
                     checked={includeOriginal}
                     onChange={(e) => setIncludeOriginal(e.target.checked)}
                     className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
                     style={{ accentColor: '#f1737c' }}
-                    disabled={isExporting}
+                    disabled={isExporting || !isPro}
                   />
-                  <span className="text-sm text-[#374151]">Include original tile in export</span>
+                  <span className="text-sm text-[#374151]">
+                    Include original tile in export {!isPro && '🔒'}
+                  </span>
                 </label>
+                {!isPro && (
+                  <p className="text-xs text-[#6b7280] mt-2 italic ml-6">
+                    💡 Upgrade to Pro to include your original tile
+                  </p>
+                )}
               </div>
 
               {/* Preview */}

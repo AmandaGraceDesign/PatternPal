@@ -1,5 +1,4 @@
-// Placeholder auth system
-// TODO: Replace with actual Supabase auth implementation
+import { auth as clerkAuth, clerkClient, currentUser } from "@clerk/nextjs/server";
 
 export interface User {
   id: string;
@@ -16,13 +15,25 @@ export interface Session {
  * TODO: Implement with Supabase auth
  */
 export async function auth(): Promise<Session> {
-  // Placeholder: Always returns no user (not Pro)
-  // Replace this with actual Supabase auth check:
-  // const { data: { session } } = await supabase.auth.getSession();
-  // return { user: session?.user ? { ...session.user, isPro: checkProStatus(session.user.id) } : null };
-  
+  const { userId } = clerkAuth();
+  if (!userId) {
+    return { user: null };
+  }
+
+  const user = await currentUser();
+  if (!user) {
+    return { user: null };
+  }
+
+  const email = user.emailAddresses?.[0]?.emailAddress;
+  const isPro = Boolean(user.publicMetadata?.isPro);
+
   return {
-    user: null,
+    user: {
+      id: user.id,
+      email,
+      isPro,
+    },
   };
 }
 
@@ -31,10 +42,6 @@ export async function auth(): Promise<Session> {
  * TODO: Implement with database query
  */
 export async function checkProStatus(userId: string): Promise<boolean> {
-  // Placeholder: Always returns false
-  // Replace with actual database check:
-  // const { data } = await supabase.from('subscriptions').select('*').eq('user_id', userId).eq('plan', 'pro').single();
-  // return !!data && data.status === 'active';
-  
-  return false;
+  const user = await clerkClient.users.getUser(userId);
+  return Boolean(user.publicMetadata?.isPro);
 }

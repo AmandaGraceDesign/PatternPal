@@ -1,6 +1,7 @@
 'use client';
 import Ruler from './Ruler';
 import { useEffect, useRef, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { PatternTiler, RepeatType } from '@/lib/tiling/PatternTiler';
 import ScaleExportModal from '@/components/export/ScaleExportModal';
 import UpgradeModal from '@/components/export/UpgradeModal';
@@ -284,6 +285,7 @@ function detectFileType(view: DataView): string {
 }
 
 export default function PatternCanvas() {
+  const { user, isSignedIn } = useUser();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [repeatType, setRepeatType] = useState<RepeatType>('full-drop');
@@ -304,7 +306,7 @@ export default function PatternCanvas() {
   // Scale Export Modal state
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [isPro] = useState(false); // TODO: Replace with actual Pro subscription check
+  const isPro = Boolean(isSignedIn && user?.publicMetadata?.isPro);
   
   // Convert display zoom (0-200) to actual zoom (0.01-5.0)
   // 100 on slider = 0.15 actual zoom (our default "tester view")

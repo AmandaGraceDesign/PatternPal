@@ -1,11 +1,31 @@
 'use client';
 
+import { useState } from 'react';
+import { SignInButton, useUser } from '@clerk/nextjs';
+import CheckoutModal from '@/components/billing/CheckoutModal';
+
 interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
+  const { user, isSignedIn } = useUser();
+  const isPro = Boolean(isSignedIn && user?.publicMetadata?.isPro);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  const handleManageSubscription = async () => {
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Failed to open customer portal', error);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -67,26 +87,60 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
             >
               Maybe Later
             </button>
-            <button
-              onClick={() => {
-                // TODO: Implement actual upgrade flow
-                console.log('Upgrade clicked');
-                onClose();
-              }}
-              className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
-              style={{ backgroundColor: '#f1737c' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#e05a65';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#f1737c';
-              }}
-            >
-              Upgrade Now
-            </button>
+            {isPro ? (
+              <button
+                onClick={handleManageSubscription}
+                className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
+                style={{ backgroundColor: '#f1737c' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#e05a65';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f1737c';
+                }}
+              >
+                Manage Subscription
+              </button>
+            ) : isSignedIn ? (
+              <button
+                onClick={() => setIsCheckoutOpen(true)}
+                className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
+                style={{ backgroundColor: '#f1737c' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#e05a65';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f1737c';
+                }}
+              >
+                Upgrade Now
+              </button>
+            ) : (
+              <SignInButton mode="modal">
+                <button
+                  className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#f1737c' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#e05a65';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f1737c';
+                  }}
+                >
+                  Sign in to Upgrade
+                </button>
+              </SignInButton>
+            )}
           </div>
         </div>
       </div>
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => {
+          setIsCheckoutOpen(false);
+          onClose();
+        }}
+      />
     </div>
   );
 }
