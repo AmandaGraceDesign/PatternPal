@@ -12,7 +12,9 @@ export interface Session {
 
 /**
  * Get the current session
- * TODO: Implement with Supabase auth
+ * Checks for Pro status in multiple formats:
+ * 1. publicMetadata.isPro (legacy/simple format)
+ * 2. publicMetadata.plan === 'patternpal_pro' with proUntil date
  */
 export async function auth(): Promise<Session> {
   const { userId } = clerkAuth();
@@ -26,7 +28,22 @@ export async function auth(): Promise<Session> {
   }
 
   const email = user.emailAddresses?.[0]?.emailAddress;
-  const isPro = Boolean(user.publicMetadata?.isPro);
+  const metadata = user.publicMetadata as any;
+
+  // Check Pro status in multiple formats
+  let isPro = false;
+
+  // Format 1: Simple isPro boolean
+  if (metadata?.isPro === true) {
+    isPro = true;
+  }
+
+  // Format 2: plan === 'patternpal_pro' with proUntil date
+  if (metadata?.plan === 'patternpal_pro' && metadata?.proUntil) {
+    const proUntilDate = new Date(metadata.proUntil);
+    const now = new Date();
+    isPro = proUntilDate > now; // Pro if subscription hasn't expired
+  }
 
   return {
     user: {
@@ -39,9 +56,25 @@ export async function auth(): Promise<Session> {
 
 /**
  * Check if a user has Pro subscription
- * TODO: Implement with database query
+ * Checks for Pro status in multiple formats:
+ * 1. publicMetadata.isPro (legacy/simple format)
+ * 2. publicMetadata.plan === 'patternpal_pro' with proUntil date
  */
 export async function checkProStatus(userId: string): Promise<boolean> {
   const user = await clerkClient.users.getUser(userId);
-  return Boolean(user.publicMetadata?.isPro);
+  const metadata = user.publicMetadata as any;
+
+  // Format 1: Simple isPro boolean
+  if (metadata?.isPro === true) {
+    return true;
+  }
+
+  // Format 2: plan === 'patternpal_pro' with proUntil date
+  if (metadata?.plan === 'patternpal_pro' && metadata?.proUntil) {
+    const proUntilDate = new Date(metadata.proUntil);
+    const now = new Date();
+    return proUntilDate > now; // Pro if subscription hasn't expired
+  }
+
+  return false;
 }

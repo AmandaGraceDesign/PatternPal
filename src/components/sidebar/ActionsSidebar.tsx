@@ -9,6 +9,7 @@ import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import SeamAnalyzer from '@/components/analysis/SeamAnalyzer';
 import { getMockupTemplate, getAllMockupTypes } from '@/lib/mockups/mockupTemplates';
+import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
 interface ActionsSidebarProps {
   image: HTMLImageElement | null;
@@ -31,7 +32,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
-  const isPro = Boolean(isSignedIn && user?.publicMetadata?.isPro);
+  const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
 
   const handleManageSubscription = async () => {
     try {

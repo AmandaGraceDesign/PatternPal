@@ -1,12 +1,12 @@
 import JSZip from 'jszip';
 import { scaleImage, calculateOriginalSize, detectOriginalDPI } from './imageScaler';
-import { injectPngDpi, injectJpegDpi } from './dpiMetadata';
+import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
 
 export interface ScaledExportConfig {
   image: HTMLImageElement;
   selectedSizes: number[];      // [2, 4, 6, 8, 10]
   selectedDPI: 150 | 300;
-  format: 'png' | 'jpg';
+  format: 'png' | 'jpg' | 'tif';
   repeatType: string;            // 'halfdrop', 'halfbrick', 'fulldrop'
   includeOriginal: boolean;
   originalDPI: number;           // Current DPI of the image from app state
@@ -33,18 +33,25 @@ export async function generateScaledExport(config: ScaledExportConfig) {
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(config.image, 0, 0);
     
-    const originalBlob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(
-        (blob) => resolve(blob!),
-        config.format === 'jpg' ? 'image/jpeg' : 'image/png',
-        0.95
-      );
-    });
-    
-    // Inject original DPI metadata
-    const blobWithDpi = config.format === 'png'
-      ? await injectPngDpi(originalBlob, originalDPI)
-      : await injectJpegDpi(originalBlob, originalDPI);
+    // Create blob with format-specific handling
+    let blobWithDpi: Blob;
+    if (config.format === 'tif') {
+      // TIFF creation includes DPI metadata
+      blobWithDpi = await createTiffWithDpi(canvas, originalDPI);
+    } else {
+      const originalBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob(
+          (blob) => resolve(blob!),
+          config.format === 'jpg' ? 'image/jpeg' : 'image/png',
+          0.95
+        );
+      });
+
+      // Inject DPI metadata for PNG/JPG
+      blobWithDpi = config.format === 'png'
+        ? await injectPngDpi(originalBlob, originalDPI)
+        : await injectJpegDpi(originalBlob, originalDPI);
+    }
     
     const originalFilename = `${baseFilename}-original-${originalDPI}dpi.${fileExtension}`;
     zip.file(originalFilename, blobWithDpi);

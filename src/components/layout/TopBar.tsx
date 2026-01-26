@@ -1,10 +1,11 @@
 'use client';
 
 import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
+import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
 export default function TopBar() {
   const { user, isSignedIn } = useUser();
-  const isPro = Boolean(isSignedIn && user?.publicMetadata?.isPro);
+  const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
 
   const handleManageSubscription = async () => {
     try {

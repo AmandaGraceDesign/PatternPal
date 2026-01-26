@@ -1,5 +1,5 @@
 // Core scaling utilities for easyscale export
-import { injectPngDpi, injectJpegDpi } from './dpiMetadata';
+import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
 
 /**
  * Detect original DPI from image
@@ -43,7 +43,7 @@ export async function scaleImage(
   originalSizeInches: number,
   originalDPI: number,
   targetDPI: number,
-  format: 'png' | 'jpg'
+  format: 'png' | 'jpg' | 'tif'
 ): Promise<Blob> {
   
   // Calculate target pixel dimensions
@@ -75,21 +75,27 @@ export async function scaleImage(
   ctx.imageSmoothingQuality = 'high';
   
   ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-  
-  // Create blob from canvas
-  const blob = await new Promise<Blob>((resolve) => {
-    canvas.toBlob(
-      (blob) => resolve(blob!),
-      format === 'jpg' ? 'image/jpeg' : 'image/png',
-      0.95
-    );
-  });
-  
-  // Inject DPI metadata
-  if (format === 'png') {
-    return await injectPngDpi(blob, targetDPI);
+
+  // Create blob based on format
+  if (format === 'tif') {
+    // TIFF creation includes DPI metadata
+    return await createTiffWithDpi(canvas, targetDPI);
   } else {
-    return await injectJpegDpi(blob, targetDPI);
+    // Create blob from canvas for PNG/JPG
+    const blob = await new Promise<Blob>((resolve) => {
+      canvas.toBlob(
+        (blob) => resolve(blob!),
+        format === 'jpg' ? 'image/jpeg' : 'image/png',
+        0.95
+      );
+    });
+
+    // Inject DPI metadata for PNG/JPG
+    if (format === 'png') {
+      return await injectPngDpi(blob, targetDPI);
+    } else {
+      return await injectJpegDpi(blob, targetDPI);
+    }
   }
 }
 

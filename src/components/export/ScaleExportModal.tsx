@@ -16,7 +16,7 @@ const AVAILABLE_SIZES = [24, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2];
 
 export default function ScaleExportModal({ image, repeatType, currentDPI, originalFilename, onClose }: ScaleExportModalProps) {
   const [selectedDPI, setSelectedDPI] = useState<150 | 300>(300);
-  const [selectedFormat, setSelectedFormat] = useState<'png' | 'jpg'>('png');
+  const [selectedFormat, setSelectedFormat] = useState<'png' | 'jpg' | 'tif'>('png');
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [includeOriginal, setIncludeOriginal] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -193,6 +193,18 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                 disabled={isGenerating}
               />
               <span className="text-sm text-slate-200">JPG</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                value="tif"
+                checked={selectedFormat === 'tif'}
+                onChange={() => setSelectedFormat('tif')}
+                className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
+                style={{ accentColor: '#f1737c' }}
+                disabled={isGenerating}
+              />
+              <span className="text-sm text-slate-200">TIFF</span>
             </label>
           </div>
         </div>

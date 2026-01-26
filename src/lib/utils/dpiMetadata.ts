@@ -269,3 +269,168 @@ export async function injectJpegDpi(blob: Blob, dpi: number): Promise<Blob> {
   }
 }
 
+/**
+ * Create TIFF file from canvas with DPI metadata
+ * Builds a baseline TIFF file with proper IFD structure and embedded DPI
+ * @param canvas - Source canvas element
+ * @param dpi - Target DPI (150 or 300)
+ * @returns Promise<Blob> - TIFF file blob with embedded DPI metadata
+ */
+export async function createTiffWithDpi(
+  canvas: HTMLCanvasElement,
+  dpi: number
+): Promise<Blob> {
+  try {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Build TIFF structure
+    const tiffBuffer = buildTiffFile(imageData, width, height, dpi);
+
+    return new Blob([tiffBuffer], { type: 'image/tiff' });
+  } catch (error) {
+    console.error('Error creating TIFF:', error);
+    // Fallback to PNG on error
+    return new Promise<Blob>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob!), 'image/png');
+    });
+  }
+}
+
+/**
+ * Build complete TIFF file structure
+ * Uses little-endian byte order, uncompressed RGB data
+ * Properly handles DPI metadata as rational values
+ */
+function buildTiffFile(
+  imageData: ImageData,
+  width: number,
+  height: number,
+  dpi: number
+): ArrayBuffer {
+  // Convert RGBA to RGB (strip alpha channel)
+  const rgbData = new Uint8Array(width * height * 3);
+  for (let i = 0; i < width * height; i++) {
+    rgbData[i * 3] = imageData.data[i * 4];       // R
+    rgbData[i * 3 + 1] = imageData.data[i * 4 + 1]; // G
+    rgbData[i * 3 + 2] = imageData.data[i * 4 + 2]; // B
+    // Skip alpha channel (imageData.data[i * 4 + 3])
+  }
+
+  // TIFF Structure Layout:
+  // [8 bytes]  TIFF Header
+  // [2 bytes]  IFD entry count (13)
+  // [156 bytes] IFD entries (13 entries × 12 bytes each)
+  // [4 bytes]  Next IFD offset (0 = no more IFDs)
+  // [6 bytes]  BitsPerSample values (3 × SHORT)
+  // [16 bytes] Rational values for XResolution and YResolution
+  // [N bytes]  RGB pixel data
+
+  const headerSize = 8;
+  const ifdEntryCount = 13; // Includes PlanarConfiguration
+  const ifdSize = 2 + (ifdEntryCount * 12) + 4; // count + entries + next IFD pointer
+  const bitsPerSampleSize = 6; // 3 SHORT values (8,8,8)
+  const rationalDataSize = 16; // 2 rationals × 8 bytes each (numerator + denominator)
+  const bitsPerSampleOffset = headerSize + ifdSize;
+  const rationalOffset = bitsPerSampleOffset + bitsPerSampleSize;
+  const dataOffset = rationalOffset + rationalDataSize;
+
+  const totalSize = dataOffset + rgbData.length;
+  const buffer = new ArrayBuffer(totalSize);
+  const view = new DataView(buffer);
+  const uint8 = new Uint8Array(buffer);
+
+  // === TIFF HEADER (8 bytes) ===
+  view.setUint16(0, 0x4949, true);      // Byte order: little-endian (II)
+  view.setUint16(2, 42, true);          // TIFF version: 42
+  view.setUint32(4, headerSize, true);  // Offset to first IFD
+
+  // === IFD (Image File Directory) ===
+  let offset = headerSize;
+
+  // Number of directory entries
+  view.setUint16(offset, ifdEntryCount, true);
+  offset += 2;
+
+  // Helper function to write IFD entry
+  // Type: 3=SHORT (16-bit), 4=LONG (32-bit), 5=RATIONAL (2×32-bit)
+  const writeEntry = (tag: number, type: number, count: number, value: number) => {
+    view.setUint16(offset, tag, true);      // Tag
+    view.setUint16(offset + 2, type, true); // Type
+    view.setUint32(offset + 4, count, true); // Count
+    view.setUint32(offset + 8, value, true); // Value or offset
+    offset += 12;
+  };
+
+  // Tag 254: NewSubfileType (0 = full-resolution image)
+  writeEntry(0x00FE, 4, 1, 0);
+
+  // Tag 256: ImageWidth
+  writeEntry(0x0100, 4, 1, width);
+
+  // Tag 257: ImageLength (height)
+  writeEntry(0x0101, 4, 1, height);
+
+  // Tag 258: BitsPerSample (8,8,8 for RGB)
+  // For 3 values, store SHORTs at bitsPerSampleOffset
+  writeEntry(0x0102, 3, 3, bitsPerSampleOffset);
+
+  // Tag 259: Compression (1 = uncompressed)
+  writeEntry(0x0103, 3, 1, 1);
+
+  // Tag 262: PhotometricInterpretation (2 = RGB)
+  writeEntry(0x0106, 3, 1, 2);
+
+  // Tag 273: StripOffsets (offset to image data)
+  writeEntry(0x0111, 4, 1, dataOffset);
+
+  // Tag 277: SamplesPerPixel (3 for RGB)
+  writeEntry(0x0115, 3, 1, 3);
+
+  // Tag 284: PlanarConfiguration (1 = chunky/interleaved)
+  writeEntry(0x011C, 3, 1, 1);
+
+  // Tag 278: RowsPerStrip (all rows in one strip)
+  writeEntry(0x0116, 4, 1, height);
+
+  // Tag 279: StripByteCounts (total bytes of image data)
+  writeEntry(0x0117, 4, 1, rgbData.length);
+
+  // Tag 282: XResolution (rational: dpi/1) - stored at rationalOffset
+  writeEntry(0x011A, 5, 1, rationalOffset);
+
+  // Tag 283: YResolution (rational: dpi/1) - stored at rationalOffset + 8
+  writeEntry(0x011B, 5, 1, rationalOffset + 8);
+
+  // Tag 296: ResolutionUnit (2 = inches)
+  writeEntry(0x0128, 3, 1, 2);
+
+  // Offset to next IFD (0 = no more IFDs)
+  view.setUint32(offset, 0, true);
+
+  // === BITS PER SAMPLE VALUES (stored after IFD) ===
+  view.setUint16(bitsPerSampleOffset, 8, true);      // R bits
+  view.setUint16(bitsPerSampleOffset + 2, 8, true);  // G bits
+  view.setUint16(bitsPerSampleOffset + 4, 8, true);  // B bits
+
+  // === RATIONAL VALUES (stored after BitsPerSample) ===
+  // XResolution = dpi/1
+  view.setUint32(rationalOffset, dpi, true);      // Numerator
+  view.setUint32(rationalOffset + 4, 1, true);    // Denominator
+
+  // YResolution = dpi/1
+  view.setUint32(rationalOffset + 8, dpi, true);  // Numerator
+  view.setUint32(rationalOffset + 12, 1, true);   // Denominator
+
+  // === IMAGE DATA (RGB pixels) ===
+  uint8.set(rgbData, dataOffset);
+
+  return buffer;
+}
+

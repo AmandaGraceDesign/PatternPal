@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
 import CheckoutModal from '@/components/billing/CheckoutModal';
+import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface UpgradeModalProps {
 
 export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
   const { user, isSignedIn } = useUser();
-  const isPro = Boolean(isSignedIn && user?.publicMetadata?.isPro);
+  const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   const handleManageSubscription = async () => {

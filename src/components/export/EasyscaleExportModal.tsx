@@ -15,6 +15,7 @@ interface EasyscaleExportModalProps {
 }
 
 const PRESET_SIZES = [2, 4, 6, 8, 10, 12, 18, 24];
+const FREE_USER_SIZES = [8, 12]; // Free users limited to 8" and 12"
 
 // Map UI repeat types to export format
 function mapRepeatType(repeatType: 'full-drop' | 'half-drop' | 'half-brick'): string {
@@ -39,7 +40,7 @@ export default function EasyscaleExportModal({
 }: EasyscaleExportModalProps) {
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [selectedDPI, setSelectedDPI] = useState<150 | 300>(isPro ? 300 : 150);
-  const [format, setFormat] = useState<'png' | 'jpg'>(isPro ? 'png' : 'jpg');
+  const [format, setFormat] = useState<'png' | 'jpg' | 'tif'>(isPro ? 'png' : 'jpg');
   const [includeOriginal, setIncludeOriginal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,8 +77,17 @@ export default function EasyscaleExportModal({
 
   const handleSizeToggle = (size: number) => {
     if (!isPro) {
-      // Free users can only select one size
-      setSelectedSizes([size]);
+      // Free users can select up to 2 sizes (8" and 12" only)
+      setSelectedSizes((prev) => {
+        if (prev.includes(size)) {
+          return prev.filter((s) => s !== size);
+        } else if (prev.length < 2) {
+          return [...prev, size];
+        } else {
+          // If already 2 selected, replace the first one
+          return [prev[1], size];
+        }
+      });
     } else {
       setSelectedSizes((prev) =>
         prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
@@ -188,11 +198,11 @@ export default function EasyscaleExportModal({
                     Select Sizes (Longest Side)
                   </h4>
                   {!isPro && (
-                    <span className="text-[10px] text-[#6b7280] italic">Free: 1 size only</span>
+                    <span className="text-[10px] text-[#6b7280] italic">Free: 8" & 12" only</span>
                   )}
                 </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {PRESET_SIZES.map((size) => (
+                  {(isPro ? PRESET_SIZES : FREE_USER_SIZES).map((size) => (
                     <label
                       key={size}
                       className={`flex items-center justify-center px-3 py-2 rounded-md border cursor-pointer transition-colors ${
@@ -212,9 +222,9 @@ export default function EasyscaleExportModal({
                     </label>
                   ))}
                 </div>
-                {!isPro && selectedSizes.length > 0 && (
+                {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
-                    💡 Upgrade to Pro to export multiple sizes at once
+                    💡 Upgrade to Pro to export all sizes (2", 4", 6", 8", 10", 12", 18", 24")
                   </p>
                 )}
               </div>
@@ -314,10 +324,25 @@ export default function EasyscaleExportModal({
                       JPG (Smaller File)
                     </span>
                   </label>
+                  <label className={`flex items-center ${isPro ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} group`}>
+                    <input
+                      type="radio"
+                      name="format"
+                      value="tif"
+                      checked={format === 'tif'}
+                      onChange={() => setFormat('tif')}
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
+                      style={{ accentColor: '#f1737c' }}
+                      disabled={isExporting || !isPro}
+                    />
+                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
+                      TIFF (Lossless, Pro) {!isPro && '🔒'}
+                    </span>
+                  </label>
                 </div>
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
-                    💡 Upgrade to Pro for PNG exports with transparency
+                    💡 Upgrade to Pro for PNG and TIFF exports
                   </p>
                 )}
               </div>
