@@ -25,6 +25,12 @@ export interface MockupTemplate {
   blendMode?: 'multiply' | 'normal' | 'overlay' | 'soft-light';
   opacity?: number;
   approach: 'css' | 'canvas'; // Rendering approach
+  physicalDimensions?: {
+    width: number; // Physical width in inches
+    height: number; // Physical height in inches
+    unit: 'inch' | 'cm';
+    displayLabel: string; // e.g., "16 × 16 inch Throw Pillow"
+  };
 }
 
 // Mockup template configurations
@@ -46,6 +52,12 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     blendMode: 'multiply',  // Blend naturally with pillow texture
     opacity: 0.95,           // Slight transparency for realism
     approach: 'canvas',
+    physicalDimensions: {
+      width: 16,
+      height: 16,
+      unit: 'inch',
+      displayLabel: '16 × 16 inch Throw Pillow'
+    },
   },
   wallpaper: {
     id: 'wallpaper',
@@ -64,6 +76,12 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     blendMode: 'multiply',   // Test multiply blend mode
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
+    physicalDimensions: {
+      width: 24,
+      height: 24,
+      unit: 'inch',
+      displayLabel: '24 × 24 inch Wallpaper Section'
+    },
   },
   onesie: {
     id: 'onesie',
@@ -82,6 +100,12 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     blendMode: 'multiply',   // Blend with fabric texture
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
+    physicalDimensions: {
+      width: 12,
+      height: 14,
+      unit: 'inch',
+      displayLabel: 'Medium Baby Onesie (12 × 14 inch)'
+    },
   },
   'tote-bag': {
     id: 'tote-bag',
@@ -99,6 +123,12 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     blendMode: 'multiply',   // Blend with canvas texture
     opacity: 0.93,            // Slight transparency for natural look
     approach: 'canvas',
+    physicalDimensions: {
+      width: 15,
+      height: 16,
+      unit: 'inch',
+      displayLabel: '15 × 16 inch Tote Bag'
+    },
   },
   'fabric-swatch': {
     id: 'fabric-swatch',
@@ -117,6 +147,12 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     blendMode: 'multiply',   // Blend with fabric texture
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
+    physicalDimensions: {
+      width: 8,
+      height: 8,
+      unit: 'inch',
+      displayLabel: '8 × 8 inch Fabric Swatch'
+    },
   },
 };
 

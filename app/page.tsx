@@ -19,6 +19,34 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Scale Preview State
+  const [scalePreviewSize, setScalePreviewSize] = useState<number | null>(null);
+  const [isScalePreviewActive, setIsScalePreviewActive] = useState<boolean>(false);
+
+  // Calculate scaled dimensions based on longest side input
+  const getScaledDimensions = (longestSide: number) => {
+    const originalLongest = Math.max(tileWidth, tileHeight);
+    const scaleFactor = longestSide / originalLongest;
+
+    return {
+      width: tileWidth * scaleFactor,
+      height: tileHeight * scaleFactor,
+      scaleFactor: scaleFactor
+    };
+  };
+
+  // Get effective dimensions for rendering (original or scaled)
+  const getEffectiveDimensions = () => {
+    if (isScalePreviewActive && scalePreviewSize !== null) {
+      return getScaledDimensions(scalePreviewSize);
+    }
+    return {
+      width: tileWidth,
+      height: tileHeight,
+      scaleFactor: 1
+    };
+  };
+
   // Handle paste from clipboard globally
   useEffect(() => {
     const handlePasteEvent = async (e: ClipboardEvent) => {
@@ -214,6 +242,12 @@ export default function Home() {
             onDpiChange={setDpi}
             onShowTileOutlineChange={setShowTileOutline}
             onFileUpload={handleFileUpload}
+            scalePreviewSize={scalePreviewSize}
+            onScalePreviewChange={setScalePreviewSize}
+            isScalePreviewActive={isScalePreviewActive}
+            onScalePreviewActiveChange={setIsScalePreviewActive}
+            originalTileWidth={tileWidth}
+            originalTileHeight={tileHeight}
           />
         </div>
 
@@ -222,8 +256,8 @@ export default function Home() {
           <PatternPreviewCanvas
             image={image}
             repeatType={repeatType}
-            tileWidth={tileWidth}
-            tileHeight={tileHeight}
+            tileWidth={getEffectiveDimensions().width}
+            tileHeight={getEffectiveDimensions().height}
             dpi={dpi}
             zoom={zoom}
             showTileOutline={showTileOutline}
@@ -246,12 +280,13 @@ export default function Home() {
           <ActionsSidebar
             image={image}
             dpi={dpi}
-            tileWidth={tileWidth}
-            tileHeight={tileHeight}
+            tileWidth={getEffectiveDimensions().width}
+            tileHeight={getEffectiveDimensions().height}
             repeatType={repeatType}
             zoom={zoom}
             originalFilename={originalFilename}
             canvasRef={canvasRef}
+            scaleFactor={getEffectiveDimensions().scaleFactor}
           />
         </div>
       </div>

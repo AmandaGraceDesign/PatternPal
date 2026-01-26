@@ -15,6 +15,7 @@ interface MockupRendererProps {
   zoom?: number;
   onClick?: () => void;
   colorOverride?: string | null;
+  scaleFactor?: number; // Scale factor for proportional mockup rendering (1 = original size)
 }
 
 export default function MockupRenderer({
@@ -27,6 +28,7 @@ export default function MockupRenderer({
   zoom,
   onClick,
   colorOverride,
+  scaleFactor = 1,
 }: MockupRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -218,26 +220,47 @@ export default function MockupRenderer({
     // Convert pattern dimensions from its DPI to screen DPI (96), then apply zoom
     const patternScreenWidth = patternImage.width * (96 / dpi) * viewZoom;
     const patternScreenHeight = patternImage.height * (96 / dpi) * viewZoom;
-    
+
     // #region agent log
     // #endregion
-    
-    // Calculate base scale to fit pattern area (at zoom = 1.0, which is viewZoom = 0.15)
-    // This gives us a base size that fits nicely in the pattern area
+
+    // Calculate base pattern screen dimensions (needed for both scaling paths)
     const basePatternScreenWidth = patternImage.width * (96 / dpi);
     const basePatternScreenHeight = patternImage.height * (96 / dpi);
-    const baseScale = Math.min(
-      patternArea.width / basePatternScreenWidth / 2, // Half the width
-      patternArea.height / basePatternScreenHeight / 2 // Half the height
-    );
-    
-    // Apply zoom to the base scale - zoom affects the final pattern size
-    // viewZoom is relative to the base zoom (0.15 at display zoom 100)
-    // So we need to scale by viewZoom / 0.15 to get the relative zoom
-    const baseZoom = 0.15; // The zoom at display zoom 100
-    const zoomMultiplier = viewZoom / baseZoom;
-    const targetScale = baseScale * zoomMultiplier;
-    
+
+    // Get mockup physical dimensions for proportional scaling
+    const mockupPhysicalWidth = template.physicalDimensions?.width ?? null;
+    const mockupPhysicalHeight = template.physicalDimensions?.height ?? null;
+
+    let targetScale: number;
+
+    // If mockup has physical dimensions and we're in scale preview mode
+    if (mockupPhysicalWidth && mockupPhysicalHeight && scaleFactor !== 1) {
+      // Calculate how many pattern repeats fit on mockup
+      const patternPhysicalWidth = tileWidth;  // Scaled pattern size (already scaled in parent)
+      const patternPhysicalHeight = tileHeight;
+
+      const repeatsX = mockupPhysicalWidth / patternPhysicalWidth;
+      const repeatsY = mockupPhysicalHeight / patternPhysicalHeight;
+
+      // Scale pattern to fit proportionally on mockup
+      // We want the pattern to tile at the correct physical scale
+      targetScale = (patternArea.width / basePatternScreenWidth) * (1 / repeatsX);
+    } else {
+      // Original behavior - fill pattern area
+      const baseScale = Math.min(
+        patternArea.width / basePatternScreenWidth / 2, // Half the width
+        patternArea.height / basePatternScreenHeight / 2 // Half the height
+      );
+
+      // Apply zoom to the base scale - zoom affects the final pattern size
+      // viewZoom is relative to the base zoom (0.15 at display zoom 100)
+      // So we need to scale by viewZoom / 0.15 to get the relative zoom
+      const baseZoom = 0.15; // The zoom at display zoom 100
+      const zoomMultiplier = viewZoom / baseZoom;
+      targetScale = baseScale * zoomMultiplier;
+    }
+
     // Calculate scaled pattern dimensions for tiling
     const scaledPatternWidth = basePatternScreenWidth * targetScale;
     const scaledPatternHeight = basePatternScreenHeight * targetScale;
