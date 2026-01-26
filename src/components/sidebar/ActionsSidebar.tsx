@@ -112,7 +112,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           </h2>
         </div>
         <div className="space-y-2">
-          <button 
+          <button
             onClick={() => setIsEasyscaleModalOpen(true)}
             disabled={!image}
             className="w-full px-4 py-2.5 text-xs font-semibold text-white rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -130,27 +130,9 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           >
             Easyscale Export
           </button>
-          
+
         </div>
       </div>
-
-      {isPro && (
-        <div className="mb-6">
-          <button
-            onClick={handleManageSubscription}
-            className="w-full px-4 py-2 text-sm font-semibold text-white rounded-md transition-colors"
-            style={{ backgroundColor: '#f1737c' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#e05a65';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#f1737c';
-            }}
-          >
-            Manage Subscription
-          </button>
-        </div>
-      )}
 
       {/* Analysis Section */}
       <div className="mb-8">

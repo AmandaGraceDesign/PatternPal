@@ -1,11 +1,14 @@
 'use client';
 
-import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
+import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
+import { useState } from 'react';
+import UpgradeModal from '@/components/export/UpgradeModal';
 
 export default function TopBar() {
   const { user, isSignedIn } = useUser();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const handleManageSubscription = async () => {
     try {
@@ -31,39 +34,40 @@ export default function TopBar() {
         <button className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors">
           Help
         </button>
-        {isPro && (
-          <button
-            onClick={handleManageSubscription}
-            className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
-          >
-            Manage
-          </button>
-        )}
-        <button 
-          className="text-xs font-medium text-white px-4 py-1.5 rounded-md transition-colors"
-          style={{ backgroundColor: '#f1737c' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e05a65'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1737c'}
-        >
-          Upgrade
-        </button>
-        {isSignedIn ? (
-          <UserButton appearance={{ elements: { userButtonAvatarBox: 'w-7 h-7' } }} />
+        {isPro ? (
+          <>
+            <button
+              onClick={handleManageSubscription}
+              className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+            >
+              Manage
+            </button>
+            <UserButton appearance={{ elements: { userButtonAvatarBox: 'w-7 h-7' } }} />
+          </>
         ) : (
           <>
+            <button
+              onClick={() => setIsUpgradeModalOpen(true)}
+              className="text-xs font-medium text-white px-4 py-1.5 rounded-md transition-colors"
+              style={{ backgroundColor: '#f1737c' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e05a65'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1737c'}
+            >
+              Upgrade
+            </button>
             <SignInButton mode="modal">
               <button className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors">
-                Log in
+                Log In
               </button>
             </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors">
-                Sign up
-              </button>
-            </SignUpButton>
           </>
         )}
       </div>
+
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+      />
     </header>
   );
 }
