@@ -232,10 +232,19 @@ export default function MockupRenderer({
     const mockupPhysicalWidth = template.physicalDimensions?.width ?? null;
     const mockupPhysicalHeight = template.physicalDimensions?.height ?? null;
 
+    console.log('🎨 MockupRenderer scale debug:', {
+      templateId: template.id,
+      tileWidth,
+      tileHeight,
+      scaleFactor,
+      mockupPhysicalWidth,
+      mockupPhysicalHeight,
+    });
+
     let targetScale: number;
 
-    // If mockup has physical dimensions and we're in scale preview mode
-    if (mockupPhysicalWidth && mockupPhysicalHeight && scaleFactor !== 1) {
+    // If mockup has physical dimensions, use them for realistic scaling
+    if (mockupPhysicalWidth && mockupPhysicalHeight) {
       // Calculate how many pattern repeats fit on mockup
       const patternPhysicalWidth = tileWidth;  // Scaled pattern size (already scaled in parent)
       const patternPhysicalHeight = tileHeight;
@@ -473,7 +482,7 @@ export default function MockupRenderer({
     } else {
       setIsRendering(false);
     }
-  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride]);
+  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride, scaleFactor]);
 
   // Prevent right-click and image copying
   const handleContextMenu = (e: React.MouseEvent) => {

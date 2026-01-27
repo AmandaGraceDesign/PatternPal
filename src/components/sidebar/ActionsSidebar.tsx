@@ -297,6 +297,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                   setMockupColorOverride(null);
                 }}
                 title={getMockupTemplate(selectedMockup as any)?.name}
+                subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
                 onDownload={() => {
                   // Find the canvas element in the mockup renderer
                   const mockupCanvas = document.querySelector('.mockup-canvas') as HTMLCanvasElement;

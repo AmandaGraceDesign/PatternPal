@@ -300,7 +300,7 @@ export default function PatternPreviewCanvas({
       // Use PNG for lossless quality
       scaledImg.src = scaledCanvas.toDataURL('image/png');
     }
-  }, [image, repeatType, zoom, dpi, showTileOutline, canvasSize, dpr]);
+  }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, canvasSize, dpr]);
 
   // Calculate pixels per unit for ruler
   // tileDisplaySize is the scaled tile size in pixels on screen

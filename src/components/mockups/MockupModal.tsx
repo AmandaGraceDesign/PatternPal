@@ -7,10 +7,11 @@ interface MockupModalProps {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
+  subtitle?: string;
   onDownload?: () => void;
 }
 
-export default function MockupModal({ isOpen, onClose, children, title, onDownload }: MockupModalProps) {
+export default function MockupModal({ isOpen, onClose, children, title, subtitle, onDownload }: MockupModalProps) {
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -50,7 +51,12 @@ export default function MockupModal({ isOpen, onClose, children, title, onDownlo
         {/* Header */}
         {title && (
           <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#ffe4e7]">
-            <h3 className="text-sm font-semibold text-[#294051]">{title}</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-[#294051]">{title}</h3>
+              {subtitle && (
+                <p className="text-xs text-[#705046]">{subtitle}</p>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               {onDownload && (
                 <button
