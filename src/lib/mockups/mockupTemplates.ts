@@ -77,10 +77,10 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
     physicalDimensions: {
-      width: 24,
-      height: 24,
+      width: 144,  // 12 feet
+      height: 96,  // 8 feet
       unit: 'inch',
-      displayLabel: '24 × 24 inch Wallpaper Section'
+      displayLabel: '12 × 8 ft Wall'
     },
   },
   onesie: {

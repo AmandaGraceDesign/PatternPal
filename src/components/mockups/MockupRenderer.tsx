@@ -241,38 +241,35 @@ export default function MockupRenderer({
       mockupPhysicalHeight,
     });
 
-    let targetScale: number;
+    let scaledPatternWidth: number;
+    let scaledPatternHeight: number;
 
     // If mockup has physical dimensions, use them for realistic scaling
     if (mockupPhysicalWidth && mockupPhysicalHeight) {
-      // Calculate how many pattern repeats fit on mockup
-      const patternPhysicalWidth = tileWidth;  // Scaled pattern size (already scaled in parent)
-      const patternPhysicalHeight = tileHeight;
+      // Calculate how many pattern repeats fit on mockup based on physical dimensions
+      const repeatsX = mockupPhysicalWidth / tileWidth;
+      const repeatsY = mockupPhysicalHeight / tileHeight;
 
-      const repeatsX = mockupPhysicalWidth / patternPhysicalWidth;
-      const repeatsY = mockupPhysicalHeight / patternPhysicalHeight;
+      // Calculate the pixel size each tile should be on the mockup
+      // This is independent of the original pattern image resolution
+      scaledPatternWidth = patternArea.width / repeatsX;
+      scaledPatternHeight = patternArea.height / repeatsY;
 
-      // Scale pattern to fit proportionally on mockup
-      // We want the pattern to tile at the correct physical scale
-      targetScale = (patternArea.width / basePatternScreenWidth) * (1 / repeatsX);
     } else {
-      // Original behavior - fill pattern area
+      // Fallback behavior - fill pattern area (for mockups without physical dimensions)
       const baseScale = Math.min(
-        patternArea.width / basePatternScreenWidth / 2, // Half the width
-        patternArea.height / basePatternScreenHeight / 2 // Half the height
+        patternArea.width / patternImage.width / 2,
+        patternArea.height / patternImage.height / 2
       );
 
-      // Apply zoom to the base scale - zoom affects the final pattern size
-      // viewZoom is relative to the base zoom (0.15 at display zoom 100)
-      // So we need to scale by viewZoom / 0.15 to get the relative zoom
-      const baseZoom = 0.15; // The zoom at display zoom 100
+      const baseZoom = 0.15;
       const zoomMultiplier = viewZoom / baseZoom;
-      targetScale = baseScale * zoomMultiplier;
+      const targetScale = baseScale * zoomMultiplier;
+
+      scaledPatternWidth = patternImage.width * targetScale;
+      scaledPatternHeight = patternImage.height * targetScale;
     }
 
-    // Calculate scaled pattern dimensions for tiling
-    const scaledPatternWidth = basePatternScreenWidth * targetScale;
-    const scaledPatternHeight = basePatternScreenHeight * targetScale;
     
     // #region agent log
     // #endregion
