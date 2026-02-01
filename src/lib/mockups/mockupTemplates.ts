@@ -5,7 +5,7 @@
  * Pattern area coordinates are in pixels (for 800x800px mockup images)
  */
 
-export type MockupType = 'pillow' | 'wallpaper' | 'onesie' | 'tote-bag' | 'fabric-swatch';
+export type MockupType = 'pillow' | 'wallpaper' | 'onesie' | 'tote-bag' | 'fabric-swatch' | 'throw-pillow' | 'wrapping-paper' | 'journal';
 
 export interface MockupTemplate {
   id: MockupType;
@@ -152,6 +152,78 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
       height: 12,
       unit: 'inch',
       displayLabel: '12 × 12 inch Fabric Swatch'
+    },
+  },
+  'throw-pillow': {
+    id: 'throw-pillow',
+    name: 'Throw Pillow',
+    description: 'Preview your pattern on a throw pillow',
+    templateImage: '/mockups/throw_pillow.png',
+    image: '/mockups/throw_pillow.png',
+    maskImage: '/mockups/throw_pillow_mask.png',
+    category: 'home-decor',
+    patternArea: {
+      x: 0,
+      y: 0,
+      width: 1024,
+      height: 1024,
+    },
+    blendMode: 'multiply',
+    opacity: 0.9,
+    approach: 'canvas',
+    physicalDimensions: {
+      width: 18,
+      height: 18,
+      unit: 'inch',
+      displayLabel: '18 × 18 inch Throw Pillow',
+    },
+  },
+  'wrapping-paper': {
+    id: 'wrapping-paper',
+    name: 'Wrapping Paper',
+    description: 'Preview your pattern on a gift box',
+    templateImage: '/mockups/wrapping_paper.png',
+    image: '/mockups/wrapping_paper.png',
+    maskImage: '/mockups/wrapping_paper_mask.png',
+    category: 'gift-wrap',
+    patternArea: {
+      x: 0,
+      y: 0,
+      width: 1024,
+      height: 1024,
+    },
+    blendMode: 'multiply',
+    opacity: 0.9,
+    approach: 'canvas',
+    physicalDimensions: {
+      width: 8,
+      height: 8,
+      unit: 'inch',
+      displayLabel: '8 × 8 inch Gift Box',
+    },
+  },
+  journal: {
+    id: 'journal',
+    name: 'Journal',
+    description: 'Preview your pattern on a journal cover',
+    templateImage: '/mockups/journal.png',
+    image: '/mockups/journal.png',
+    maskImage: '/mockups/journal_mask.png',
+    category: 'paper-goods',
+    patternArea: {
+      x: 0,
+      y: 0,
+      width: 1024,
+      height: 1024,
+    },
+    blendMode: 'multiply',
+    opacity: 0.9,
+    approach: 'canvas',
+    physicalDimensions: {
+      width: 5.5,
+      height: 8.5,
+      unit: 'inch',
+      displayLabel: 'A5 Journal (5.5 × 8.5 inch)',
     },
   },
 };

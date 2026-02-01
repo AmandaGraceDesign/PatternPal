@@ -38,6 +38,7 @@ export default function MockupRenderer({
   const [maskImage, setMaskImage] = useState<HTMLImageElement | null>(null);
   const [colorMaskImage, setColorMaskImage] = useState<HTMLImageElement | null>(null);
   const isOnesie = template.id === 'onesie';
+  const isWrappingPaper = template.id === 'wrapping-paper';
 
   const createMaskCanvas = (mask: HTMLImageElement, width: number, height: number) => {
     const maskCanvas = document.createElement('canvas');
@@ -56,12 +57,20 @@ export default function MockupRenderer({
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
+      const originalAlpha = data[i + 3];
+
+      // Calculate luminance from RGB
       const luminance = (r + g + b) / 3;
+
+      // For RGBA masks: if the original alpha is meaningful (not fully opaque),
+      // use the original alpha. Otherwise, use luminance.
+      // White areas (high luminance) = show pattern, Black areas (low luminance) = hide pattern
+      const finalAlpha = originalAlpha < 255 ? originalAlpha : luminance;
 
       data[i] = 0;
       data[i + 1] = 0;
       data[i + 2] = 0;
-      data[i + 3] = luminance;
+      data[i + 3] = finalAlpha;
     }
 
     maskCtx.putImageData(imageData, 0, 0);
@@ -154,15 +163,10 @@ export default function MockupRenderer({
       return best;
     };
 
-    // Pass 1: favor lighter tones (works better for fabric appearance)
-    let buckets = buildHistogram(180);
-    let best = pickDominant(buckets);
-
-    // Pass 2: fallback to dominant color without luminance filter
-    if (best.count === 0) {
-      buckets = buildHistogram(0);
-      best = pickDominant(buckets);
-    }
+    // Get the most common color from the entire image (no luminance filter)
+    // This gives the true dominant/background color
+    const buckets = buildHistogram(0);
+    const best = pickDominant(buckets);
 
     if (best.count === 0) return '#ffffff';
 
@@ -184,30 +188,28 @@ export default function MockupRenderer({
     if (template.maskImage) {
       const img = new Image();
       img.onload = () => setMaskImage(img);
-      // Add cache-busting timestamp to force reload of updated images
       img.src = `${template.maskImage}?v=${Date.now()}`;
     } else {
       setMaskImage(null);
     }
   }, [template]);
 
-  // Load color mask for onesie only
+  // Load color mask for onesie and wrapping paper bow
   useEffect(() => {
-    if (isOnesie) {
+    if (isOnesie || isWrappingPaper) {
       const img = new Image();
+      const maskPath = isWrappingPaper
+        ? `/mockups/wrapping_paper_bow_mask.png?v=${Date.now()}`
+        : `/mockups/onesie_mask_color.png?v=${Date.now()}`;
       img.onload = () => setColorMaskImage(img);
-      // Add cache-busting timestamp to force reload of updated images
-      img.src = `/mockups/onesie_mask_color.png?v=${Date.now()}`;
+      img.src = maskPath;
     } else {
       setColorMaskImage(null);
     }
-  }, [isOnesie]);
+  }, [isOnesie, isWrappingPaper, template.id]);
 
   // Render pattern on mockup
   useEffect(() => {
-    // #region agent log
-    // #endregion
-    
     const canvas = canvasRef.current;
     if (!canvas || !mockupImage || !patternImage || template.approach !== 'canvas') {
       return;
@@ -230,7 +232,7 @@ export default function MockupRenderer({
     // Draw base mockup image
     ctx.drawImage(mockupImage, 0, 0);
 
-    if (isOnesie && (!maskImage || !colorMaskImage)) {
+    if ((isOnesie || isWrappingPaper) && !maskImage) {
       setIsRendering(false);
       return;
     }
@@ -277,8 +279,9 @@ export default function MockupRenderer({
 
       if (scalePreviewActive) {
         // Lock tile aspect when scale preview is active (no squish)
-        scaledPatternWidth = baseTileWidth;
-        scaledPatternHeight = baseTileWidth / tileAspect;
+        const widthFromHeight = baseTileHeight * tileAspect;
+        scaledPatternWidth = Math.min(baseTileWidth, widthFromHeight);
+        scaledPatternHeight = scaledPatternWidth / tileAspect;
       } else {
         scaledPatternWidth = baseTileWidth * zoomMultiplier;
         scaledPatternHeight = baseTileHeight * zoomMultiplier;
@@ -377,38 +380,45 @@ export default function MockupRenderer({
             patternCanvas.width, patternCanvas.height
           );
           
-          if (isOnesie && colorMaskImage) {
-            // Onesie: build color + pattern layers and composite
-            const colorLayer = document.createElement('canvas');
-            colorLayer.width = patternCanvas.width;
-            colorLayer.height = patternCanvas.height;
-            const colorCtx = colorLayer.getContext('2d');
-            if (colorCtx) {
-              colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
-              colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
-              colorCtx.globalCompositeOperation = 'destination-in';
-              const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
-              if (colorMaskCanvas) {
-                colorCtx.drawImage(colorMaskCanvas, 0, 0);
-              }
-            }
-
+          if (isOnesie || isWrappingPaper) {
+            // Build color + pattern layers and composite
             const patternLayer = document.createElement('canvas');
             patternLayer.width = patternCanvas.width;
             patternLayer.height = patternCanvas.height;
             const patternLayerCtx = patternLayer.getContext('2d');
             if (patternLayerCtx) {
               patternLayerCtx.drawImage(patternCanvas, 0, 0);
-              patternLayerCtx.globalCompositeOperation = 'destination-in';
               const patternMaskCanvas = createMaskCanvas(maskImage, patternArea.width, patternArea.height);
               if (patternMaskCanvas) {
+                patternLayerCtx.globalCompositeOperation = 'destination-in';
                 patternLayerCtx.drawImage(patternMaskCanvas, 0, 0);
+              } else if (isOnesie) {
+                // Onesie requires a valid mask; abort render to avoid blank output
+                setIsRendering(false);
+                ctx.restore();
+                return;
               }
             }
 
-            tempCtx.globalCompositeOperation = 'multiply';
-            tempCtx.globalAlpha = 0.9;
-            tempCtx.drawImage(colorLayer, 0, 0);
+            if (colorMaskImage) {
+              const colorLayer = document.createElement('canvas');
+              colorLayer.width = patternCanvas.width;
+              colorLayer.height = patternCanvas.height;
+              const colorCtx = colorLayer.getContext('2d');
+              if (colorCtx) {
+                colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
+                colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
+                colorCtx.globalCompositeOperation = 'destination-in';
+                const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
+                if (colorMaskCanvas) {
+                  colorCtx.drawImage(colorMaskCanvas, 0, 0);
+                }
+              }
+
+              tempCtx.globalCompositeOperation = 'multiply';
+              tempCtx.globalAlpha = 0.9;
+              tempCtx.drawImage(colorLayer, 0, 0);
+            }
 
             tempCtx.globalCompositeOperation = 'multiply';
             tempCtx.globalAlpha = template.opacity ?? 1;
@@ -424,7 +434,7 @@ export default function MockupRenderer({
           // #endregion
           
           // Step 3: Apply mask to the multiplied result (non-onesie only)
-          if (!isOnesie) {
+          if (!isOnesie && !isWrappingPaper) {
             tempCtx.globalCompositeOperation = 'destination-out';
             tempCtx.globalAlpha = 1;
             tempCtx.drawImage(maskImage, 0, 0, patternArea.width, patternArea.height);
@@ -443,28 +453,34 @@ export default function MockupRenderer({
           // #region agent log
           // #endregion
           
-          if (isOnesie && colorMaskImage) {
-            const colorLayer = document.createElement('canvas');
-            colorLayer.width = patternCanvas.width;
-            colorLayer.height = patternCanvas.height;
-            const colorCtx = colorLayer.getContext('2d');
-            if (colorCtx) {
-              colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
-              colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
-              colorCtx.globalCompositeOperation = 'destination-in';
-              const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
-              if (colorMaskCanvas) {
-                colorCtx.drawImage(colorMaskCanvas, 0, 0);
+          if (isOnesie || isWrappingPaper) {
+            if (colorMaskImage) {
+              const colorLayer = document.createElement('canvas');
+              colorLayer.width = patternCanvas.width;
+              colorLayer.height = patternCanvas.height;
+              const colorCtx = colorLayer.getContext('2d');
+              if (colorCtx) {
+                colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
+                colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
+                const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
+                if (colorMaskCanvas) {
+                  colorCtx.globalCompositeOperation = 'destination-in';
+                  colorCtx.drawImage(colorMaskCanvas, 0, 0);
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 1;
+                ctx.drawImage(colorLayer, patternArea.x, patternArea.y);
               }
-              ctx.globalCompositeOperation = 'source-over';
-              ctx.globalAlpha = 1;
-              ctx.drawImage(colorLayer, patternArea.x, patternArea.y);
             }
 
-            patternCtx.globalCompositeOperation = 'destination-in';
             const patternMaskCanvas = createMaskCanvas(maskImage, patternArea.width, patternArea.height);
             if (patternMaskCanvas) {
+              patternCtx.globalCompositeOperation = 'destination-in';
               patternCtx.drawImage(patternMaskCanvas, 0, 0);
+            } else if (isOnesie) {
+              setIsRendering(false);
+              ctx.restore();
+              return;
             }
           } else {
             // Black areas hide pattern, transparent/white areas show pattern
@@ -499,7 +515,7 @@ export default function MockupRenderer({
     } else {
       setIsRendering(false);
     }
-  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride, scaleFactor]);
+  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride, scaleFactor, scalePreviewActive, isOnesie, isWrappingPaper]);
 
   // Prevent right-click and image copying
   const handleContextMenu = (e: React.MouseEvent) => {

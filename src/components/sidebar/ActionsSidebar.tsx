@@ -268,7 +268,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2 mb-3">
-              {(['onesie', 'fabric-swatch', 'wallpaper'] as const).map((mockupType) => {
+              {(['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const).map((mockupType) => {
                 const template = getMockupTemplate(mockupType);
                 return (
                   <MockupRenderer
@@ -318,10 +318,12 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 }}
               >
                 <div className="flex flex-col gap-3">
-                  {/* Color picker for onesie only */}
-                  {selectedMockup === 'onesie' && (
+                  {/* Color picker for onesie and wrapping paper bow */}
+                  {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
                     <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
-                      <label className="text-xs font-medium text-[#294051]">Onesie Trim Color:</label>
+                      <label className="text-xs font-medium text-[#294051]">
+                        {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
+                      </label>
                       <input
                         type="color"
                         value={mockupColorOverride || '#ffffff'}
