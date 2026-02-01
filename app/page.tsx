@@ -262,6 +262,7 @@ export default function Home() {
             zoom={zoom}
             showTileOutline={showTileOutline}
             onZoomChange={setZoom}
+            scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
             canvasRef={canvasRef}
           />
           {/* #region agent log */}
@@ -287,6 +288,7 @@ export default function Home() {
             originalFilename={originalFilename}
             canvasRef={canvasRef}
             scaleFactor={getEffectiveDimensions().scaleFactor}
+            scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
           />
         </div>
       </div>

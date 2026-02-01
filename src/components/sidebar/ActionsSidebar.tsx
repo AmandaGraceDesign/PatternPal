@@ -21,9 +21,10 @@ interface ActionsSidebarProps {
   originalFilename: string | null;
   canvasRef: React.RefObject<HTMLCanvasElement>;
   scaleFactor?: number;
+  scalePreviewActive?: boolean;
 }
 
-export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef, scaleFactor = 1 }: ActionsSidebarProps) {
+export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef, scaleFactor = 1, scalePreviewActive = false }: ActionsSidebarProps) {
   const { user, isSignedIn } = useUser();
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
@@ -280,6 +281,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                     repeatType={repeatType}
                     zoom={zoom}
                     scaleFactor={scaleFactor}
+                    scalePreviewActive={scalePreviewActive}
                     onClick={() => {
                       setSelectedMockup(mockupType);
                     }}
@@ -349,6 +351,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                         repeatType={repeatType}
                         zoom={zoom}
                         scaleFactor={scaleFactor}
+                        scalePreviewActive={scalePreviewActive}
                         onClick={() => {}}
                         colorOverride={mockupColorOverride}
                       />

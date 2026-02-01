@@ -13,6 +13,7 @@ interface MockupRendererProps {
   dpi: number;
   repeatType: RepeatType;
   zoom?: number;
+  scalePreviewActive?: boolean;
   onClick?: () => void;
   colorOverride?: string | null;
   scaleFactor?: number; // Scale factor for proportional mockup rendering (1 = original size)
@@ -26,6 +27,7 @@ export default function MockupRenderer({
   dpi,
   repeatType,
   zoom,
+  scalePreviewActive = false,
   onClick,
   colorOverride,
   scaleFactor = 1,
@@ -64,6 +66,42 @@ export default function MockupRenderer({
 
     maskCtx.putImageData(imageData, 0, 0);
     return maskCanvas;
+  };
+
+  const getMaskBounds = (maskCanvas: HTMLCanvasElement) => {
+    const ctx = maskCanvas.getContext('2d');
+    if (!ctx) return null;
+
+    const { width, height } = maskCanvas;
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    const alphaThreshold = 10;
+
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const alpha = data[(y * width + x) * 4 + 3];
+        if (alpha > alphaThreshold) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) return null;
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX + 1,
+      height: maxY - minY + 1,
+    };
   };
 
   const extractBackgroundColor = (img: HTMLImageElement): string => {
@@ -202,72 +240,54 @@ export default function MockupRenderer({
     // Then scale it to fit nicely in the pattern area
     const patternArea = template.patternArea;
     
-    // Convert display zoom (0-200) to actual zoom (same as PatternPreviewCanvas)
-    const displayZoomToActualZoom = (displayValue: number): number => {
-      if (displayValue <= 100) {
-        return 0.01 + (displayValue / 100) * 0.14;
-      } else {
-        return 0.15 + ((displayValue - 100) / 100) * 4.85;
-      }
-    };
-    
-    // Get actual zoom from display zoom
-    const viewZoom = displayZoomToActualZoom(zoom || 100);
-    
-    // #region agent log
-    // #endregion
-    
-    // Convert pattern dimensions from its DPI to screen DPI (96), then apply zoom
-    const patternScreenWidth = patternImage.width * (96 / dpi) * viewZoom;
-    const patternScreenHeight = patternImage.height * (96 / dpi) * viewZoom;
-
-    // #region agent log
-    // #endregion
-
-    // Calculate base pattern screen dimensions (needed for both scaling paths)
-    const basePatternScreenWidth = patternImage.width * (96 / dpi);
-    const basePatternScreenHeight = patternImage.height * (96 / dpi);
-
     // Get mockup physical dimensions for proportional scaling
     const mockupPhysicalWidth = template.physicalDimensions?.width ?? null;
     const mockupPhysicalHeight = template.physicalDimensions?.height ?? null;
 
-    console.log('🎨 MockupRenderer scale debug:', {
-      templateId: template.id,
-      tileWidth,
-      tileHeight,
-      scaleFactor,
-      mockupPhysicalWidth,
-      mockupPhysicalHeight,
-    });
-
     let scaledPatternWidth: number;
     let scaledPatternHeight: number;
 
+    const zoomMultiplier = scalePreviewActive ? 1 : (zoom ?? 100) / 100;
+
     // If mockup has physical dimensions, use them for realistic scaling
     if (mockupPhysicalWidth && mockupPhysicalHeight) {
+      let visibleWidthPx = patternArea.width;
+      let visibleHeightPx = patternArea.height;
+
+      if (maskImage) {
+        const maskCanvas = createMaskCanvas(maskImage, patternArea.width, patternArea.height);
+        if (maskCanvas) {
+          const bounds = getMaskBounds(maskCanvas);
+          if (bounds) {
+            visibleWidthPx = bounds.width;
+            visibleHeightPx = bounds.height;
+          }
+        }
+      }
+
       // Calculate how many pattern repeats fit on mockup based on physical dimensions
       const repeatsX = mockupPhysicalWidth / tileWidth;
       const repeatsY = mockupPhysicalHeight / tileHeight;
 
       // Calculate the pixel size each tile should be on the mockup
       // This is independent of the original pattern image resolution
-      scaledPatternWidth = patternArea.width / repeatsX;
-      scaledPatternHeight = patternArea.height / repeatsY;
+      const baseTileWidth = visibleWidthPx / repeatsX;
+      const baseTileHeight = visibleHeightPx / repeatsY;
+      const tileAspect = tileHeight !== 0 ? tileWidth / tileHeight : 1;
+
+      if (scalePreviewActive) {
+        // Lock tile aspect when scale preview is active (no squish)
+        scaledPatternWidth = baseTileWidth;
+        scaledPatternHeight = baseTileWidth / tileAspect;
+      } else {
+        scaledPatternWidth = baseTileWidth * zoomMultiplier;
+        scaledPatternHeight = baseTileHeight * zoomMultiplier;
+      }
 
     } else {
-      // Fallback behavior - fill pattern area (for mockups without physical dimensions)
-      const baseScale = Math.min(
-        patternArea.width / patternImage.width / 2,
-        patternArea.height / patternImage.height / 2
-      );
-
-      const baseZoom = 0.15;
-      const zoomMultiplier = viewZoom / baseZoom;
-      const targetScale = baseScale * zoomMultiplier;
-
-      scaledPatternWidth = patternImage.width * targetScale;
-      scaledPatternHeight = patternImage.height * targetScale;
+      // Fallback: default to 2 tiles across/down without using zoom
+      scaledPatternWidth = (patternArea.width / 2) * zoomMultiplier;
+      scaledPatternHeight = (patternArea.height / 2) * zoomMultiplier;
     }
 
     

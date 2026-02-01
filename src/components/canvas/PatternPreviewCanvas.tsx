@@ -13,6 +13,7 @@ interface PatternPreviewCanvasProps {
   zoom: number;
   showTileOutline: boolean;
   onZoomChange: (zoom: number) => void;
+  scalePreviewActive?: boolean;
 }
 
 export default function PatternPreviewCanvas({
@@ -24,6 +25,7 @@ export default function PatternPreviewCanvas({
   zoom,
   showTileOutline,
   onZoomChange,
+  scalePreviewActive = false,
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -383,10 +385,18 @@ export default function PatternPreviewCanvas({
                 const newZoom = parseInt(e.target.value);
                 onZoomChange(Math.max(0, Math.min(200, newZoom)));
               }}
-              className="flex-1 h-1.5 bg-[#e5e7eb] rounded-lg appearance-none cursor-pointer"
+              disabled={scalePreviewActive}
+              className={`flex-1 h-1.5 bg-[#e5e7eb] rounded-lg appearance-none ${
+                scalePreviewActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+              }`}
               style={{ accentColor: '#f1737c' }}
             />
             <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
+            {scalePreviewActive && (
+              <span className="text-[11px] text-[#6b7280] italic whitespace-nowrap">
+                Zoom locked by scale preview
+              </span>
+            )}
           </div>
         </div>
       </div>

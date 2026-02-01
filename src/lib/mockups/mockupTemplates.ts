@@ -77,10 +77,10 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
     physicalDimensions: {
-      width: 144,  // 12 feet
-      height: 96,  // 8 feet
+      width: 86,
+      height: 60,
       unit: 'inch',
-      displayLabel: '12 × 8 ft Wall'
+      displayLabel: '86 × 60 inch Wall'
     },
   },
   onesie: {
@@ -101,10 +101,10 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
     physicalDimensions: {
-      width: 12,
-      height: 14,
+      width: 10.5,
+      height: 18,
       unit: 'inch',
-      displayLabel: 'Medium Baby Onesie (12 × 14 inch)'
+      displayLabel: '12M Baby Onesie (10.5 × 18 inch)'
     },
   },
   'tote-bag': {
@@ -148,10 +148,10 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
     opacity: 0.9,            // 90% opacity for better blending
     approach: 'canvas',
     physicalDimensions: {
-      width: 8,
-      height: 8,
+      width: 12,
+      height: 12,
       unit: 'inch',
-      displayLabel: '8 × 8 inch Fabric Swatch'
+      displayLabel: '12 × 12 inch Fabric Swatch'
     },
   },
 };
