@@ -377,7 +377,6 @@ export default function PatternCanvas() {
       canvasSizeWidth: canvasSize.width,
       canvasSizeHeight: canvasSize.height,
     });
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:343',message:'Pattern rendering started',data:{imageWidth:image.width,imageHeight:image.height,dpi,viewZoom,displayWidth,displayHeight,canvasWidth:canvas.width,canvasHeight:canvas.height,canvasSizeWidth:canvasSize.width,canvasSizeHeight:canvasSize.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     
     // Pass canvas size to PatternTiler so it uses correct dimensions
@@ -419,7 +418,6 @@ export default function PatternCanvas() {
       displayWidth,
       displayHeight,
     });
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:366',message:'Scaled image ready',data:{tileWidthPx,tileHeightPx,displayWidth,displayHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
     // Render the tiled pattern
@@ -431,7 +429,6 @@ export default function PatternCanvas() {
       tileWidthPx,
       tileHeightPx,
     });
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:371',message:'Pattern tiled',data:{repeatType,tileWidthPx,tileHeightPx},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
 
     // Draw tile outline if enabled

@@ -144,7 +144,6 @@ export default function Home() {
     }
 
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:72',message:'File upload started',data:{fileName:file.name,fileSize:file.size,fileType:file.type,currentDpi:dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'M'})}).catch(()=>{});
     // #endregion
     
     console.log('File upload started:', file.name);
@@ -158,7 +157,6 @@ export default function Home() {
       console.log('Extracted DPI:', extractedDpi);
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:80',message:'DPI extraction result',data:{extractedDpi,fallbackDpi:dpi,willUse:extractedDpi||dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'N'})}).catch(()=>{});
       // #endregion
 
       // Smart DPI detection logic
@@ -212,7 +210,6 @@ export default function Home() {
       console.log('Calculation: height =', img.height, '/', finalDpi, '=', detectedHeight);
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:95',message:'Calculating tile dimensions',data:{imageWidth:img.width,imageHeight:img.height,finalDpi,detectedWidth,detectedHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'O'})}).catch(()=>{});
       // #endregion
       
       // Set the tile dimensions - these will update the input fields
@@ -221,7 +218,6 @@ export default function Home() {
       setImage(img);
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:132',message:'IMAGE STATE SET',data:{imageWidth:img.width,imageHeight:img.height,imageNaturalWidth:img.naturalWidth,imageNaturalHeight:img.naturalHeight,imageComplete:img.complete,imageSrc:img.src.substring(0,100),tileWidth:detectedWidth,tileHeight:detectedHeight,dpi:finalDpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
       // Extract and store original filename (without extension)
@@ -231,7 +227,6 @@ export default function Home() {
       setIsLoading(false);
       
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:105',message:'Tile dimensions set',data:{tileWidth:detectedWidth,tileHeight:detectedHeight,dpi:finalDpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       // #endregion
 
       URL.revokeObjectURL(objectUrl);
@@ -290,7 +285,7 @@ export default function Home() {
             canvasRef={canvasRef}
           />
           {/* #region agent log */}
-          {(()=>{fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:234',message:'PatternPreviewCanvas props',data:{hasImage:!!image,imageWidth:image?.width,imageHeight:image?.height,imageNaturalWidth:image?.naturalWidth,imageNaturalHeight:image?.naturalHeight,imageComplete:image?.complete,repeatType,zoom,dpi,showTileOutline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});return null;})()}
+          {null}
           {/* #endregion */}
           
           {isLoading && (

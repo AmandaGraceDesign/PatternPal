@@ -26,7 +26,9 @@ export async function POST(req: Request) {
     }
 
     const origin = req.headers.get("origin");
-    const returnUrl = process.env.APP_URL || origin || "http://localhost:3000";
+    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const allowedOrigins = [appUrl].filter(Boolean);
+    const returnUrl = origin && allowedOrigins.includes(origin) ? origin : appUrl;
 
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,

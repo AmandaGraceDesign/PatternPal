@@ -10,20 +10,28 @@ export default function TopBar() {
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
+  const handleHelp = () => {
+    window.location.href = 'mailto:support@patternpal.pro?subject=PatternPal%20Pro%20Support';
+  };
+
   const handleManageSubscription = async () => {
     try {
       const res = await fetch('/api/stripe/portal', { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.url) {
         window.location.href = data.url;
+      } else {
+        const message = data?.error || 'Unable to open the billing portal.';
+        window.alert(message);
       }
     } catch (error) {
       console.error('Failed to open customer portal', error);
+      window.alert('Unable to open the billing portal.');
     }
   };
 
   return (
-    <header className="h-12 border-b border-slate-700 bg-slate-900 flex items-center justify-between px-6">
+    <header className="relative z-[60] pointer-events-auto h-12 border-b border-slate-700 bg-slate-900 flex items-center justify-between px-6">
       {/* Left: Branding */}
       <div className="flex items-center">
         <h1 className="text-sm font-semibold text-slate-100">PatternPAL Pro</h1>
@@ -31,12 +39,17 @@ export default function TopBar() {
 
       {/* Right: Help and Upgrade */}
       <div className="flex items-center gap-3">
-        <button className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors">
+        <button
+          type="button"
+          onClick={handleHelp}
+          className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+        >
           Help
         </button>
         {isPro ? (
           <>
             <button
+              type="button"
               onClick={handleManageSubscription}
               className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
             >

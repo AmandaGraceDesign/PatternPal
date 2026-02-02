@@ -36,6 +36,30 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
+  const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
+  const proAllowed = isPro || proAccess === 'allowed';
+
+  const verifyProAccess = async () => {
+    if (!isSignedIn) {
+      setProAccess('denied');
+      return false;
+    }
+
+    try {
+      const res = await fetch('/api/pro/verify', { method: 'POST' });
+      if (res.ok) {
+        setProAccess('allowed');
+        return true;
+      }
+      if (res.status === 401 || res.status === 403) {
+        setProAccess('denied');
+        return false;
+      }
+    } catch (error) {
+      console.error('Pro verification failed:', error);
+    }
+    return proAccess === 'allowed';
+  };
 
   const handleManageSubscription = async () => {
     try {
@@ -84,7 +108,21 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   }, [image]);
 
   useEffect(() => {
+    if (!isSignedIn) {
+      setProAccess('denied');
+      return;
+    }
+    verifyProAccess();
+  }, [isSignedIn, user?.id]);
+
+  useEffect(() => {
     if (!image) {
+      setContrastAnalysis(null);
+      setCompositionAnalysis(null);
+      return;
+    }
+
+    if (!proAllowed) {
       setContrastAnalysis(null);
       setCompositionAnalysis(null);
       return;
@@ -145,7 +183,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           </h2>
         </div>
 
-        {!isPro ? (
+        {!proAllowed ? (
           <div
             className="p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#f1737c] transition-colors group"
             onClick={() => setIsUpgradeModalOpen(true)}
@@ -236,7 +274,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                     repeatType === 'half-drop' ? 'halfdrop' :
                     'halfbrick'
                   }
-                  isPro={isPro}
+                  isPro={proAllowed}
                 />
               </div>
             )}
@@ -252,28 +290,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           </h2>
         </div>
 
-        {!isPro ? (
-          <div
-            className="p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#f1737c] transition-colors group"
-            onClick={() => setIsUpgradeModalOpen(true)}
-          >
-            <div className="text-3xl mb-2">🔒</div>
-            <div className="text-sm font-semibold text-gray-700 mb-1">Pro Feature</div>
-            <div className="text-xs text-gray-500 mb-3">
-              Visualize your patterns on onesies, fabric swatches, and wallpaper
-            </div>
-            <div className="text-xs font-semibold text-[#f1737c] group-hover:text-[#e05a65]">
-              Click to Upgrade →
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {(['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const).map((mockupType) => {
-                const template = getMockupTemplate(mockupType);
-                return (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {(['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const).map((mockupType) => {
+              const template = getMockupTemplate(mockupType);
+              return (
+                <div key={mockupType} className="relative">
                   <MockupRenderer
-                    key={mockupType}
                     template={template}
                     patternImage={image}
                     tileWidth={tileWidth}
@@ -284,93 +307,122 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                     scaleFactor={scaleFactor}
                     scalePreviewActive={scalePreviewActive}
                     onClick={() => {
-                      setSelectedMockup(mockupType);
+                      if (proAllowed) {
+                        setSelectedMockup(mockupType);
+                      } else {
+                        setIsUpgradeModalOpen(true);
+                      }
                     }}
                   />
-                );
-              })}
-            </div>
-
-            {/* Mockup Modal */}
-            {selectedMockup && (
-              <MockupModal
-                isOpen={!!selectedMockup}
-                onClose={() => {
-                  setSelectedMockup(null);
-                  setMockupColorOverride(null);
-                }}
-                title={getMockupTemplate(selectedMockup as any)?.name}
-                subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
-                onDownload={() => {
-                  // Find the canvas element in the mockup renderer
-                  const mockupCanvas = document.querySelector('.mockup-canvas') as HTMLCanvasElement;
-                  if (mockupCanvas) {
-                    const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
-                    const link = document.createElement('a');
-                    const template = getMockupTemplate(selectedMockup as any);
-                    const templateSlug =
-                      template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-                    const baseName = originalFilename
-                      ? `${originalFilename}-${templateSlug}`
-                      : `mockup-${templateSlug}`;
-                    const suggested = sanitizeFilename(baseName, 'mockup');
-                    const userInput = window.prompt('Name your mockup file:', suggested);
-                    if (!userInput) return;
-                    link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
-                    link.href = dataURL;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }
-                }}
-              >
-                <div className="flex flex-col gap-3">
-                  {/* Color picker for onesie and wrapping paper bow */}
-                  {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
-                    <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
-                      <label className="text-xs font-medium text-[#294051]">
-                        {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
-                      </label>
-                      <input
-                        type="color"
-                        value={mockupColorOverride || '#ffffff'}
-                        onChange={(e) => setMockupColorOverride(e.target.value)}
-                        className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
-                      />
-                      {mockupColorOverride && (
-                        <button
-                          onClick={() => setMockupColorOverride(null)}
-                          className="text-xs text-[#705046] hover:text-[#294051] underline"
-                        >
-                          Reset to auto
-                        </button>
-                      )}
+                  {!proAllowed && (
+                    <div className="absolute inset-0 rounded-md flex items-center justify-center text-[#294051] pointer-events-none">
+                      <span className="text-xs font-semibold">🔒 Pro</span>
                     </div>
                   )}
+                </div>
+              );
+            })}
+          </div>
 
-                  {/* Mockup preview */}
-                  <div className="flex items-center justify-center bg-white rounded-lg p-4">
-                    <div className="w-full max-w-2xl">
-                      <MockupRenderer
-                        template={getMockupTemplate(selectedMockup as any)}
-                        patternImage={image}
-                        tileWidth={tileWidth}
-                        tileHeight={tileHeight}
-                        dpi={dpi}
-                        repeatType={repeatType}
-                        zoom={zoom}
-                        scaleFactor={scaleFactor}
-                        scalePreviewActive={scalePreviewActive}
-                        onClick={() => {}}
-                        colorOverride={mockupColorOverride}
-                      />
-                    </div>
+          {!proAllowed && (
+            <div
+              className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#f1737c] transition-colors group"
+              onClick={() => setIsUpgradeModalOpen(true)}
+            >
+              <div className="text-xs text-gray-500 mb-2">
+                Preview mockups are available, but opening and downloads require Pro.
+              </div>
+              <div className="text-xs font-semibold text-[#f1737c] group-hover:text-[#e05a65]">
+                Click to Upgrade →
+              </div>
+            </div>
+          )}
+
+          {/* Mockup Modal */}
+          {selectedMockup && (
+            <MockupModal
+              isOpen={!!selectedMockup}
+              onClose={() => {
+                setSelectedMockup(null);
+                setMockupColorOverride(null);
+              }}
+              title={getMockupTemplate(selectedMockup as any)?.name}
+              subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
+              onDownload={async () => {
+                const allowed = await verifyProAccess();
+                if (!allowed) {
+                  setIsUpgradeModalOpen(true);
+                  return;
+                }
+
+                // Find the canvas element in the mockup renderer
+                const mockupCanvas = document.querySelector('.mockup-canvas') as HTMLCanvasElement;
+                if (mockupCanvas) {
+                  const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
+                  const link = document.createElement('a');
+                  const template = getMockupTemplate(selectedMockup as any);
+                  const templateSlug =
+                    template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+                  const baseName = originalFilename
+                    ? `${originalFilename}-${templateSlug}`
+                    : `mockup-${templateSlug}`;
+                  const suggested = sanitizeFilename(baseName, 'mockup');
+                  const userInput = window.prompt('Name your mockup file:', suggested);
+                  if (!userInput) return;
+                  link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
+                  link.href = dataURL;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }
+              }}
+            >
+              <div className="flex flex-col gap-3">
+                {/* Color picker for onesie and wrapping paper bow */}
+                {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
+                  <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
+                    <label className="text-xs font-medium text-[#294051]">
+                      {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
+                    </label>
+                    <input
+                      type="color"
+                      value={mockupColorOverride || '#ffffff'}
+                      onChange={(e) => setMockupColorOverride(e.target.value)}
+                      className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
+                    />
+                    {mockupColorOverride && (
+                      <button
+                        onClick={() => setMockupColorOverride(null)}
+                        className="text-xs text-[#705046] hover:text-[#294051] underline"
+                      >
+                        Reset to auto
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Mockup preview */}
+                <div className="flex items-center justify-center bg-white rounded-lg p-4">
+                  <div className="w-full max-w-2xl">
+                    <MockupRenderer
+                      template={getMockupTemplate(selectedMockup as any)}
+                      patternImage={image}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      dpi={dpi}
+                      repeatType={repeatType}
+                      zoom={zoom}
+                      scaleFactor={scaleFactor}
+                      scalePreviewActive={scalePreviewActive}
+                      onClick={() => {}}
+                      colorOverride={mockupColorOverride}
+                    />
                   </div>
                 </div>
-              </MockupModal>
-            )}
-          </>
-        )}
+              </div>
+            </MockupModal>
+          )}
+        </div>
       </div>
 
       {/* Easyscale Export Modal */}
@@ -384,7 +436,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           tileHeight={tileHeight}
           repeatType={repeatType}
           originalFilename={originalFilename}
-          isPro={isPro}
+          isPro={proAllowed}
         />
       )}
 

@@ -38,11 +38,15 @@ export async function auth(): Promise<Session> {
     isPro = true;
   }
 
-  // Format 2: plan === 'patternpal_pro' with proUntil date
-  if (metadata?.plan === 'patternpal_pro' && metadata?.proUntil) {
-    const proUntilDate = new Date(metadata.proUntil);
-    const now = new Date();
-    isPro = proUntilDate > now; // Pro if subscription hasn't expired
+  // Format 2: plan === 'patternpal_pro' (optionally with proUntil date)
+  if (metadata?.plan === 'patternpal_pro') {
+    if (metadata?.proUntil) {
+      const proUntilDate = new Date(metadata.proUntil);
+      const now = new Date();
+      isPro = proUntilDate > now; // Pro if subscription hasn't expired
+    } else {
+      isPro = true;
+    }
   }
 
   return {
@@ -69,11 +73,14 @@ export async function checkProStatus(userId: string): Promise<boolean> {
     return true;
   }
 
-  // Format 2: plan === 'patternpal_pro' with proUntil date
-  if (metadata?.plan === 'patternpal_pro' && metadata?.proUntil) {
-    const proUntilDate = new Date(metadata.proUntil);
-    const now = new Date();
-    return proUntilDate > now; // Pro if subscription hasn't expired
+  // Format 2: plan === 'patternpal_pro' (optionally with proUntil date)
+  if (metadata?.plan === 'patternpal_pro') {
+    if (metadata?.proUntil) {
+      const proUntilDate = new Date(metadata.proUntil);
+      const now = new Date();
+      return proUntilDate > now; // Pro if subscription hasn't expired
+    }
+    return true;
   }
 
   return false;

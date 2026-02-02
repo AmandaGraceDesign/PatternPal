@@ -301,8 +301,9 @@ export default function MockupRenderer({
       const baseTileHeight = visibleHeightPx / repeatsY;
       const tileAspect = tileHeight !== 0 ? tileWidth / tileHeight : 1;
 
-      if (scalePreviewActive) {
-        // Lock tile aspect when scale preview is active (no squish)
+      const lockTileAspect = scalePreviewActive || template.id === 'wallpaper';
+      if (lockTileAspect) {
+        // Lock tile aspect to avoid squish
         const widthFromHeight = baseTileHeight * tileAspect;
         scaledPatternWidth = Math.min(baseTileWidth, widthFromHeight);
         scaledPatternHeight = scaledPatternWidth / tileAspect;

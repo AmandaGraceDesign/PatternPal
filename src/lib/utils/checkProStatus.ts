@@ -14,11 +14,14 @@ export function checkClientProStatus(publicMetadata: any): boolean {
     return true;
   }
 
-  // Format 2: plan === 'patternpal_pro' with proUntil date
-  if (publicMetadata.plan === 'patternpal_pro' && publicMetadata.proUntil) {
-    const proUntilDate = new Date(publicMetadata.proUntil);
-    const now = new Date();
-    return proUntilDate > now; // Pro if subscription hasn't expired
+  // Format 2: plan === 'patternpal_pro' (optionally with proUntil date)
+  if (publicMetadata.plan === 'patternpal_pro') {
+    if (publicMetadata.proUntil) {
+      const proUntilDate = new Date(publicMetadata.proUntil);
+      const now = new Date();
+      return proUntilDate > now; // Pro if subscription hasn't expired
+    }
+    return true;
   }
 
   return false;
