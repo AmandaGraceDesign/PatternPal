@@ -104,7 +104,9 @@ export default function Home() {
           
           // Load the image
           const img = new Image();
+          const objectUrl = URL.createObjectURL(blob);
           img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
             const finalDpi = detectedDpi || 96;
             const detectedWidth = img.width / finalDpi;
             const detectedHeight = img.height / finalDpi;
@@ -116,11 +118,12 @@ export default function Home() {
           };
           
           img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
             setIsLoading(false);
             console.error('Failed to load pasted image');
           };
           
-          img.src = URL.createObjectURL(blob);
+          img.src = objectUrl;
           break;
         }
       }
@@ -191,6 +194,7 @@ export default function Home() {
     
     // Load the image AFTER DPI detection
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
       console.log('Image loaded:', img.width, 'x', img.height);
       
@@ -229,14 +233,16 @@ export default function Home() {
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:105',message:'Tile dimensions set',data:{tileWidth:detectedWidth,tileHeight:detectedHeight,dpi:finalDpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
       // #endregion
+
+      URL.revokeObjectURL(objectUrl);
     };
     
     img.onerror = (error) => {
+      URL.revokeObjectURL(objectUrl);
       console.error('Failed to load image:', error);
       setIsLoading(false);
     };
-    
-    img.src = URL.createObjectURL(file);
+    img.src = objectUrl;
   };
 
   return (

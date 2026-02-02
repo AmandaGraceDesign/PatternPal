@@ -500,13 +500,19 @@ export default function PatternCanvas() {
     }
     
     const img = new Image();
-    
+
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       setImage(img);
       setIsLoading(false);
     };
-    
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      setIsLoading(false);
+    };
+
+    img.src = objectUrl;
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
@@ -540,13 +546,19 @@ export default function PatternCanvas() {
         }
         
         const img = new Image();
-        
+
+        const objectUrl = URL.createObjectURL(blob);
         img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
           setImage(img);
           setIsLoading(false);
         };
-        
-        img.src = URL.createObjectURL(blob);
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          setIsLoading(false);
+        };
+
+        img.src = objectUrl;
       }
     }
   };

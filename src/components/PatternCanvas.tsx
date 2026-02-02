@@ -27,11 +27,16 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
     if (!file) return;
     
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       setUploadedImage(img);
       drawPattern(img);
     };
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+    img.src = objectUrl;
   };
   
   // Paste from clipboard
@@ -45,11 +50,16 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
         if (!file) continue;
         
         const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
         img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
           setUploadedImage(img);
           drawPattern(img);
         };
-        img.src = URL.createObjectURL(file);
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+        };
+        img.src = objectUrl;
         break;
       }
     }

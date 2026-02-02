@@ -37,16 +37,19 @@ export default function TestScalingPage() {
 
     // Load image
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       setImage(img);
       addLog(`Image loaded: ${img.width}x${img.height}px`);
       setIsLoading(false);
     };
     img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
       addLog('Failed to load image');
       setIsLoading(false);
     };
-    img.src = URL.createObjectURL(file);
+    img.src = objectUrl;
   };
 
   const handleTestExport = async () => {

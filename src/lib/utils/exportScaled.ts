@@ -102,13 +102,14 @@ export async function generateScaledExport(config: ScaledExportConfig) {
   
   const timestamp = new Date().toISOString().split('T')[0];
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(zipBlob);
+  const zipUrl = URL.createObjectURL(zipBlob);
+  link.href = zipUrl;
   link.download = `${baseFilename}-scaled-${timestamp}.zip`;
   link.click();
   
   // Clean up object URL after a short delay
   setTimeout(() => {
-    URL.revokeObjectURL(link.href);
+    URL.revokeObjectURL(zipUrl);
   }, 100);
 }
 
