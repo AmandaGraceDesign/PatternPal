@@ -78,3 +78,20 @@ export async function checkProStatus(userId: string): Promise<boolean> {
 
   return false;
 }
+
+/**
+ * Require an authenticated Pro user (server-side).
+ */
+export async function requireProUser(): Promise<{ userId: string; isPro: true }> {
+  const { userId } = clerkAuth();
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const isPro = await checkProStatus(userId);
+  if (!isPro) {
+    throw new Error("Pro required");
+  }
+
+  return { userId, isPro: true };
+}

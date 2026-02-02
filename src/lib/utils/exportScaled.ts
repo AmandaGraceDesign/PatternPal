@@ -2,6 +2,25 @@ import JSZip from 'jszip';
 import { scaleImage, calculateOriginalSize, detectOriginalDPI } from './imageScaler';
 import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
 
+const FREE_USER_SIZES = [8, 12];
+
+async function verifyProAccessIfNeeded(config: ScaledExportConfig) {
+  const usesProDpi = config.selectedDPI === 300;
+  const usesProFormat = config.format !== 'jpg';
+  const usesProSizes = config.selectedSizes.some((size) => !FREE_USER_SIZES.includes(size));
+  const usesExtraSizes = config.selectedSizes.length > FREE_USER_SIZES.length;
+  const usesOriginal = config.includeOriginal;
+
+  const requiresPro = usesProDpi || usesProFormat || usesProSizes || usesExtraSizes || usesOriginal;
+  if (!requiresPro) return;
+
+  const res = await fetch('/api/pro/verify', { method: 'POST' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Pro required for this export.');
+  }
+}
+
 export interface ScaledExportConfig {
   image: HTMLImageElement;
   selectedSizes: number[];      // [2, 4, 6, 8, 10]
@@ -17,6 +36,7 @@ export interface ScaledExportConfig {
  * Generate a zip file containing scaled versions of the pattern
  */
 export async function generateScaledExport(config: ScaledExportConfig) {
+  await verifyProAccessIfNeeded(config);
   const zip = new JSZip();
   const originalDPI = config.originalDPI || detectOriginalDPI(config.image);
   const originalSize = calculateOriginalSize(config.image, originalDPI);
