@@ -8,7 +8,10 @@ const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  title: "PatternPal Pro",
+  title: {
+    default: "PatternPal Pro",
+    template: "%s | PatternPal Pro",
+  },
   description: "PatternPal Pro",
   icons: {
     icon: "/favicon.png",
