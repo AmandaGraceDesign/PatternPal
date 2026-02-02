@@ -11,7 +11,7 @@ export default function TopBar() {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const handleHelp = () => {
-    window.location.href = 'mailto:support@patternpal.pro?subject=PatternPal%20Pro%20Support';
+    window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
   };
 
   const handleManageSubscription = async () => {
