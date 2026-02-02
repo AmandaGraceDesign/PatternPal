@@ -1,5 +1,7 @@
 export type RepeatType = 'full-drop' | 'half-drop' | 'half-brick';
 
+type TileSource = HTMLImageElement | HTMLCanvasElement;
+
 export class PatternTiler {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -37,9 +39,18 @@ export class PatternTiler {
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
   }
 
-  renderFullDrop(image: HTMLImageElement) {
-    const w = image.width;
-    const h = image.height;
+  private getSourceSize(source: TileSource) {
+    if (source instanceof HTMLImageElement) {
+      return {
+        width: source.naturalWidth || source.width,
+        height: source.naturalHeight || source.height,
+      };
+    }
+    return { width: source.width, height: source.height };
+  }
+
+  renderFullDrop(image: TileSource) {
+    const { width: w, height: h } = this.getSourceSize(image);
     
     console.log('🔍 PatternTiler.renderFullDrop:', {
       imageWidth: w,
@@ -60,9 +71,8 @@ export class PatternTiler {
     }
   }
 
-  renderHalfDrop(image: HTMLImageElement) {
-    const w = image.width;
-    const h = image.height;
+  renderHalfDrop(image: TileSource) {
+    const { width: w, height: h } = this.getSourceSize(image);
     const cols = Math.ceil(this.displayWidth / w) + 1;
     const rows = Math.ceil(this.displayHeight / h) + 1;
 
@@ -94,9 +104,8 @@ export class PatternTiler {
     }
   }
 
-  renderHalfBrick(image: HTMLImageElement) {
-    const w = image.width;
-    const h = image.height;
+  renderHalfBrick(image: TileSource) {
+    const { width: w, height: h } = this.getSourceSize(image);
     const cols = Math.ceil(this.displayWidth / w) + 1;
     const rows = Math.ceil(this.displayHeight / h) + 1;
 
@@ -120,7 +129,7 @@ export class PatternTiler {
     }
   }
 
-  render(image: HTMLImageElement, repeatType: RepeatType) {
+  render(image: TileSource, repeatType: RepeatType) {
     this.clear();
 
     switch (repeatType) {

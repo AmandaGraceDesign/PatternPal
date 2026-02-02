@@ -235,13 +235,15 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
         0, 0, canvasWidth, canvasHeight
       );
       
-      // Draw pink seam line at center
+      // Draw pink seam line locked to pattern seam
       if (showPinkLines) {
         ctx.strokeStyle = '#ff1493';
         ctx.lineWidth = 3;
+        const seamSourceY = tileH;
+        const seamScreenY = ((seamSourceY - clampedSourceY) / sourceHeight) * canvasHeight;
         ctx.beginPath();
-        ctx.moveTo(0, canvasHeight / 2);
-        ctx.lineTo(canvasWidth, canvasHeight / 2);
+        ctx.moveTo(0, seamScreenY);
+        ctx.lineTo(canvasWidth, seamScreenY);
         ctx.stroke();
       }
       
@@ -275,13 +277,15 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
         0, 0, canvasWidth, canvasHeight
       );
       
-      // Draw pink seam line at center
+      // Draw pink seam line locked to pattern seam
       if (showPinkLines) {
         ctx.strokeStyle = '#ff1493';
         ctx.lineWidth = 3;
+        const seamSourceX = tileW;
+        const seamScreenX = ((seamSourceX - clampedSourceX) / sourceWidth) * canvasWidth;
         ctx.beginPath();
-        ctx.moveTo(canvasWidth / 2, 0);
-        ctx.lineTo(canvasWidth / 2, canvasHeight);
+        ctx.moveTo(seamScreenX, 0);
+        ctx.lineTo(seamScreenX, canvasHeight);
         ctx.stroke();
       }
     }

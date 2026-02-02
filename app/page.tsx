@@ -58,6 +58,15 @@ export default function Home() {
           const blob = items[i].getAsFile();
           if (!blob) continue;
 
+          const softLimitBytes = 15 * 1024 * 1024;
+          if (blob.size > softLimitBytes) {
+            const mb = (blob.size / (1024 * 1024)).toFixed(1);
+            const proceed = window.confirm(
+              `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
+            );
+            if (!proceed) continue;
+          }
+
           setIsLoading(true);
 
           // Try to extract DPI with smart detection
@@ -122,6 +131,15 @@ export default function Home() {
   }, [dpi]);
 
   const handleFileUpload = async (file: File) => {
+    const softLimitBytes = 15 * 1024 * 1024;
+    if (file.size > softLimitBytes) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      const proceed = window.confirm(
+        `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
+      );
+      if (!proceed) return;
+    }
+
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:72',message:'File upload started',data:{fileName:file.name,fileSize:file.size,fileType:file.type,currentDpi:dpi},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'M'})}).catch(()=>{});
     // #endregion

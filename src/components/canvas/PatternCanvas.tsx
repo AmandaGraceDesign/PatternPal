@@ -359,8 +359,8 @@ export default function PatternCanvas() {
     // Calculate displayed tile size based on ACTUAL DPI and zoom
     // Don't convert to 96 DPI - use the image's actual DPI
     // Wait, that simplifies to:
-    const displayWidth = image.width * viewZoom;
-    const displayHeight = image.height * viewZoom;
+    const displayWidth = Math.max(1, Math.round(image.width * viewZoom));
+    const displayHeight = Math.max(1, Math.round(image.height * viewZoom));
     
     // #region agent log
     console.log('🎨 RENDERING - Pattern rendering started:', {
@@ -383,90 +383,106 @@ export default function PatternCanvas() {
     // Pass canvas size to PatternTiler so it uses correct dimensions
     const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
     
-    // Create scaled image for display
     const scaledCanvas = document.createElement('canvas');
     scaledCanvas.width = displayWidth;
     scaledCanvas.height = displayHeight;
-    
-    // Store dimensions immediately for ruler calculations (BEFORE async operations)
+
+    // Store dimensions immediately for ruler calculations
     setTileDisplaySize({ width: scaledCanvas.width, height: scaledCanvas.height });
-    
-    const ctx = scaledCanvas.getContext('2d');
-    
-    if (ctx) {
-      ctx.drawImage(image, 0, 0, scaledCanvas.width, scaledCanvas.height);
-      const scaledImg = new Image();
-      scaledImg.onload = () => {
-        console.log('🎨 SCALED IMAGE SIZE:', scaledCanvas.width, '×', scaledCanvas.height);
-        console.log('🎨 TILE PHYSICAL SIZE:', image.width / dpi, '×', image.height / dpi, 'inches');
-        console.log('🎨 EXPECTED DISPLAY SIZE:', (image.width / dpi) * dpi * viewZoom, 'pixels');
-        
-        // #region agent log
-        console.log('🖼️ SCALED IMAGE - Loaded:', {
-          scaledImgWidth: scaledImg.width,
-          scaledImgHeight: scaledImg.height,
-          displayWidth,
-          displayHeight,
-        });
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:366',message:'Scaled image loaded',data:{scaledImgWidth:scaledImg.width,scaledImgHeight:scaledImg.height,displayWidth,displayHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        
-        // Render the tiled pattern
-        tiler.render(scaledImg, repeatType);
-        
-        // #region agent log
-        console.log('🔲 PATTERN TILED - Pattern rendered:', {
-          repeatType,
-          tileWidthPx: scaledImg.width,
-          tileHeightPx: scaledImg.height,
-        });
-        fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:371',message:'Pattern tiled',data:{repeatType,tileWidthPx:scaledImg.width,tileHeightPx:scaledImg.height},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
-        
-        // Draw tile outline if enabled
-        if (showTileOutline) {
-          requestAnimationFrame(() => {
-            const canvasCtx = canvas.getContext('2d');
-            if (canvasCtx) {
-              // Use the ACTUAL scaled image dimensions, not recalculated values
-              const actualTileWidth = scaledCanvas.width;
-              const actualTileHeight = scaledCanvas.height;
-              
-              let outlineX = 0;
-              let outlineY = 0;
-              
-              if (repeatType === 'half-drop') {
-                outlineX = actualTileWidth;
-                outlineY = actualTileHeight / 2;
-              }
-              
-              if (repeatType === 'half-brick') {
-                outlineX = actualTileWidth / 2;
-                outlineY = actualTileHeight;
-              }
-              
-              console.log('📦 OUTLINE DRAWING:', {
-                actualTileWidth,
-                actualTileHeight,
-                outlineX,
-                outlineY
-              });
-              
-              canvasCtx.strokeStyle = '#ff1493';
-              canvasCtx.lineWidth = 6;
-              canvasCtx.setLineDash([]);
-              canvasCtx.strokeRect(outlineX + 3, outlineY + 3, actualTileWidth - 6, actualTileHeight - 6);
-            }
+
+    const scaledCtx = scaledCanvas.getContext('2d');
+    if (!scaledCtx) return;
+
+    scaledCtx.imageSmoothingEnabled = true;
+    scaledCtx.imageSmoothingQuality = 'high';
+    scaledCtx.clearRect(0, 0, scaledCanvas.width, scaledCanvas.height);
+    scaledCtx.drawImage(image, 0, 0, scaledCanvas.width, scaledCanvas.height);
+
+    const renderSource = viewZoom === 1 ? image : scaledCanvas;
+    const tileWidthPx =
+      renderSource instanceof HTMLImageElement
+        ? renderSource.naturalWidth || renderSource.width
+        : renderSource.width;
+    const tileHeightPx =
+      renderSource instanceof HTMLImageElement
+        ? renderSource.naturalHeight || renderSource.height
+        : renderSource.height;
+
+    console.log('🎨 SCALED IMAGE SIZE:', tileWidthPx, '×', tileHeightPx);
+    console.log('🎨 TILE PHYSICAL SIZE:', image.width / dpi, '×', image.height / dpi, 'inches');
+    console.log('🎨 EXPECTED DISPLAY SIZE:', (image.width / dpi) * dpi * viewZoom, 'pixels');
+
+    // #region agent log
+    console.log('🖼️ SCALED IMAGE - Ready:', {
+      tileWidthPx,
+      tileHeightPx,
+      displayWidth,
+      displayHeight,
+    });
+    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:366',message:'Scaled image ready',data:{tileWidthPx,tileHeightPx,displayWidth,displayHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
+    // Render the tiled pattern
+    tiler.render(renderSource, repeatType);
+
+    // #region agent log
+    console.log('🔲 PATTERN TILED - Pattern rendered:', {
+      repeatType,
+      tileWidthPx,
+      tileHeightPx,
+    });
+    fetch('http://127.0.0.1:7242/ingest/f37b4cf4-ef5d-4355-935c-d1043bf409fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatternCanvas.tsx:371',message:'Pattern tiled',data:{repeatType,tileWidthPx,tileHeightPx},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
+    // Draw tile outline if enabled
+    if (showTileOutline) {
+      requestAnimationFrame(() => {
+        const canvasCtx = canvas.getContext('2d');
+        if (canvasCtx) {
+          const actualTileWidth = tileWidthPx;
+          const actualTileHeight = tileHeightPx;
+
+          let outlineX = 0;
+          let outlineY = 0;
+
+          if (repeatType === 'half-drop') {
+            outlineX = actualTileWidth;
+            outlineY = actualTileHeight / 2;
+          }
+
+          if (repeatType === 'half-brick') {
+            outlineX = actualTileWidth / 2;
+            outlineY = actualTileHeight;
+          }
+
+          console.log('📦 OUTLINE DRAWING:', {
+            actualTileWidth,
+            actualTileHeight,
+            outlineX,
+            outlineY
           });
+
+          canvasCtx.strokeStyle = '#ff1493';
+          canvasCtx.lineWidth = 6;
+          canvasCtx.setLineDash([]);
+          canvasCtx.strokeRect(outlineX + 3, outlineY + 3, actualTileWidth - 6, actualTileHeight - 6);
         }
-      };
-      scaledImg.src = scaledCanvas.toDataURL();
+      });
     }
   }, [image, repeatType, viewZoom, dpi, showTileOutline, canvasSize]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const softLimitBytes = 15 * 1024 * 1024;
+    if (file.size > softLimitBytes) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      const proceed = window.confirm(
+        `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
+      );
+      if (!proceed) return;
+    }
 
     setIsLoading(true);
     
@@ -501,6 +517,15 @@ export default function PatternCanvas() {
       if (items[i].type.indexOf('image') !== -1) {
         const blob = items[i].getAsFile();
         if (!blob) continue;
+
+        const softLimitBytes = 15 * 1024 * 1024;
+        if (blob.size > softLimitBytes) {
+          const mb = (blob.size / (1024 * 1024)).toFixed(1);
+          const proceed = window.confirm(
+            `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
+          );
+          if (!proceed) continue;
+        }
 
         setIsLoading(true);
         

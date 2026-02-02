@@ -10,6 +10,7 @@ import UpgradeModal from '@/components/export/UpgradeModal';
 import SeamAnalyzer from '@/components/analysis/SeamAnalyzer';
 import { getMockupTemplate, getAllMockupTypes } from '@/lib/mockups/mockupTemplates';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
+import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 
 interface ActionsSidebarProps {
   image: HTMLImageElement | null;
@@ -307,9 +308,15 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                     const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
                     const link = document.createElement('a');
                     const template = getMockupTemplate(selectedMockup as any);
-                    link.download = originalFilename
-                      ? `${originalFilename}-${template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup'}.png`
-                      : `mockup-${template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup'}.png`;
+                    const templateSlug =
+                      template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+                    const baseName = originalFilename
+                      ? `${originalFilename}-${templateSlug}`
+                      : `mockup-${templateSlug}`;
+                    const suggested = sanitizeFilename(baseName, 'mockup');
+                    const userInput = window.prompt('Name your mockup file:', suggested);
+                    if (!userInput) return;
+                    link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
                     link.href = dataURL;
                     document.body.appendChild(link);
                     link.click();

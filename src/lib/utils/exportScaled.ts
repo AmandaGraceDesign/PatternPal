@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { scaleImage, calculateOriginalSize, detectOriginalDPI } from './imageScaler';
 import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
+import { sanitizeFilename } from './sanitizeFilename';
 
 const FREE_USER_SIZES = [8, 12];
 
@@ -42,7 +43,7 @@ export async function generateScaledExport(config: ScaledExportConfig) {
   const originalSize = calculateOriginalSize(config.image, originalDPI);
   
   // Get base filename (use original filename if available, otherwise "pattern")
-  const baseFilename = config.originalFilename || 'pattern';
+  const baseFilename = sanitizeFilename(config.originalFilename || 'pattern', 'pattern');
   const fileExtension = config.format;
   
   // Add original tile
