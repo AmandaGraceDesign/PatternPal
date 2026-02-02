@@ -261,6 +261,7 @@ export default function Home() {
             onDpiChange={setDpi}
             onShowTileOutlineChange={setShowTileOutline}
             onFileUpload={handleFileUpload}
+            onPaste={() => {}}
             scalePreviewSize={scalePreviewSize}
             onScalePreviewChange={setScalePreviewSize}
             isScalePreviewActive={isScalePreviewActive}
@@ -282,7 +283,6 @@ export default function Home() {
             showTileOutline={showTileOutline}
             onZoomChange={setZoom}
             scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-            canvasRef={canvasRef}
           />
           {/* #region agent log */}
           {null}

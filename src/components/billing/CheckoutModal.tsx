@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type StripeElementsOptions } from '@stripe/stripe-js';
 
 type BillingInterval = 'month' | 'year';
 
@@ -77,13 +77,13 @@ export default function CheckoutModal({ isOpen, onClose }: CheckoutModalProps) {
   const priceId = interval === 'month' ? monthlyPriceId : yearlyPriceId;
   const hasStripeKey = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
-  const options = useMemo(
-    () => ({
-      clientSecret: clientSecret ?? undefined,
+  const options = useMemo<StripeElementsOptions | null>(() => {
+    if (!clientSecret) return null;
+    return {
+      clientSecret,
       appearance: { theme: 'stripe' },
-    }),
-    [clientSecret]
-  );
+    };
+  }, [clientSecret]);
 
   const handleStartCheckout = async () => {
     if (!priceId) {
@@ -134,7 +134,7 @@ export default function CheckoutModal({ isOpen, onClose }: CheckoutModalProps) {
           <p className="text-sm text-[#6b7280]">
             Stripe configuration is missing. Please add your publishable key.
           </p>
-        ) : clientSecret ? (
+        ) : clientSecret && options ? (
           <Elements stripe={stripePromise} options={options}>
             <CheckoutForm onSuccess={onClose} />
           </Elements>

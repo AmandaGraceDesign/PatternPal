@@ -19,12 +19,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const client = await clerkClient();
     const { priceId } = await req.json();
     if (!priceId || !allowedPriceIds.has(priceId)) {
       return NextResponse.json({ error: "Invalid price" }, { status: 400 });
     }
 
-    const user = await clerkClient.users.getUser(userId);
+    const user = await client.users.getUser(userId);
     const existingPrivate = user.privateMetadata ?? {};
     let stripeCustomerId = existingPrivate.stripeCustomerId as string | undefined;
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
       });
       stripeCustomerId = customer.id;
 
-      await clerkClient.users.updateUserMetadata(userId, {
+      await client.users.updateUserMetadata(userId, {
         privateMetadata: {
           ...existingPrivate,
           stripeCustomerId,
@@ -58,9 +59,15 @@ export async function POST(req: Request) {
     });
 
     const invoice = subscription.latest_invoice as Stripe.Invoice | null;
-    const paymentIntent = invoice?.payment_intent as Stripe.PaymentIntent | null;
+    const invoiceWithIntent = invoice as (Stripe.Invoice & {
+      payment_intent?: Stripe.PaymentIntent | string | null;
+    }) | null;
+    const paymentIntent =
+      invoiceWithIntent && typeof invoiceWithIntent.payment_intent !== "string"
+        ? (invoiceWithIntent.payment_intent as Stripe.PaymentIntent | null)
+        : null;
 
-    await clerkClient.users.updateUserMetadata(userId, {
+    await client.users.updateUserMetadata(userId, {
       privateMetadata: {
         ...existingPrivate,
         stripeCustomerId,

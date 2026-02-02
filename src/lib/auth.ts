@@ -17,7 +17,7 @@ export interface Session {
  * 2. publicMetadata.plan === 'patternpal_pro' with proUntil date
  */
 export async function auth(): Promise<Session> {
-  const { userId } = clerkAuth();
+  const { userId } = await clerkAuth();
   if (!userId) {
     return { user: null };
   }
@@ -65,7 +65,8 @@ export async function auth(): Promise<Session> {
  * 2. publicMetadata.plan === 'patternpal_pro' with proUntil date
  */
 export async function checkProStatus(userId: string): Promise<boolean> {
-  const user = await clerkClient.users.getUser(userId);
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
   const metadata = user.publicMetadata as any;
 
   // Format 1: Simple isPro boolean
@@ -90,7 +91,7 @@ export async function checkProStatus(userId: string): Promise<boolean> {
  * Require an authenticated Pro user (server-side).
  */
 export async function requireProUser(): Promise<{ userId: string; isPro: true }> {
-  const { userId } = clerkAuth();
+  const { userId } = await clerkAuth();
   if (!userId) {
     throw new Error("Unauthorized");
   }

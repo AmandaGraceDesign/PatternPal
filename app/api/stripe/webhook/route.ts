@@ -38,16 +38,17 @@ export async function POST(req: Request) {
     const subscription = event.data.object as Stripe.Subscription;
     const clerkUserId = subscription.metadata?.clerkUserId;
     if (clerkUserId) {
+      const client = await clerkClient();
       const stripeCustomerId =
         typeof subscription.customer === "string"
           ? subscription.customer
           : subscription.customer.id;
 
-      const user = await clerkClient.users.getUser(clerkUserId);
+      const user = await client.users.getUser(clerkUserId);
       const existingPrivate = user.privateMetadata ?? {};
       const existingPublic = user.publicMetadata ?? {};
 
-      await clerkClient.users.updateUserMetadata(clerkUserId, {
+      await client.users.updateUserMetadata(clerkUserId, {
         publicMetadata: {
           ...existingPublic,
           isPro: isProStatus(subscription.status),

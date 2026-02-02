@@ -4,13 +4,8 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
-const geistSans = GeistSans({
-  variable: "--font-geist-sans",
-});
-
-const geistMono = GeistMono({
-  variable: "--font-geist-mono",
-});
+const geistSans = GeistSans;
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   title: "Create Next App",

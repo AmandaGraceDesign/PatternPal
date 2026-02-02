@@ -225,6 +225,7 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
         {/* Seam Analyzer */}
         <SeamAnalyzer
           canvas={previewCanvasRef.current}
+          image={uploadedImage}
           repeatType={repeatType}
           isPro={isPro}
         />

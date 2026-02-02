@@ -13,7 +13,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await clerkClient.users.getUser(userId);
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
     const stripeCustomerId = user.privateMetadata?.stripeCustomerId as
       | string
       | undefined;

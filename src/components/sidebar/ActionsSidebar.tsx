@@ -20,7 +20,7 @@ interface ActionsSidebarProps {
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   zoom: number;
   originalFilename: string | null;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   scaleFactor?: number;
   scalePreviewActive?: boolean;
 }
@@ -432,8 +432,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           onClose={() => setIsEasyscaleModalOpen(false)}
           image={image}
           currentDPI={dpi}
-          tileWidth={tileWidth}
-          tileHeight={tileHeight}
           repeatType={repeatType}
           originalFilename={originalFilename}
           isPro={proAllowed}
