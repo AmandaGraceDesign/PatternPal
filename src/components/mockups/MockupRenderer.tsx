@@ -40,7 +40,12 @@ export default function MockupRenderer({
   const isOnesie = template.id === 'onesie';
   const isWrappingPaper = template.id === 'wrapping-paper';
 
-  const createMaskCanvas = (mask: HTMLImageElement, width: number, height: number) => {
+  const createMaskCanvas = (
+    mask: HTMLImageElement,
+    width: number,
+    height: number,
+    invertAlpha = false
+  ) => {
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = width;
     maskCanvas.height = height;
@@ -65,7 +70,8 @@ export default function MockupRenderer({
       // For RGBA masks: if the original alpha is meaningful (not fully opaque),
       // use the original alpha. Otherwise, use luminance.
       // White areas (high luminance) = show pattern, Black areas (low luminance) = hide pattern
-      const finalAlpha = originalAlpha < 255 ? originalAlpha : luminance;
+      const baseAlpha = originalAlpha < 255 ? originalAlpha : luminance;
+      const finalAlpha = invertAlpha ? 255 - baseAlpha : baseAlpha;
 
       data[i] = 0;
       data[i + 1] = 0;
@@ -337,7 +343,6 @@ export default function MockupRenderer({
       scaledPatternImg.onload = () => {
         // Render the tiled pattern
         tiler.render(scaledPatternImg, repeatType);
-
         // Apply blend mode and opacity
         ctx.save();
         
@@ -388,7 +393,12 @@ export default function MockupRenderer({
             const patternLayerCtx = patternLayer.getContext('2d');
             if (patternLayerCtx) {
               patternLayerCtx.drawImage(patternCanvas, 0, 0);
-              const patternMaskCanvas = createMaskCanvas(maskImage, patternArea.width, patternArea.height);
+              const patternMaskCanvas = createMaskCanvas(
+                maskImage,
+                patternArea.width,
+                patternArea.height,
+                false
+              );
               if (patternMaskCanvas) {
                 patternLayerCtx.globalCompositeOperation = 'destination-in';
                 patternLayerCtx.drawImage(patternMaskCanvas, 0, 0);
@@ -406,12 +416,64 @@ export default function MockupRenderer({
               colorLayer.height = patternCanvas.height;
               const colorCtx = colorLayer.getContext('2d');
               if (colorCtx) {
-                colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
-                colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
-                colorCtx.globalCompositeOperation = 'destination-in';
-                const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
-                if (colorMaskCanvas) {
-                  colorCtx.drawImage(colorMaskCanvas, 0, 0);
+                const colorMaskCanvas = createMaskCanvas(
+                  colorMaskImage,
+                  patternArea.width,
+                  patternArea.height,
+                  false
+                );
+                if (isWrappingPaper) {
+                  const shadingLayer = document.createElement('canvas');
+                  shadingLayer.width = patternCanvas.width;
+                  shadingLayer.height = patternCanvas.height;
+                  const shadingCtx = shadingLayer.getContext('2d');
+                  if (shadingCtx) {
+                    shadingCtx.drawImage(
+                      mockupImage,
+                      patternArea.x,
+                      patternArea.y,
+                      patternCanvas.width,
+                      patternCanvas.height,
+                      0,
+                      0,
+                      patternCanvas.width,
+                      patternCanvas.height
+                    );
+                    const shadingData = shadingCtx.getImageData(
+                      0,
+                      0,
+                      shadingLayer.width,
+                      shadingLayer.height
+                    );
+                    const data = shadingData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                      const luminance = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                      data[i] = luminance;
+                      data[i + 1] = luminance;
+                      data[i + 2] = luminance;
+                    }
+                    shadingCtx.putImageData(shadingData, 0, 0);
+                    if (colorMaskCanvas) {
+                      shadingCtx.globalCompositeOperation = 'destination-in';
+                      shadingCtx.drawImage(colorMaskCanvas, 0, 0);
+                    }
+                    colorCtx.clearRect(0, 0, colorLayer.width, colorLayer.height);
+                    colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
+                    colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
+                    colorCtx.globalCompositeOperation = 'multiply';
+                    colorCtx.drawImage(shadingLayer, 0, 0);
+                    if (colorMaskCanvas) {
+                      colorCtx.globalCompositeOperation = 'destination-in';
+                      colorCtx.drawImage(colorMaskCanvas, 0, 0);
+                    }
+                  }
+                } else {
+                  colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
+                  colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
+                  if (colorMaskCanvas) {
+                    colorCtx.globalCompositeOperation = 'destination-in';
+                    colorCtx.drawImage(colorMaskCanvas, 0, 0);
+                  }
                 }
               }
 
@@ -421,7 +483,8 @@ export default function MockupRenderer({
             }
 
             tempCtx.globalCompositeOperation = 'multiply';
-            tempCtx.globalAlpha = template.opacity ?? 1;
+            const patternAlpha = template.id === 'wrapping-paper' ? 1 : (template.opacity ?? 1);
+            tempCtx.globalAlpha = patternAlpha;
             tempCtx.drawImage(patternLayer, 0, 0);
           } else {
             // Step 2: Apply multiply blend between base and pattern
@@ -445,7 +508,8 @@ export default function MockupRenderer({
           
           // Step 4: Draw final result to main canvas (no blend mode needed)
           ctx.globalCompositeOperation = 'source-over';
-          ctx.globalAlpha = 1;
+          const overlayAlpha = template.id === 'wrapping-paper' ? (template.opacity ?? 1) : 1;
+          ctx.globalAlpha = overlayAlpha;
           ctx.drawImage(tempCanvas, patternArea.x, patternArea.y);
           
         } else if (maskImage) {
