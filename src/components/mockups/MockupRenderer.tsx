@@ -37,6 +37,8 @@ export default function MockupRenderer({
   const [mockupImage, setMockupImage] = useState<HTMLImageElement | null>(null);
   const [maskImage, setMaskImage] = useState<HTMLImageElement | null>(null);
   const [colorMaskImage, setColorMaskImage] = useState<HTMLImageElement | null>(null);
+  const [shadowMaskImage, setShadowMaskImage] = useState<HTMLImageElement | null>(null);
+  const [highlightMaskImage, setHighlightMaskImage] = useState<HTMLImageElement | null>(null);
   const isOnesie = template.id === 'onesie';
   const isWrappingPaper = template.id === 'wrapping-paper';
 
@@ -213,6 +215,22 @@ export default function MockupRenderer({
       setColorMaskImage(null);
     }
   }, [isOnesie, isWrappingPaper, template.id]);
+
+  // Load wrapping paper shadow/highlight masks
+  useEffect(() => {
+    if (isWrappingPaper) {
+      const shadowImg = new Image();
+      shadowImg.onload = () => setShadowMaskImage(shadowImg);
+      shadowImg.src = `/mockups/wrapping_paper_shadow.png?v=${Date.now()}`;
+
+      const highlightImg = new Image();
+      highlightImg.onload = () => setHighlightMaskImage(highlightImg);
+      highlightImg.src = `/mockups/wrapping_paper_highlight.png?v=${Date.now()}`;
+    } else {
+      setShadowMaskImage(null);
+      setHighlightMaskImage(null);
+    }
+  }, [isWrappingPaper]);
 
   // Render pattern on mockup
   useEffect(() => {
@@ -422,7 +440,7 @@ export default function MockupRenderer({
                   patternArea.height,
                   false
                 );
-                if (isWrappingPaper) {
+                if (isWrappingPaper || isOnesie) {
                   const shadingLayer = document.createElement('canvas');
                   shadingLayer.width = patternCanvas.width;
                   shadingLayer.height = patternCanvas.height;
@@ -446,11 +464,14 @@ export default function MockupRenderer({
                       shadingLayer.height
                     );
                     const data = shadingData.data;
+                    const contrast = 1.45;
+                    const highlightLift = 12;
                     for (let i = 0; i < data.length; i += 4) {
                       const luminance = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                      data[i] = luminance;
-                      data[i + 1] = luminance;
-                      data[i + 2] = luminance;
+                      const boosted = Math.min(255, Math.max(0, (luminance - 128) * contrast + 128 + highlightLift));
+                      data[i] = boosted;
+                      data[i + 1] = boosted;
+                      data[i + 2] = boosted;
                     }
                     shadingCtx.putImageData(shadingData, 0, 0);
                     if (colorMaskCanvas) {
@@ -480,6 +501,54 @@ export default function MockupRenderer({
               tempCtx.globalCompositeOperation = 'multiply';
               tempCtx.globalAlpha = 0.9;
               tempCtx.drawImage(colorLayer, 0, 0);
+            }
+
+            if (isWrappingPaper && shadowMaskImage) {
+              const shadowLayer = document.createElement('canvas');
+              shadowLayer.width = patternCanvas.width;
+              shadowLayer.height = patternCanvas.height;
+              const shadowCtx = shadowLayer.getContext('2d');
+              if (shadowCtx) {
+                shadowCtx.fillStyle = '#000000';
+                shadowCtx.fillRect(0, 0, shadowLayer.width, shadowLayer.height);
+                const shadowMaskCanvas = createMaskCanvas(
+                  shadowMaskImage,
+                  patternArea.width,
+                  patternArea.height,
+                  false
+                );
+                if (shadowMaskCanvas) {
+                  shadowCtx.globalCompositeOperation = 'destination-in';
+                  shadowCtx.drawImage(shadowMaskCanvas, 0, 0);
+                }
+                tempCtx.globalCompositeOperation = 'multiply';
+                tempCtx.globalAlpha = 0.25;
+                tempCtx.drawImage(shadowLayer, 0, 0);
+              }
+            }
+
+            if (isWrappingPaper && highlightMaskImage) {
+              const highlightLayer = document.createElement('canvas');
+              highlightLayer.width = patternCanvas.width;
+              highlightLayer.height = patternCanvas.height;
+              const highlightCtx = highlightLayer.getContext('2d');
+              if (highlightCtx) {
+                highlightCtx.fillStyle = '#ffffff';
+                highlightCtx.fillRect(0, 0, highlightLayer.width, highlightLayer.height);
+                const highlightMaskCanvas = createMaskCanvas(
+                  highlightMaskImage,
+                  patternArea.width,
+                  patternArea.height,
+                  false
+                );
+                if (highlightMaskCanvas) {
+                  highlightCtx.globalCompositeOperation = 'destination-in';
+                  highlightCtx.drawImage(highlightMaskCanvas, 0, 0);
+                }
+                tempCtx.globalCompositeOperation = 'screen';
+                tempCtx.globalAlpha = 0.48;
+                tempCtx.drawImage(highlightLayer, 0, 0);
+              }
             }
 
             tempCtx.globalCompositeOperation = 'multiply';
@@ -526,7 +595,12 @@ export default function MockupRenderer({
               if (colorCtx) {
                 colorCtx.fillStyle = colorOverride || extractBackgroundColor(patternImage);
                 colorCtx.fillRect(0, 0, colorLayer.width, colorLayer.height);
-                const colorMaskCanvas = createMaskCanvas(colorMaskImage, patternArea.width, patternArea.height);
+                const colorMaskCanvas = createMaskCanvas(
+                  colorMaskImage,
+                  patternArea.width,
+                  patternArea.height,
+                  false
+                );
                 if (colorMaskCanvas) {
                   colorCtx.globalCompositeOperation = 'destination-in';
                   colorCtx.drawImage(colorMaskCanvas, 0, 0);
@@ -579,7 +653,7 @@ export default function MockupRenderer({
     } else {
       setIsRendering(false);
     }
-  }, [template, mockupImage, maskImage, colorMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride, scaleFactor, scalePreviewActive, isOnesie, isWrappingPaper]);
+  }, [template, mockupImage, maskImage, colorMaskImage, shadowMaskImage, highlightMaskImage, patternImage, tileWidth, tileHeight, dpi, repeatType, zoom, colorOverride, scaleFactor, scalePreviewActive, isOnesie, isWrappingPaper]);
 
   // Prevent right-click and image copying
   const handleContextMenu = (e: React.MouseEvent) => {
