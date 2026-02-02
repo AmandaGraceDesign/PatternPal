@@ -70,6 +70,8 @@ export default function Ruler({
 
     // Draw tick marks and labels
     ctx.fillStyle = '#374151'; // Dark gray for text
+    ctx.strokeStyle = '#6b7280';
+    ctx.lineWidth = 1;
     ctx.font = '10px sans-serif';
     ctx.textAlign = isHorizontal ? 'center' : 'center';
     ctx.textBaseline = isHorizontal ? 'top' : 'middle';
@@ -128,31 +130,11 @@ export default function Ruler({
 }
 
 function getTickSpacing(pixelsPerUnit: number): number {
-  // Returns spacing in pixels for minor ticks
-  // Choose spacing that creates logical inch increments
-  
-  if (pixelsPerUnit >= 200) {
-    // Very zoomed in: 1/8 inch increments
-    return pixelsPerUnit / 8;
-  } else if (pixelsPerUnit >= 96) {
-    // Zoomed in: 1/4 inch increments
-    return pixelsPerUnit / 4;
-  } else if (pixelsPerUnit >= 48) {
-    // Medium: 1/2 inch increments
-    return pixelsPerUnit / 2;
-  } else if (pixelsPerUnit >= 24) {
-    // Medium-far: 1 inch increments
-    return pixelsPerUnit;
-  } else if (pixelsPerUnit >= 12) {
-    // Far: 2 inch increments
-    return pixelsPerUnit * 2;
-  } else if (pixelsPerUnit >= 6) {
-    // Very far: 5 inch increments
-    return pixelsPerUnit * 5;
-  } else {
-    // Extremely far: 10 inch increments
-    return pixelsPerUnit * 10;
-  }
+  // Returns spacing in pixels for minor ticks.
+  // Aim for half-unit ticks where possible.
+  const desired = pixelsPerUnit / 2;
+  // Avoid ultra-dense ticks at extreme zoom out.
+  return Math.max(5, desired);
 }
 
 function formatLabel(value: number, unit: string, pixelsPerUnit: number): string {

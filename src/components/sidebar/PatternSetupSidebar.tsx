@@ -109,7 +109,7 @@ export default function PatternSetupSidebar({
       {/* Tile Info Section */}
       <div className="mb-8">
         <h2 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-          Tile Info
+          Original Tile Size and DPI
         </h2>
         <div className="space-y-3">
           <div>
@@ -147,7 +147,7 @@ export default function PatternSetupSidebar({
       {/* Scale Preview Section */}
       <div className="mb-8">
         <h2 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-          Scale Preview
+          Preview Your Pattern at a Specific Scale
         </h2>
 
         <div className="space-y-3">
