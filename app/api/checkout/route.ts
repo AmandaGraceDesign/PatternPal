@@ -56,16 +56,13 @@ export async function POST(req: Request) {
     const user = await client.users.getUser(userId);
     const email = user.emailAddresses?.[0]?.emailAddress;
 
-    const origin = req.headers.get("origin");
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
-    const allowedOrigins = [appUrl, "http://localhost:3000"].filter(Boolean);
-    const returnUrl = origin && allowedOrigins.includes(origin) ? origin : appUrl;
+    const origin = req.headers.get("origin") || "https://pattern-tester.amandagracedesign.com";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${returnUrl}/?checkout=success`,
-      cancel_url: `${returnUrl}/?checkout=cancel`,
+      success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/?checkout=cancel`,
       customer_email: email ?? undefined,
       client_reference_id: userId,
       metadata: {

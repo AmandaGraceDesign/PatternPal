@@ -1,20 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SignInButton, SignUpButton, useUser } from '@clerk/nextjs';
+import { SignInButton, useUser } from '@clerk/nextjs';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import CheckoutModal from '@/components/billing/CheckoutModal';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
 interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialPlan?: 'monthly' | 'yearly';
 }
 
-export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
+export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeModalProps) {
   const { user, isSignedIn } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const checkoutFlagKey = 'pp_checkout_after_auth';
 
   const handleManageSubscription = async () => {
     try {
@@ -28,18 +32,13 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
     }
   };
 
-  useEffect(() => {
-    if (!isOpen || !isSignedIn) return;
-    try {
-      const shouldStart = window.localStorage.getItem(checkoutFlagKey) === '1';
-      if (shouldStart) {
-        window.localStorage.removeItem(checkoutFlagKey);
-        setIsCheckoutOpen(true);
-      }
-    } catch {
-      // If storage is unavailable, fall back to manual upgrade
-    }
-  }, [isOpen, isSignedIn]);
+  const handleSignInToUpgrade = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('upgrade', '1');
+    params.set('plan', initialPlan ?? 'monthly');
+    const returnUrl = `${window.location.origin}${pathname}?${params.toString()}`;
+    router.push(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
+  };
 
   if (!isOpen) return null;
 
@@ -131,40 +130,28 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                 Upgrade Now
               </button>
             ) : (
-              <div className="flex-1 space-y-2">
-                <SignUpButton mode="modal">
-                  <button
-                    onClick={() => {
-                      try {
-                        window.localStorage.setItem(checkoutFlagKey, '1');
-                      } catch {
-                        // Ignore storage errors
-                      }
-                    }}
-                    className="w-full px-4 py-2 text-white rounded-md transition-colors"
-                    style={{ backgroundColor: '#f1737c' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#e05a65';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f1737c';
-                    }}
-                  >
-                    Create account &amp; pay
-                  </button>
-                </SignUpButton>
-                <SignInButton mode="modal">
-                  <button className="w-full px-4 py-2 text-slate-200 border border-slate-600 rounded-md hover:bg-slate-700 transition-colors">
-                    Already have an account? Log in
-                  </button>
-                </SignInButton>
-              </div>
+              <SignInButton mode="modal">
+                <button
+                  onClick={handleSignInToUpgrade}
+                  className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#f1737c' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#e05a65';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f1737c';
+                  }}
+                >
+                  Log in to Upgrade
+                </button>
+              </SignInButton>
             )}
           </div>
         </div>
       </div>
       <CheckoutModal
         isOpen={isCheckoutOpen}
+        initialPlan={initialPlan}
         onClose={() => {
           setIsCheckoutOpen(false);
           onClose();

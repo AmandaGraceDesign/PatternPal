@@ -1,20 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type BillingInterval = 'month' | 'year';
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialPlan?: 'monthly' | 'yearly';
 }
 
-export default function CheckoutModal({ isOpen, onClose }: CheckoutModalProps) {
+export default function CheckoutModal({ isOpen, onClose, initialPlan }: CheckoutModalProps) {
+  const { userId } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [interval, setInterval] = useState<BillingInterval>('month');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen || !initialPlan) return;
+    setInterval(initialPlan === 'yearly' ? 'year' : 'month');
+  }, [isOpen, initialPlan]);
+
   const handleStartCheckout = async () => {
+    if (!userId) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('upgrade', '1');
+      params.set('plan', interval === 'month' ? 'monthly' : 'yearly');
+      const returnUrl = `${window.location.origin}${pathname}?${params.toString()}`;
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 

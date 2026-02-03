@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupModal from '@/components/mockups/MockupModal';
@@ -27,6 +28,9 @@ interface ActionsSidebarProps {
 
 export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef, scaleFactor = 1, scalePreviewActive = false }: ActionsSidebarProps) {
   const { user, isSignedIn } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -34,6 +38,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly' | undefined>(undefined);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
@@ -114,6 +119,20 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     }
     verifyProAccess();
   }, [isSignedIn, user?.id]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (searchParams.get('upgrade') !== '1') return;
+    const planParam = searchParams.get('plan');
+    setUpgradePlan(planParam === 'yearly' ? 'yearly' : 'monthly');
+    setIsUpgradeModalOpen(true);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete('upgrade');
+    nextParams.delete('plan');
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [isSignedIn, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!image) {
@@ -441,6 +460,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
       {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={isUpgradeModalOpen}
+        initialPlan={upgradePlan}
         onClose={() => setIsUpgradeModalOpen(false)}
       />
     </aside>
