@@ -97,6 +97,21 @@ export async function POST(req: Request) {
       await applyProSubscription({ client, subscriptionId, clerkUserId });
     }
 
+    if (event.type === "customer.subscription.created") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const clerkUserId = subscription.metadata?.clerkUserId;
+      if (!clerkUserId) {
+        console.error("[stripe-webhook] subscription missing clerkUserId", subscription.id);
+        return NextResponse.json({ received: true });
+      }
+
+      await applyProSubscription({
+        client,
+        subscriptionId: subscription.id,
+        clerkUserId,
+      });
+    }
+
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
       const invoiceWithSubscription =
