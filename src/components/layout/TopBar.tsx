@@ -1,6 +1,6 @@
 'use client';
 
-import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
+import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useState } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
@@ -46,8 +46,8 @@ export default function TopBar() {
         >
           Help
         </button>
-        {isPro ? (
-          <>
+        <SignedIn>
+          {isPro ? (
             <button
               type="button"
               onClick={handleManageSubscription}
@@ -55,10 +55,7 @@ export default function TopBar() {
             >
               Manage
             </button>
-            <UserButton appearance={{ elements: { userButtonAvatarBox: 'w-7 h-7' } }} />
-          </>
-        ) : (
-          <>
+          ) : (
             <button
               onClick={() => setIsUpgradeModalOpen(true)}
               className="text-xs font-medium text-white px-4 py-1.5 rounded-md transition-colors"
@@ -68,13 +65,16 @@ export default function TopBar() {
             >
               Upgrade
             </button>
-            <SignInButton mode="modal">
-              <button className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors">
-                Log In
-              </button>
-            </SignInButton>
-          </>
-        )}
+          )}
+          <UserButton afterSignOutUrl="/" appearance={{ elements: { userButtonAvatarBox: 'w-7 h-7' } }} />
+        </SignedIn>
+        <SignedOut>
+          <SignInButton mode="modal">
+            <button className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors">
+              Log In
+            </button>
+          </SignInButton>
+        </SignedOut>
       </div>
 
       <UpgradeModal
