@@ -10,6 +10,49 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
+async function applyProSubscription({
+  client,
+  subscriptionId,
+  clerkUserId,
+}: {
+  client: Awaited<ReturnType<typeof clerkClient>>;
+  subscriptionId: string;
+  clerkUserId: string;
+}) {
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const stripeCustomerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id;
+  const stripePriceId = subscription.items.data[0]?.price?.id;
+
+  const user = await client.users.getUser(clerkUserId);
+  const existingPrivate = user.privateMetadata ?? {};
+  const existingPublic = user.publicMetadata ?? {};
+
+  await client.users.updateUserMetadata(clerkUserId, {
+    publicMetadata: {
+      ...existingPublic,
+      pro: true,
+      proSince: new Date().toISOString(),
+      proPlan: stripePriceId ?? null,
+    },
+    privateMetadata: {
+      ...existingPrivate,
+      stripeCustomerId,
+      stripeSubscriptionId: subscription.id,
+      stripeStatus: subscription.status,
+      stripePriceId,
+    },
+  });
+
+  console.log("[stripe-webhook] pro unlocked", {
+    clerkUserId,
+    subscriptionId,
+    stripePriceId,
+  });
+}
+
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
   if (!signature || !webhookSecret) {
@@ -28,6 +71,31 @@ export async function POST(req: Request) {
 
   try {
     const client = await clerkClient();
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const sessionWithMeta = session as Stripe.Checkout.Session & {
+        client_reference_id?: string | null;
+        metadata?: { clerkUserId?: string | null };
+      };
+      const clerkUserId =
+        sessionWithMeta.client_reference_id ??
+        sessionWithMeta.metadata?.clerkUserId ??
+        null;
+      const subscriptionId =
+        typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+
+      if (!clerkUserId || !subscriptionId) {
+        console.warn("[stripe-webhook] session missing clerkUserId or subscription", {
+          sessionId: session.id,
+          clerkUserId,
+          subscriptionId,
+        });
+        return NextResponse.json({ received: true });
+      }
+
+      await applyProSubscription({ client, subscriptionId, clerkUserId });
+    }
 
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
@@ -53,37 +121,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      const stripeCustomerId =
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : subscription.customer.id;
-      const stripePriceId = subscription.items.data[0]?.price?.id;
-
-      const user = await client.users.getUser(clerkUserId);
-      const existingPrivate = user.privateMetadata ?? {};
-      const existingPublic = user.publicMetadata ?? {};
-
-      await client.users.updateUserMetadata(clerkUserId, {
-        publicMetadata: {
-          ...existingPublic,
-          pro: true,
-          proSince: new Date().toISOString(),
-          proPlan: stripePriceId ?? null,
-        },
-        privateMetadata: {
-          ...existingPrivate,
-          stripeCustomerId,
-          stripeSubscriptionId: subscription.id,
-          stripeStatus: subscription.status,
-          stripePriceId,
-        },
-      });
-
-      console.log("[stripe-webhook] pro unlocked", {
-        clerkUserId,
-        subscriptionId,
-        stripePriceId,
-      });
+      await applyProSubscription({ client, subscriptionId, clerkUserId });
     }
 
     if (event.type === "customer.subscription.deleted") {
