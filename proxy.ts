@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
@@ -12,6 +13,15 @@ export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
+
+  // Continue the request, but strip CORS headers from the response
+  const res = NextResponse.next();
+  res.headers.delete('access-control-allow-origin');
+  res.headers.delete('access-control-allow-methods');
+  res.headers.delete('access-control-allow-headers');
+  res.headers.delete('access-control-allow-credentials');
+
+  return res;
 });
 
 export const config = {
