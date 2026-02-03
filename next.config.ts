@@ -7,12 +7,13 @@ const nextConfig: NextConfig = {
       "base-uri 'self'",
       "object-src 'none'",
       "frame-ancestors 'none'",
-      "script-src 'self' 'unsafe-inline' https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://js.stripe.com",
+      "script-src 'self' 'unsafe-inline' https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://js.stripe.com https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://img.clerk.com",
-      "font-src 'self' data: https://fonts.gstatic.com",
+      "font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai",
       "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://api.stripe.com https://r.stripe.com",
-      "frame-src https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://js.stripe.com",
+      "frame-src https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://js.stripe.com https://challenges.cloudflare.com",
+      "worker-src 'self' blob:",
     ].join("; ");
 
     return [

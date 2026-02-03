@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { SignInButton, useUser } from '@clerk/nextjs';
+import { useEffect, useState } from 'react';
+import { SignInButton, SignUpButton, useUser } from '@clerk/nextjs';
 import CheckoutModal from '@/components/billing/CheckoutModal';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
@@ -14,6 +14,7 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
   const { user, isSignedIn } = useUser();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const checkoutFlagKey = 'pp_checkout_after_auth';
 
   const handleManageSubscription = async () => {
     try {
@@ -26,6 +27,19 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
       console.error('Failed to open customer portal', error);
     }
   };
+
+  useEffect(() => {
+    if (!isOpen || !isSignedIn) return;
+    try {
+      const shouldStart = window.localStorage.getItem(checkoutFlagKey) === '1';
+      if (shouldStart) {
+        window.localStorage.removeItem(checkoutFlagKey);
+        setIsCheckoutOpen(true);
+      }
+    } catch {
+      // If storage is unavailable, fall back to manual upgrade
+    }
+  }, [isOpen, isSignedIn]);
 
   if (!isOpen) return null;
 
@@ -117,20 +131,34 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                 Upgrade Now
               </button>
             ) : (
-              <SignInButton mode="modal">
-                <button
-                  className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
-                  style={{ backgroundColor: '#f1737c' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#e05a65';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f1737c';
-                  }}
-                >
-                  Sign in to Upgrade
-                </button>
-              </SignInButton>
+              <div className="flex-1 space-y-2">
+                <SignUpButton mode="modal">
+                  <button
+                    onClick={() => {
+                      try {
+                        window.localStorage.setItem(checkoutFlagKey, '1');
+                      } catch {
+                        // Ignore storage errors
+                      }
+                    }}
+                    className="w-full px-4 py-2 text-white rounded-md transition-colors"
+                    style={{ backgroundColor: '#f1737c' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#e05a65';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f1737c';
+                    }}
+                  >
+                    Create account &amp; pay
+                  </button>
+                </SignUpButton>
+                <SignInButton mode="modal">
+                  <button className="w-full px-4 py-2 text-slate-200 border border-slate-600 rounded-md hover:bg-slate-700 transition-colors">
+                    Already have an account? Log in
+                  </button>
+                </SignInButton>
+              </div>
             )}
           </div>
         </div>
