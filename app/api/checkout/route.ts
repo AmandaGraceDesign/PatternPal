@@ -65,6 +65,12 @@ export async function POST(req: Request) {
       cancel_url: `${origin}/?checkout=cancel`,
       customer_email: email ?? undefined,
       client_reference_id: userId,
+      subscription_data: {
+        metadata: {
+          clerkUserId: userId,
+          plan,
+        },
+      },
       metadata: {
         clerkUserId: userId,
         plan,

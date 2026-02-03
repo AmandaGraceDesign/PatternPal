@@ -12,9 +12,7 @@ export interface Session {
 
 /**
  * Get the current session
- * Checks for Pro status in multiple formats:
- * 1. publicMetadata.isPro (legacy/simple format)
- * 2. publicMetadata.plan === 'patternpal_pro' with proUntil date
+ * Checks for Pro status in publicMetadata.pro.
  */
 export async function auth(): Promise<Session> {
   const { userId } = await clerkAuth();
@@ -30,24 +28,7 @@ export async function auth(): Promise<Session> {
   const email = user.emailAddresses?.[0]?.emailAddress;
   const metadata = user.publicMetadata as any;
 
-  // Check Pro status in multiple formats
-  let isPro = false;
-
-  // Format 1: Simple isPro boolean
-  if (metadata?.isPro === true) {
-    isPro = true;
-  }
-
-  // Format 2: plan === 'patternpal_pro' (optionally with proUntil date)
-  if (metadata?.plan === 'patternpal_pro') {
-    if (metadata?.proUntil) {
-      const proUntilDate = new Date(metadata.proUntil);
-      const now = new Date();
-      isPro = proUntilDate > now; // Pro if subscription hasn't expired
-    } else {
-      isPro = true;
-    }
-  }
+  const isPro = metadata?.pro === true;
 
   return {
     user: {
@@ -60,31 +41,14 @@ export async function auth(): Promise<Session> {
 
 /**
  * Check if a user has Pro subscription
- * Checks for Pro status in multiple formats:
- * 1. publicMetadata.isPro (legacy/simple format)
- * 2. publicMetadata.plan === 'patternpal_pro' with proUntil date
+ * Uses publicMetadata.pro.
  */
 export async function checkProStatus(userId: string): Promise<boolean> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   const metadata = user.publicMetadata as any;
 
-  // Format 1: Simple isPro boolean
-  if (metadata?.isPro === true) {
-    return true;
-  }
-
-  // Format 2: plan === 'patternpal_pro' (optionally with proUntil date)
-  if (metadata?.plan === 'patternpal_pro') {
-    if (metadata?.proUntil) {
-      const proUntilDate = new Date(metadata.proUntil);
-      const now = new Date();
-      return proUntilDate > now; // Pro if subscription hasn't expired
-    }
-    return true;
-  }
-
-  return false;
+  return metadata?.pro === true;
 }
 
 /**
