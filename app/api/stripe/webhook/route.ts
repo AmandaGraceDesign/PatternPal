@@ -31,12 +31,18 @@ export async function POST(req: Request) {
 
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
+      const invoiceWithSubscription =
+        invoice as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null;
+          subscription_details?: { subscription?: string | null };
+        };
       const subscriptionId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        typeof invoiceWithSubscription.subscription === "string"
+          ? invoiceWithSubscription.subscription
+          : invoiceWithSubscription.subscription?.id ??
+            invoiceWithSubscription.subscription_details?.subscription;
       if (!subscriptionId) {
-        console.error("[stripe-webhook] invoice missing subscription", invoice.id);
+        console.warn("[stripe-webhook] no subscriptionId on invoice", invoice.id);
         return NextResponse.json({ received: true });
       }
 
@@ -109,9 +115,15 @@ export async function POST(req: Request) {
 
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as Stripe.Invoice;
+      const invoiceWithSubscription =
+        invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
+      const subscriptionId =
+        typeof invoiceWithSubscription.subscription === "string"
+          ? invoiceWithSubscription.subscription
+          : invoiceWithSubscription.subscription?.id ?? null;
       console.error("[stripe-webhook] payment failed", {
         invoiceId: invoice.id,
-        subscriptionId: invoice.subscription,
+        subscriptionId,
         customerId: invoice.customer,
       });
     }
