@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import CheckoutModal from '@/components/billing/CheckoutModal';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
@@ -15,8 +15,6 @@ interface UpgradeModalProps {
 export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeModalProps) {
   const { user, isSignedIn } = useUser();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
@@ -33,10 +31,10 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
   };
 
   const handleSignInToUpgrade = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set('upgrade', '1');
     params.set('plan', initialPlan ?? 'monthly');
-    const returnUrl = `${window.location.origin}${pathname}?${params.toString()}`;
+    const returnUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
     router.push(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
   };
 

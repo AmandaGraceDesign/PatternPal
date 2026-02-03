@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 type BillingInterval = 'month' | 'year';
 
@@ -15,8 +15,6 @@ interface CheckoutModalProps {
 export default function CheckoutModal({ isOpen, onClose, initialPlan }: CheckoutModalProps) {
   const { userId } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [interval, setInterval] = useState<BillingInterval>('month');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +26,10 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
 
   const handleStartCheckout = async () => {
     if (!userId) {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       params.set('upgrade', '1');
       params.set('plan', interval === 'month' ? 'monthly' : 'yearly');
-      const returnUrl = `${window.location.origin}${pathname}?${params.toString()}`;
+      const returnUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
       router.push(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
       return;
     }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupModal from '@/components/mockups/MockupModal';
@@ -28,9 +27,6 @@ interface ActionsSidebarProps {
 
 export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef, scaleFactor = 1, scalePreviewActive = false }: ActionsSidebarProps) {
   const { user, isSignedIn } = useUser();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -121,18 +117,18 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   }, [isSignedIn, user?.id]);
 
   useEffect(() => {
-    if (!isSignedIn) return;
-    if (searchParams.get('upgrade') !== '1') return;
-    const planParam = searchParams.get('plan');
-    setUpgradePlan(planParam === 'yearly' ? 'yearly' : 'monthly');
-    setIsUpgradeModalOpen(true);
+    const handler = (event: Event) => {
+      if (!isSignedIn) return;
+      const detail = (event as CustomEvent<{ plan?: 'monthly' | 'yearly' }>).detail;
+      setUpgradePlan(detail?.plan === 'yearly' ? 'yearly' : 'monthly');
+      setIsUpgradeModalOpen(true);
+    };
 
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete('upgrade');
-    nextParams.delete('plan');
-    const nextQuery = nextParams.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  }, [isSignedIn, pathname, router, searchParams]);
+    window.addEventListener('pp:resume-upgrade', handler as EventListener);
+    return () => {
+      window.removeEventListener('pp:resume-upgrade', handler as EventListener);
+    };
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!image) {

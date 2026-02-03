@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import TopBar from '@/components/layout/TopBar';
 import PatternSetupSidebar from '@/components/sidebar/PatternSetupSidebar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
 import ActionsSidebar from '@/components/sidebar/ActionsSidebar';
 import { extractDpiFromFile } from '@/lib/utils/imageUtils';
+import ResumeUpgradeFromQuery from './_components/ResumeUpgradeFromQuery';
 
 export default function Home() {
   const [repeatType, setRepeatType] = useState<'full-drop' | 'half-drop' | 'half-brick'>('full-drop');
@@ -244,6 +245,9 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-white">
       {/* Top Bar */}
       <TopBar />
+      <Suspense fallback={null}>
+        <ResumeUpgradeFromQuery />
+      </Suspense>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -297,18 +301,20 @@ export default function Home() {
 
         {/* Right Sidebar - Actions */}
         <div className="flex-shrink-0">
-          <ActionsSidebar
-            image={image}
-            dpi={dpi}
-            tileWidth={getEffectiveDimensions().width}
-            tileHeight={getEffectiveDimensions().height}
-            repeatType={repeatType}
-            zoom={zoom}
-            originalFilename={originalFilename}
-            canvasRef={canvasRef}
-            scaleFactor={getEffectiveDimensions().scaleFactor}
-            scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-          />
+          <Suspense fallback={null}>
+            <ActionsSidebar
+              image={image}
+              dpi={dpi}
+              tileWidth={getEffectiveDimensions().width}
+              tileHeight={getEffectiveDimensions().height}
+              repeatType={repeatType}
+              zoom={zoom}
+              originalFilename={originalFilename}
+              canvasRef={canvasRef}
+              scaleFactor={getEffectiveDimensions().scaleFactor}
+              scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
+            />
+          </Suspense>
         </div>
       </div>
     </div>
