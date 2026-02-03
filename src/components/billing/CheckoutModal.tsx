@@ -24,9 +24,9 @@ export default function CheckoutModal({ isOpen, onClose }: CheckoutModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: interval === 'month' ? 'monthly' : 'yearly' }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        setError(data.error || 'Unable to start checkout.');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.url) {
+        setError(data?.error || 'Unable to start checkout.');
         return;
       }
       window.location.href = data.url;

@@ -15,20 +15,39 @@ function getPriceId(plan: Plan) {
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("Missing env var: STRIPE_SECRET_KEY");
+    }
+    if (!process.env.STRIPE_PRICE_MONTHLY) {
+      throw new Error("Missing env var: STRIPE_PRICE_MONTHLY");
+    }
+    if (!process.env.STRIPE_PRICE_YEARLY) {
+      throw new Error("Missing env var: STRIPE_PRICE_YEARLY");
+    }
+
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized", code: "unauthorized" },
+        { status: 401 }
+      );
     }
 
     const { plan } = (await req.json()) as { plan?: Plan };
     if (plan !== "monthly" && plan !== "yearly") {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid plan", code: "invalid_plan" },
+        { status: 400 }
+      );
     }
 
     const priceId = getPriceId(plan);
     if (!priceId) {
       return NextResponse.json(
-        { error: "Stripe price configuration is missing" },
+        {
+          error: "Stripe price configuration is missing",
+          code: "missing_price_id",
+        },
         { status: 500 }
       );
     }
@@ -57,7 +76,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("checkout error", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    const err = error as Error;
+    console.error("[checkout]", err?.message, err?.stack);
+    return NextResponse.json(
+      { error: err?.message || "Server error", code: "server_error" },
+      { status: 500 }
+    );
   }
 }
