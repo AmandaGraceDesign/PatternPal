@@ -142,7 +142,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     } finally {
       setIsAnalyzing(false);
     }
-  }, [image, dpi, tileWidth, tileHeight]);
+  }, [image, dpi, tileWidth, tileHeight, proAllowed]);
   return (
     <aside className="w-72 bg-white border-l border-[#e5e7eb] p-6 overflow-y-auto">
       {/* Export Section */}
