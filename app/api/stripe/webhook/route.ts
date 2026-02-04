@@ -1,10 +1,17 @@
+import { NextRequest } from "next/server";
 import Stripe from "stripe";
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature")!;
   let rawBody: string;
 
@@ -29,19 +36,9 @@ export async function POST(req: Request) {
     return new Response(`Webhook Error: ${error.message}`, { status: 400 });
   }
 
-  switch (event.type) {
-    case "customer.subscription.created": {
-      const subscription = event.data.object as Stripe.Subscription;
-      console.log("Subscription Created:", subscription.id);
-      break;
-    }
-    case "invoice.paid": {
-      const invoice = event.data.object as Stripe.Invoice;
-      console.log("Invoice Paid:", invoice.id);
-      break;
-    }
-    default:
-      console.log("Unhandled event type:", event.type);
+  if (event.type === "customer.subscription.created") {
+    const subscription = event.data.object as Stripe.Subscription;
+    console.log("Subscription Created:", subscription.id);
   }
 
   return new Response("Webhook received!", { status: 200 });
