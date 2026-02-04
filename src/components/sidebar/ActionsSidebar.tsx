@@ -371,7 +371,9 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 }
 
                 // Find the canvas element in the mockup renderer
-                const mockupCanvas = document.querySelector('.mockup-canvas') as HTMLCanvasElement;
+                const mockupCanvas = document.querySelector(
+                  '[data-mockup-modal] .mockup-canvas'
+                ) as HTMLCanvasElement | null;
                 if (mockupCanvas) {
                   const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
                   const link = document.createElement('a');
