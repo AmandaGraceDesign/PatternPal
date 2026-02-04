@@ -1,1 +1,34 @@
-{"code":"*** Begin Patch\n*** Add File: /Users/amandacorcoran/Documents/patternpal-pro/src/components/billing/ManageSubscriptionButton.tsx\n+\"use client\";\n+\n+import { useRouter } from \"next/navigation\";\n+\n+export default function ManageSubscriptionButton() {\n+  const router = useRouter();\n+\n+  const handleClick = async () => {\n+    try {\n+      const res = await fetch(\"/api/create-portal-link\", { method: \"POST\" });\n+      const data = await res.json();\n+\n+      if (res.ok && data?.url) {\n+        router.push(data.url);\n+      } else {\n+        const message = data?.error || \"Could not open Stripe billing portal\";\n+        window.alert(message);\n+      }\n+    } catch (error) {\n+      console.error(\"Failed to open billing portal\", error);\n+      window.alert(\"Could not open Stripe billing portal\");\n+    }\n+  };\n+\n+  return (\n+    <button\n+      type=\"button\"\n+      onClick={handleClick}\n+      className=\"text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors\"\n+    >\n+      Manage\n+    </button>\n+  );\n+}\n*** End Patch"}"}"}}
+"use client";
+
+import { useRouter } from "next/navigation";
+
+export default function ManageSubscriptionButton() {
+  const router = useRouter();
+
+  const handleClick = async () => {
+    try {
+      const res = await fetch("/api/create-portal-link", { method: "POST" });
+      const data = await res.json();
+
+      if (res.ok && data?.url) {
+        window.location.href = data.url;
+      } else {
+        const message = data?.error || "Could not open Stripe billing portal";
+        window.alert(message);
+      }
+    } catch (error) {
+      console.error("Failed to open billing portal", error);
+      window.alert("Could not open Stripe billing portal");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+    >
+      Manage Subscription
+    </button>
+  );
+}
