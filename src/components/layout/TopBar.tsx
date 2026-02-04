@@ -4,6 +4,7 @@ import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/n
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useState } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
+import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionButton';
 
 export default function TopBar() {
   const { user, isSignedIn } = useUser();
@@ -12,22 +13,6 @@ export default function TopBar() {
 
   const handleHelp = () => {
     window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
-  };
-
-  const handleManageSubscription = async () => {
-    try {
-      const res = await fetch('/api/stripe/portal', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        const message = data?.error || 'Unable to open the billing portal.';
-        window.alert(message);
-      }
-    } catch (error) {
-      console.error('Failed to open customer portal', error);
-      window.alert('Unable to open the billing portal.');
-    }
   };
 
   return (
@@ -48,13 +33,7 @@ export default function TopBar() {
         </button>
         <SignedIn>
           {isPro ? (
-            <button
-              type="button"
-              onClick={handleManageSubscription}
-              className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
-            >
-              Manage
-            </button>
+            <ManageSubscriptionButton />
           ) : (
             <button
               onClick={() => setIsUpgradeModalOpen(true)}
