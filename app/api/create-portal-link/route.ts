@@ -7,24 +7,30 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
 });
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const customerId = user.privateMetadata?.stripeCustomerId as string | undefined;
+
+    if (!customerId) {
+      console.error("[create-portal-link] Missing stripeCustomerId", { userId });
+      return NextResponse.json({ error: "No Stripe customer ID" }, { status: 400 });
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings`,
+    });
+
+    return NextResponse.json({ url: session.url });
+  } catch (error) {
+    console.error("[create-portal-link] Failed to create portal link", error);
+    return NextResponse.json({ error: "Failed to create portal link" }, { status: 500 });
   }
-
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const customerId = user.privateMetadata?.stripeCustomerId as string | undefined;
-
-  if (!customerId) {
-    return new NextResponse("No Stripe customer ID", { status: 400 });
-  }
-
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings`,
-  });
-
-  return NextResponse.json({ url: session.url });
 }

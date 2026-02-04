@@ -8,12 +8,21 @@ export default function ManageSubscriptionButton() {
   const handleClick = async () => {
     try {
       const res = await fetch("/api/create-portal-link", { method: "POST" });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { url?: string; error?: string } | null = null;
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          console.error("Failed to parse portal link response", parseError);
+        }
+      }
 
       if (res.ok && data?.url) {
-        window.location.href = data.url;
+        router.push(data.url);
       } else {
-        const message = data?.error || "Could not open Stripe billing portal";
+        const message =
+          data?.error || "Could not open Stripe billing portal";
         window.alert(message);
       }
     } catch (error) {
