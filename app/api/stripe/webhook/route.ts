@@ -44,8 +44,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "No Clerk user found" }, { status: 404 });
       }
 
-      await client.users.updateUser(users.data[0].id, {
-        publicMetadata: { pro: true },
+      const user = users.data[0];
+      const existingPublic = user.publicMetadata ?? {};
+      const existingPrivate = user.privateMetadata ?? {};
+      const stripeCustomerId = (customer as Stripe.Customer).id;
+
+      await client.users.updateUser(user.id, {
+        publicMetadata: {
+          ...existingPublic,
+          pro: true,
+        },
+        privateMetadata: {
+          ...existingPrivate,
+          stripeCustomerId,
+        },
       });
 
       return NextResponse.json({ success: true });
