@@ -23,9 +23,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No Stripe customer ID" }, { status: 400 });
     }
 
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://pattern-tester.amandagracedesign.com";
+
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings`,
+      return_url: `${baseUrl}/settings`,
     });
 
     return NextResponse.json({ url: session.url });
