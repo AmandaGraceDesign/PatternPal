@@ -15,9 +15,7 @@ export async function POST(req: NextRequest) {
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const customerId =
-    (user.privateMetadata?.stripeCustomerId as string | undefined) ??
-    (user.publicMetadata?.stripeCustomerId as string | undefined);
+  const customerId = user.privateMetadata?.stripeCustomerId as string | undefined;
 
   if (!customerId) {
     return new NextResponse("No Stripe customer ID", { status: 400 });
