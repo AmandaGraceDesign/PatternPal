@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
+import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternSetupSidebar from '@/components/sidebar/PatternSetupSidebar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
@@ -9,6 +10,10 @@ import { extractDpiFromFile } from '@/lib/utils/imageUtils';
 import ResumeUpgradeFromQuery from './_components/ResumeUpgradeFromQuery';
 
 export default function Home() {
+  const { isSignedIn } = useUser();
+  const { openSignIn } = useClerk();
+  const FREE_TESTS_KEY = 'pp_free_tests_used';
+  const MAX_FREE_TESTS = 3;
   const [repeatType, setRepeatType] = useState<'full-drop' | 'half-drop' | 'half-brick'>('full-drop');
   const [tileWidth, setTileWidth] = useState<number>(18);
   const [tileHeight, setTileHeight] = useState<number>(18);
@@ -48,9 +53,27 @@ export default function Home() {
     };
   };
 
+  const canRunFreeTest = () => {
+    if (isSignedIn) return true;
+    const count = Number(localStorage.getItem(FREE_TESTS_KEY) || '0');
+    if (count >= MAX_FREE_TESTS) {
+      openSignIn?.();
+      return false;
+    }
+    return true;
+  };
+
+  const incrementFreeTests = () => {
+    if (isSignedIn) return;
+    const count = Number(localStorage.getItem(FREE_TESTS_KEY) || '0');
+    localStorage.setItem(FREE_TESTS_KEY, String(count + 1));
+    window.dispatchEvent(new Event('pp_free_tests_updated'));
+  };
+
   // Handle paste from clipboard globally
   useEffect(() => {
     const handlePasteEvent = async (e: ClipboardEvent) => {
+      if (!canRunFreeTest()) return;
       const items = e.clipboardData?.items;
       if (!items) return;
 
@@ -116,6 +139,7 @@ export default function Home() {
             setImage(img);
             setOriginalFilename(null); // Paste doesn't have filename
             setIsLoading(false);
+            incrementFreeTests();
           };
           
           img.onerror = () => {
@@ -132,9 +156,10 @@ export default function Home() {
 
     window.addEventListener('paste', handlePasteEvent);
     return () => window.removeEventListener('paste', handlePasteEvent);
-  }, [dpi]);
+  }, [dpi, isSignedIn, openSignIn]);
 
   const handleFileUpload = async (file: File) => {
+    if (!canRunFreeTest()) return;
     const softLimitBytes = 15 * 1024 * 1024;
     if (file.size > softLimitBytes) {
       const mb = (file.size / (1024 * 1024)).toFixed(1);
@@ -226,6 +251,7 @@ export default function Home() {
       setOriginalFilename(filenameWithoutExt);
       
       setIsLoading(false);
+      incrementFreeTests();
       
       // #region agent log
       // #endregion

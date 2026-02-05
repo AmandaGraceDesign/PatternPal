@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+
 interface PatternSetupSidebarProps {
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   tileWidth: number;
@@ -41,6 +44,31 @@ export default function PatternSetupSidebar({
   originalTileWidth,
   originalTileHeight,
 }: PatternSetupSidebarProps) {
+  const { isSignedIn } = useUser();
+  const FREE_TESTS_KEY = 'pp_free_tests_used';
+  const MAX_FREE_TESTS = 3;
+  const [freeTestsUsed, setFreeTestsUsed] = useState(0);
+
+  useEffect(() => {
+    const readFreeTests = () => {
+      const count = Number(localStorage.getItem(FREE_TESTS_KEY) || '0');
+      setFreeTestsUsed(Math.min(count, MAX_FREE_TESTS));
+    };
+
+    readFreeTests();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === FREE_TESTS_KEY) readFreeTests();
+    };
+    const handleCustomUpdate = () => readFreeTests();
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('pp_free_tests_updated', handleCustomUpdate);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('pp_free_tests_updated', handleCustomUpdate);
+    };
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     console.log('File selected in sidebar:', file?.name);
@@ -259,6 +287,11 @@ export default function PatternSetupSidebar({
           <p className="text-xs text-[#6b7280] text-center">
             Paste your design by using CMD+V
           </p>
+          {!isSignedIn && (
+            <p className="text-[11px] text-[#f1737c] text-center font-medium">
+              Free tests: {freeTestsUsed}/{MAX_FREE_TESTS}
+            </p>
+          )}
         </div>
       </div>
     </aside>
