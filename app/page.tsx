@@ -267,8 +267,24 @@ export default function Home() {
     img.src = objectUrl;
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      handleFileUpload(file);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div
+      className="min-h-screen flex flex-col bg-white"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Top Bar */}
       <TopBar />
       <Suspense fallback={null}>
