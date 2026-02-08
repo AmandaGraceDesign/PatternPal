@@ -48,6 +48,7 @@ export default function PatternSetupSidebar({
   const FREE_TESTS_KEY = 'pp_free_tests_used';
   const MAX_FREE_TESTS = 3;
   const [freeTestsUsed, setFreeTestsUsed] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const readFreeTests = () => {
@@ -79,6 +80,28 @@ export default function PatternSetupSidebar({
     }
     // Reset input so same file can be selected again
     e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      onFileUpload(file);
+    }
   };
 
   return (
@@ -263,7 +286,18 @@ export default function PatternSetupSidebar({
         <h2 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
           Upload Tile
         </h2>
-        <div className="space-y-2">
+        <div
+          className="space-y-2 rounded-md border border-dashed transition-colors"
+          style={{
+            borderColor: isDragging ? '#f1737c' : '#e5e7eb',
+            backgroundColor: isDragging ? '#fff1f2' : 'transparent',
+            padding: '10px',
+          }}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <label className="block">
             <input
               type="file"
