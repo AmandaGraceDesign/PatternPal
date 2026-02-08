@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternSetupSidebar from '@/components/sidebar/PatternSetupSidebar';
@@ -23,6 +24,10 @@ export default function Home() {
   const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [showTileOutline, setShowTileOutline] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [portalReady, setPortalReady] = useState(false);
+  const topBarHeight = 48; // px
+  const sidebarContentWidth = 288; // 18rem
+  const toggleBarWidth = 32; // 2rem
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Scale Preview State
@@ -73,6 +78,10 @@ export default function Home() {
   };
 
   // Handle paste from clipboard globally
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
   useEffect(() => {
     const handlePasteEvent = async (e: ClipboardEvent) => {
       if (!canRunFreeTest()) return;
@@ -294,42 +303,43 @@ export default function Home() {
       </Suspense>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div
+        className="flex-1 flex overflow-hidden min-h-0"
+        style={{ height: `calc(100vh - ${topBarHeight}px)` }}
+      >
         {/* Left Sidebar - Pattern Setup */}
         <div
-          className={`relative flex-shrink-0 h-full min-h-0 ${isLeftSidebarCollapsed ? 'w-8 border-r border-[#e5e7eb]' : 'w-72'}`}
-          style={{ overflow: 'visible' }}
+          className="relative flex-shrink-0 h-full min-h-0 border-r border-[#e5e7eb]"
+          style={{
+            overflow: 'visible',
+            width: isLeftSidebarCollapsed
+              ? `${toggleBarWidth}px`
+              : `${sidebarContentWidth + toggleBarWidth}px`,
+          }}
         >
-          <div className="absolute top-0 -right-2 h-full w-2 bg-[#cdcdcd] border-l border-[#c4c4c4] pointer-events-none" />
-          <button
-            type="button"
-            onClick={() => setIsLeftSidebarCollapsed((prev) => !prev)}
-            className="absolute top-1/2 -right-1 -translate-y-1/2 z-20 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151] pointer-events-auto"
-            aria-label={isLeftSidebarCollapsed ? 'Expand left sidebar' : 'Collapse left sidebar'}
-          >
-            {isLeftSidebarCollapsed ? '▶' : '◀'}
-          </button>
           {!isLeftSidebarCollapsed && (
-            <PatternSetupSidebar
-              repeatType={repeatType}
-              tileWidth={tileWidth}
-              tileHeight={tileHeight}
-              dpi={dpi}
-              showTileOutline={showTileOutline}
-              onRepeatTypeChange={setRepeatType}
-              onTileWidthChange={setTileWidth}
-              onTileHeightChange={setTileHeight}
-              onDpiChange={setDpi}
-              onShowTileOutlineChange={setShowTileOutline}
-              onFileUpload={handleFileUpload}
-              onPaste={() => {}}
-              scalePreviewSize={scalePreviewSize}
-              onScalePreviewChange={setScalePreviewSize}
-              isScalePreviewActive={isScalePreviewActive}
-              onScalePreviewActiveChange={setIsScalePreviewActive}
-              originalTileWidth={tileWidth}
-              originalTileHeight={tileHeight}
-            />
+            <div style={{ width: `${sidebarContentWidth}px` }}>
+              <PatternSetupSidebar
+                repeatType={repeatType}
+                tileWidth={tileWidth}
+                tileHeight={tileHeight}
+                dpi={dpi}
+                showTileOutline={showTileOutline}
+                onRepeatTypeChange={setRepeatType}
+                onTileWidthChange={setTileWidth}
+                onTileHeightChange={setTileHeight}
+                onDpiChange={setDpi}
+                onShowTileOutlineChange={setShowTileOutline}
+                onFileUpload={handleFileUpload}
+                onPaste={() => {}}
+                scalePreviewSize={scalePreviewSize}
+                onScalePreviewChange={setScalePreviewSize}
+                isScalePreviewActive={isScalePreviewActive}
+                onScalePreviewActiveChange={setIsScalePreviewActive}
+                originalTileWidth={tileWidth}
+                originalTileHeight={tileHeight}
+              />
+            </div>
           )}
         </div>
 
@@ -359,36 +369,84 @@ export default function Home() {
 
         {/* Right Sidebar - Actions */}
         <div
-          className={`relative flex-shrink-0 h-full min-h-0 ${isRightSidebarCollapsed ? 'w-8 border-l border-[#e5e7eb]' : 'w-72'}`}
-          style={{ overflow: 'visible' }}
+          className="relative flex-shrink-0 h-full min-h-0 border-l border-[#e5e7eb]"
+          style={{
+            overflow: 'visible',
+            width: isRightSidebarCollapsed
+              ? `${toggleBarWidth}px`
+              : `${sidebarContentWidth + toggleBarWidth}px`,
+          }}
         >
-          <div className="absolute top-0 -left-2 h-full w-2 bg-[#cdcdcd] border-r border-[#c4c4c4] pointer-events-none" />
-          <button
-            type="button"
-            onClick={() => setIsRightSidebarCollapsed((prev) => !prev)}
-            className="absolute top-1/2 -left-1 -translate-y-1/2 z-20 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151] pointer-events-auto"
-            aria-label={isRightSidebarCollapsed ? 'Expand right sidebar' : 'Collapse right sidebar'}
-          >
-            {isRightSidebarCollapsed ? '◀' : '▶'}
-          </button>
           {!isRightSidebarCollapsed && (
-            <Suspense fallback={null}>
-              <ActionsSidebar
-                image={image}
-                dpi={dpi}
-                tileWidth={getEffectiveDimensions().width}
-                tileHeight={getEffectiveDimensions().height}
-                repeatType={repeatType}
-                zoom={zoom}
-                originalFilename={originalFilename}
-                canvasRef={canvasRef}
-                scaleFactor={getEffectiveDimensions().scaleFactor}
-                scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-              />
-            </Suspense>
+            <div style={{ width: `${sidebarContentWidth}px`, marginLeft: `${toggleBarWidth}px` }}>
+              <Suspense fallback={null}>
+                <ActionsSidebar
+                  image={image}
+                  dpi={dpi}
+                  tileWidth={getEffectiveDimensions().width}
+                  tileHeight={getEffectiveDimensions().height}
+                  repeatType={repeatType}
+                  zoom={zoom}
+                  originalFilename={originalFilename}
+                  canvasRef={canvasRef}
+                  scaleFactor={getEffectiveDimensions().scaleFactor}
+                  scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
+                />
+              </Suspense>
+            </div>
           )}
         </div>
       </div>
+      {portalReady &&
+        createPortal(
+          <>
+            <div
+              className="fixed z-40 bg-[#cdcdcd] border-l border-[#c4c4c4] pointer-events-none"
+              style={{
+                top: `${topBarHeight}px`,
+                bottom: 0,
+                width: `${toggleBarWidth}px`,
+                left: isLeftSidebarCollapsed ? 0 : sidebarContentWidth,
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setIsLeftSidebarCollapsed((prev) => !prev)}
+              className="fixed top-1/2 -translate-y-1/2 z-50 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151]"
+              style={{
+                left: isLeftSidebarCollapsed
+                  ? '4px'
+                  : `${sidebarContentWidth + toggleBarWidth / 2 - 12}px`,
+              }}
+              aria-label={isLeftSidebarCollapsed ? 'Expand left sidebar' : 'Collapse left sidebar'}
+            >
+              {isLeftSidebarCollapsed ? '▶' : '◀'}
+            </button>
+            <div
+              className="fixed z-40 bg-[#cdcdcd] border-r border-[#c4c4c4] pointer-events-none"
+              style={{
+                top: `${topBarHeight}px`,
+                bottom: 0,
+                width: `${toggleBarWidth}px`,
+                right: isRightSidebarCollapsed ? 0 : sidebarContentWidth,
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setIsRightSidebarCollapsed((prev) => !prev)}
+              className="fixed top-1/2 -translate-y-1/2 z-50 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151]"
+              style={{
+                right: isRightSidebarCollapsed
+                  ? '4px'
+                  : `${sidebarContentWidth + toggleBarWidth / 2 - 12}px`,
+              }}
+              aria-label={isRightSidebarCollapsed ? 'Expand right sidebar' : 'Collapse right sidebar'}
+            >
+              {isRightSidebarCollapsed ? '◀' : '▶'}
+            </button>
+          </>,
+          document.body
+        )}
     </div>
   );
 }

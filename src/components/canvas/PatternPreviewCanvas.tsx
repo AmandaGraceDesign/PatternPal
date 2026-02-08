@@ -405,7 +405,6 @@ export default function PatternPreviewCanvas({
       <div className="flex-1 flex flex-col bg-white overflow-hidden min-h-0">
         {/* Top ruler */}
         <div className="flex border-b border-[#cdcdcd]">
-          <div className="w-[30px] h-[30px] bg-[#cdcdcd] border-r border-[#cdcdcd]" />
           <div className="flex-1 overflow-hidden">
             {tileDisplaySize.width > 0 && image ? (
               <Ruler
@@ -421,21 +420,8 @@ export default function PatternPreviewCanvas({
           </div>
         </div>
 
-        {/* Canvas with left ruler */}
+        {/* Canvas */}
         <div className="flex flex-1 overflow-auto min-h-0">
-          <div className="w-[30px] overflow-hidden border-r border-[#cdcdcd]">
-            {tileDisplaySize.height > 0 && image ? (
-              <Ruler
-                orientation="vertical"
-                length={canvasSize.height}
-                scale={1}
-                unit="in"
-                pixelsPerUnit={verticalPixelsPerUnit}
-              />
-            ) : (
-              <div className="w-[30px] bg-[#cdcdcd]" />
-            )}
-          </div>
           <div
             className="flex-1 overflow-auto bg-white relative h-full min-h-0"
             style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto' }}
