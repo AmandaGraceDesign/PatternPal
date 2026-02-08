@@ -294,44 +294,42 @@ export default function Home() {
       </Suspense>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left Sidebar - Pattern Setup */}
         <div
-          className={`relative flex-shrink-0 ${isLeftSidebarCollapsed ? 'w-8 border-r border-[#e5e7eb]' : 'w-72'}`}
+          className={`relative flex-shrink-0 h-full min-h-0 ${isLeftSidebarCollapsed ? 'w-8 border-r border-[#e5e7eb]' : 'w-72'}`}
           style={{ overflow: 'visible' }}
         >
-          <div className="absolute top-0 right-0 h-full w-8 bg-[#cdcdcd] border-l border-[#c4c4c4] pointer-events-none" />
+          <div className="absolute top-0 -right-2 h-full w-2 bg-[#cdcdcd] border-l border-[#c4c4c4] pointer-events-none" />
           <button
             type="button"
             onClick={() => setIsLeftSidebarCollapsed((prev) => !prev)}
-            className="absolute top-1/2 right-1 -translate-y-1/2 z-20 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151] pointer-events-auto"
+            className="absolute top-1/2 -right-1 -translate-y-1/2 z-20 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151] pointer-events-auto"
             aria-label={isLeftSidebarCollapsed ? 'Expand left sidebar' : 'Collapse left sidebar'}
           >
             {isLeftSidebarCollapsed ? '▶' : '◀'}
           </button>
           {!isLeftSidebarCollapsed && (
-            <div className="pr-8">
-              <PatternSetupSidebar
-                repeatType={repeatType}
-                tileWidth={tileWidth}
-                tileHeight={tileHeight}
-                dpi={dpi}
-                showTileOutline={showTileOutline}
-                onRepeatTypeChange={setRepeatType}
-                onTileWidthChange={setTileWidth}
-                onTileHeightChange={setTileHeight}
-                onDpiChange={setDpi}
-                onShowTileOutlineChange={setShowTileOutline}
-                onFileUpload={handleFileUpload}
-                onPaste={() => {}}
-                scalePreviewSize={scalePreviewSize}
-                onScalePreviewChange={setScalePreviewSize}
-                isScalePreviewActive={isScalePreviewActive}
-                onScalePreviewActiveChange={setIsScalePreviewActive}
-                originalTileWidth={tileWidth}
-                originalTileHeight={tileHeight}
-              />
-            </div>
+            <PatternSetupSidebar
+              repeatType={repeatType}
+              tileWidth={tileWidth}
+              tileHeight={tileHeight}
+              dpi={dpi}
+              showTileOutline={showTileOutline}
+              onRepeatTypeChange={setRepeatType}
+              onTileWidthChange={setTileWidth}
+              onTileHeightChange={setTileHeight}
+              onDpiChange={setDpi}
+              onShowTileOutlineChange={setShowTileOutline}
+              onFileUpload={handleFileUpload}
+              onPaste={() => {}}
+              scalePreviewSize={scalePreviewSize}
+              onScalePreviewChange={setScalePreviewSize}
+              isScalePreviewActive={isScalePreviewActive}
+              onScalePreviewActiveChange={setIsScalePreviewActive}
+              originalTileWidth={tileWidth}
+              originalTileHeight={tileHeight}
+            />
           )}
         </div>
 
@@ -361,35 +359,33 @@ export default function Home() {
 
         {/* Right Sidebar - Actions */}
         <div
-          className={`relative flex-shrink-0 ${isRightSidebarCollapsed ? 'w-8 border-l border-[#e5e7eb]' : 'w-72'}`}
+          className={`relative flex-shrink-0 h-full min-h-0 ${isRightSidebarCollapsed ? 'w-8 border-l border-[#e5e7eb]' : 'w-72'}`}
           style={{ overflow: 'visible' }}
         >
-          <div className="absolute top-0 left-0 h-full w-8 bg-[#cdcdcd] border-r border-[#c4c4c4] pointer-events-none" />
+          <div className="absolute top-0 -left-2 h-full w-2 bg-[#cdcdcd] border-r border-[#c4c4c4] pointer-events-none" />
           <button
             type="button"
             onClick={() => setIsRightSidebarCollapsed((prev) => !prev)}
-            className="absolute top-1/2 left-1 -translate-y-1/2 z-20 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151] pointer-events-auto"
+            className="absolute top-1/2 -left-1 -translate-y-1/2 z-20 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151] pointer-events-auto"
             aria-label={isRightSidebarCollapsed ? 'Expand right sidebar' : 'Collapse right sidebar'}
           >
             {isRightSidebarCollapsed ? '◀' : '▶'}
           </button>
           {!isRightSidebarCollapsed && (
-            <div className="pl-8">
-              <Suspense fallback={null}>
-                <ActionsSidebar
-                  image={image}
-                  dpi={dpi}
-                  tileWidth={getEffectiveDimensions().width}
-                  tileHeight={getEffectiveDimensions().height}
-                  repeatType={repeatType}
-                  zoom={zoom}
-                  originalFilename={originalFilename}
-                  canvasRef={canvasRef}
-                  scaleFactor={getEffectiveDimensions().scaleFactor}
-                  scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-                />
-              </Suspense>
-            </div>
+            <Suspense fallback={null}>
+              <ActionsSidebar
+                image={image}
+                dpi={dpi}
+                tileWidth={getEffectiveDimensions().width}
+                tileHeight={getEffectiveDimensions().height}
+                repeatType={repeatType}
+                zoom={zoom}
+                originalFilename={originalFilename}
+                canvasRef={canvasRef}
+                scaleFactor={getEffectiveDimensions().scaleFactor}
+                scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
+              />
+            </Suspense>
           )}
         </div>
       </div>
