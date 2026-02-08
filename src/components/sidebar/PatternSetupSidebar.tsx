@@ -319,7 +319,7 @@ export default function PatternSetupSidebar({
             </span>
           </label>
           <p className="text-xs text-[#6b7280] text-center">
-            Paste your design by using CMD+V
+            Paste your design by using CMD+V or drag and drop your image onto the canvas
           </p>
           {!isSignedIn && (
             <p className="text-[11px] text-[#f1737c] text-center font-medium">
