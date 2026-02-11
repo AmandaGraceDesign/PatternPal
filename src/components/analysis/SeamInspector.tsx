@@ -194,7 +194,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
 
       // Draw pink crosshair aligned with the tiled pattern intersection
       if (showPinkLines) {
-        ctx.strokeStyle = '#ff1493';
+        ctx.strokeStyle = '#e0c26e';
         ctx.lineWidth = 3;
         const crossX = (canvasWidth / 2) + panOffset.x;
         const crossY = (canvasHeight / 2) + panOffset.y;
@@ -237,7 +237,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
       
       // Draw pink seam line locked to pattern seam
       if (showPinkLines) {
-        ctx.strokeStyle = '#ff1493';
+        ctx.strokeStyle = '#e0c26e';
         ctx.lineWidth = 3;
         const seamSourceY = tileH;
         const seamScreenY = ((seamSourceY - clampedSourceY) / sourceHeight) * canvasHeight;
@@ -279,7 +279,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
       
       // Draw pink seam line locked to pattern seam
       if (showPinkLines) {
-        ctx.strokeStyle = '#ff1493';
+        ctx.strokeStyle = '#e0c26e';
         ctx.lineWidth = 3;
         const seamSourceX = tileW;
         const seamScreenX = ((seamSourceX - clampedSourceX) / sourceWidth) * canvasWidth;
@@ -338,8 +338,8 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                     type="checkbox"
                     checked={showPinkLines}
                     onChange={(e) => setShowPinkLines(e.target.checked)}
-                    className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#f1737c]/20"
-                    style={{ accentColor: '#f1737c' }}
+                    className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#e0c26e]/20"
+                    style={{ accentColor: '#e0c26e' }}
                   />
                   <span className="text-sm font-semibold text-[#374151]">
                     Show Seam Lines
@@ -361,7 +361,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                   onClick={() => setZoomLevel(100)}
                   className={`px-3 py-1 rounded font-semibold transition-colors ${
                     Math.abs(zoomLevel - 100) < 10
-                      ? 'bg-[#f1737c] text-white'
+                      ? 'bg-[#e0c26e] text-white'
                       : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                   }`}
                 >
@@ -371,7 +371,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                   onClick={() => setZoomLevel(200)}
                   className={`px-3 py-1 rounded font-semibold transition-colors ${
                     Math.abs(zoomLevel - 200) < 10
-                      ? 'bg-[#f1737c] text-white'
+                      ? 'bg-[#e0c26e] text-white'
                       : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                   }`}
                 >
@@ -381,7 +381,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                   onClick={() => setZoomLevel(400)}
                   className={`px-3 py-1 rounded font-semibold transition-colors ${
                     Math.abs(zoomLevel - 400) < 10
-                      ? 'bg-[#f1737c] text-white'
+                      ? 'bg-[#e0c26e] text-white'
                       : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                   }`}
                 >
@@ -410,7 +410,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                   }}
                   className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors ${
                     seamType === 'intersection'
-                      ? 'bg-[#f1737c] text-white'
+                      ? 'bg-[#e0c26e] text-white'
                       : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                   }`}
                 >
@@ -429,7 +429,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                     }}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                       seamType === 'horizontal'
-                        ? 'bg-[#f1737c] text-white'
+                        ? 'bg-[#e0c26e] text-white'
                         : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                     }`}
                   >
@@ -442,7 +442,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
                     }}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                       seamType === 'vertical'
-                        ? 'bg-[#f1737c] text-white'
+                        ? 'bg-[#e0c26e] text-white'
                         : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
                     }`}
                   >

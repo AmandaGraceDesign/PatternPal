@@ -433,12 +433,12 @@ export default function SeamAnalyzerModal({
             <button
               onClick={() => setShowPinkLines(!showPinkLines)}
               className="w-full px-4 py-2 text-white rounded mt-2 text-sm font-semibold transition-colors"
-              style={{ backgroundColor: '#f1737c' }}
+              style={{ backgroundColor: '#e0c26e' }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#ff8a94';
+                e.currentTarget.style.backgroundColor = '#e8d28e';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#f1737c';
+                e.currentTarget.style.backgroundColor = '#e0c26e';
               }}
             >
               {showPinkLines ? 'Hide Problem Highlights' : 'Show Problem Highlights'}
@@ -456,12 +456,12 @@ export default function SeamAnalyzerModal({
                   <button
                     onClick={() => setShowFullView(false)}
                     className="text-xs px-2 py-1 rounded transition-colors text-white font-semibold"
-                    style={{ backgroundColor: '#f1737c' }}
+                    style={{ backgroundColor: '#e0c26e' }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#ff8a94';
+                      e.currentTarget.style.backgroundColor = '#e8d28e';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f1737c';
+                      e.currentTarget.style.backgroundColor = '#e0c26e';
                     }}
                   >
                     Show Zoomed View
@@ -493,12 +493,12 @@ export default function SeamAnalyzerModal({
                         onClose();
                       }}
                       className="text-xs px-2 py-1 rounded transition-colors text-white font-semibold"
-                      style={{ backgroundColor: '#f1737c' }}
+                      style={{ backgroundColor: '#e0c26e' }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#ff8a94';
+                        e.currentTarget.style.backgroundColor = '#e8d28e';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f1737c';
+                        e.currentTarget.style.backgroundColor = '#e0c26e';
                       }}
                     >
                       Show Full View
@@ -513,8 +513,8 @@ export default function SeamAnalyzerModal({
                         onClick={() => setZoomLevel(2)}
                         className={`px-3 py-1 rounded text-sm transition-all duration-200 font-semibold ${
                           zoomLevel === 2 
-                            ? 'bg-[#f1737c] text-white shadow-md' 
-                            : 'bg-[#f1737c]/70 text-white hover:bg-[#f1737c]/85'
+                            ? 'bg-[#e0c26e] text-white shadow-md' 
+                            : 'bg-[#e0c26e]/70 text-white hover:bg-[#e0c26e]/85'
                         }`}
                       >
                         200%
@@ -523,8 +523,8 @@ export default function SeamAnalyzerModal({
                         onClick={() => setZoomLevel(4)}
                         className={`px-3 py-1 rounded text-sm transition-all duration-200 font-semibold ${
                           zoomLevel === 4 
-                            ? 'bg-[#f1737c] text-white shadow-md' 
-                            : 'bg-[#f1737c]/70 text-white hover:bg-[#f1737c]/85'
+                            ? 'bg-[#e0c26e] text-white shadow-md' 
+                            : 'bg-[#e0c26e]/70 text-white hover:bg-[#e0c26e]/85'
                         }`}
                       >
                         400%
@@ -533,8 +533,8 @@ export default function SeamAnalyzerModal({
                         onClick={() => setZoomLevel(8)}
                         className={`px-3 py-1 rounded text-sm transition-all duration-200 font-semibold ${
                           zoomLevel === 8 
-                            ? 'bg-[#f1737c] text-white shadow-md' 
-                            : 'bg-[#f1737c]/70 text-white hover:bg-[#f1737c]/85'
+                            ? 'bg-[#e0c26e] text-white shadow-md' 
+                            : 'bg-[#e0c26e]/70 text-white hover:bg-[#e0c26e]/85'
                         }`}
                       >
                         800%
@@ -547,8 +547,8 @@ export default function SeamAnalyzerModal({
                         type="checkbox"
                         checked={showPinkLines}
                         onChange={(e) => setShowPinkLines(e.target.checked)}
-                        className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#f1737c]/20"
-                        style={{ accentColor: '#f1737c' }}
+                        className="w-4 h-4 rounded border-[#d1d5db] focus:ring-2 focus:ring-[#e0c26e]/20"
+                        style={{ accentColor: '#e0c26e' }}
                       />
                       💗 Show Lines
                     </label>

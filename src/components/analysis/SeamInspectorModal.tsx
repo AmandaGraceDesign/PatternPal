@@ -164,7 +164,7 @@ export default function SeamInspectorModal({
                 onClick={() => setSeamView('horizontal')}
                 className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
                   seamView === 'horizontal'
-                    ? 'bg-[#f1737c] text-white'
+                    ? 'bg-[#e0c26e] text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -174,7 +174,7 @@ export default function SeamInspectorModal({
                 onClick={() => setSeamView('vertical')}
                 className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
                   seamView === 'vertical'
-                    ? 'bg-[#f1737c] text-white'
+                    ? 'bg-[#e0c26e] text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -188,7 +188,7 @@ export default function SeamInspectorModal({
                 onClick={() => setZoomLevel(2)}
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                   zoomLevel === 2
-                    ? 'bg-[#f1737c] text-white'
+                    ? 'bg-[#e0c26e] text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -198,7 +198,7 @@ export default function SeamInspectorModal({
                 onClick={() => setZoomLevel(4)}
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                   zoomLevel === 4
-                    ? 'bg-[#f1737c] text-white'
+                    ? 'bg-[#e0c26e] text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -208,7 +208,7 @@ export default function SeamInspectorModal({
                 onClick={() => setZoomLevel(8)}
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                   zoomLevel === 8
-                    ? 'bg-[#f1737c] text-white'
+                    ? 'bg-[#e0c26e] text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -237,7 +237,7 @@ export default function SeamInspectorModal({
               <button
                 onClick={() => handleNavigateSeam('left')}
                 disabled={seamPosition <= 0}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-[#f1737c] text-white p-2 rounded-full hover:bg-[#ff8a94] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-[#e0c26e] text-white p-2 rounded-full hover:bg-[#e8d28e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                 aria-label="Move left along seam"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,7 +247,7 @@ export default function SeamInspectorModal({
               <button
                 onClick={() => handleNavigateSeam('right')}
                 disabled={seamPosition >= 100}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#f1737c] text-white p-2 rounded-full hover:bg-[#ff8a94] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#e0c26e] text-white p-2 rounded-full hover:bg-[#e8d28e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                 aria-label="Move right along seam"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,7 +260,7 @@ export default function SeamInspectorModal({
               <button
                 onClick={() => handleNavigateSeam('up')}
                 disabled={seamPosition <= 0}
-                className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#f1737c] text-white p-2 rounded-full hover:bg-[#ff8a94] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#e0c26e] text-white p-2 rounded-full hover:bg-[#e8d28e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                 aria-label="Move up along seam"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +270,7 @@ export default function SeamInspectorModal({
               <button
                 onClick={() => handleNavigateSeam('down')}
                 disabled={seamPosition >= 100}
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#f1737c] text-white p-2 rounded-full hover:bg-[#ff8a94] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#e0c26e] text-white p-2 rounded-full hover:bg-[#e8d28e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                 aria-label="Move down along seam"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

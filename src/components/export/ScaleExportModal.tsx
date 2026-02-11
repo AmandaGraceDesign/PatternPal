@@ -146,7 +146,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                 checked={selectedDPI === 300}
                 onChange={() => setSelectedDPI(300)}
                 className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
-                style={{ accentColor: '#f1737c' }}
+                style={{ accentColor: '#e0c26e' }}
                 disabled={isGenerating}
               />
               <span className="text-sm text-slate-200">300dpi</span>
@@ -158,7 +158,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                 checked={selectedDPI === 150}
                 onChange={() => setSelectedDPI(150)}
                 className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
-                style={{ accentColor: '#f1737c' }}
+                style={{ accentColor: '#e0c26e' }}
                 disabled={isGenerating}
               />
               <span className="text-sm text-slate-200">150dpi</span>
@@ -177,7 +177,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                 checked={selectedFormat === 'png'}
                 onChange={() => setSelectedFormat('png')}
                 className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
-                style={{ accentColor: '#f1737c' }}
+                style={{ accentColor: '#e0c26e' }}
                 disabled={isGenerating}
               />
               <span className="text-sm text-slate-200">PNG</span>
@@ -189,7 +189,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                 checked={selectedFormat === 'jpg'}
                 onChange={() => setSelectedFormat('jpg')}
                 className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
-                style={{ accentColor: '#f1737c' }}
+                style={{ accentColor: '#e0c26e' }}
                 disabled={isGenerating}
               />
               <span className="text-sm text-slate-200">JPG</span>
@@ -201,7 +201,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                 checked={selectedFormat === 'tif'}
                 onChange={() => setSelectedFormat('tif')}
                 className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
-                style={{ accentColor: '#f1737c' }}
+                style={{ accentColor: '#e0c26e' }}
                 disabled={isGenerating}
               />
               <span className="text-sm text-slate-200">TIFF</span>
@@ -227,7 +227,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
                   checked={selectedSizes.includes(size)}
                   onChange={() => toggleSize(size)}
                   className="mr-2 w-4 h-4 border-slate-600 rounded focus:ring-1 bg-slate-800"
-                  style={{ accentColor: '#f1737c' }}
+                  style={{ accentColor: '#e0c26e' }}
                   disabled={isGenerating}
                 />
                 <span className="text-sm font-medium">{size} inch</span>
@@ -244,7 +244,7 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
               checked={includeOriginal}
               onChange={(e) => setIncludeOriginal(e.target.checked)}
               className="mr-2 w-4 h-4 border-slate-600 rounded focus:ring-1 bg-slate-800"
-              style={{ accentColor: '#f1737c' }}
+              style={{ accentColor: '#e0c26e' }}
               disabled={isGenerating}
             />
             <span className="text-sm text-slate-200">Include original tile</span>
@@ -280,15 +280,15 @@ export default function ScaleExportModal({ image, repeatType, currentDPI, origin
             onClick={handleGenerate}
             disabled={isGenerating || selectedSizes.length === 0}
             className="flex-1 px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#f1737c' }}
+            style={{ backgroundColor: '#e0c26e' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#e05a65';
+                e.currentTarget.style.backgroundColor = '#c9a94e';
               }
             }}
             onMouseLeave={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#f1737c';
+                e.currentTarget.style.backgroundColor = '#e0c26e';
               }
             }}
           >

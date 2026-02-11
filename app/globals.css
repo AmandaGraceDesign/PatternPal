@@ -25,6 +25,59 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Workspace well background */
+.workspaceWell {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      1800px 900px at 50% 22%,
+      #979a9e 0%,
+      #424750 32%,
+      #322f2f 100%
+    );
+}
+
+.workspaceWell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-radial-gradient(
+      circle,
+      rgba(255,255,255,0.04) 0,
+      rgba(255,255,255,0.04) 1px,
+      rgba(0,0,0,0) 1px,
+      rgba(0,0,0,0) 3px
+    );
+  opacity: 0.12;
+}
+
+.workspaceWell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-radial-gradient(
+      circle,
+      rgba(255,255,255,0.03) 0,
+      rgba(255,255,255,0.03) 2px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0) 5px
+    );
+  background-position: 3px 2px;
+  opacity: 0.1;
+}
+
+.workspaceWell > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Ensure full height for app shell */
 html,
 body,

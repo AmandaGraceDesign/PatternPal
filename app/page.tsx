@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
-import PatternSetupSidebar from '@/components/sidebar/PatternSetupSidebar';
+import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
 import ActionsSidebar from '@/components/sidebar/ActionsSidebar';
 import { extractDpiFromFile } from '@/lib/utils/imageUtils';
@@ -23,18 +22,15 @@ export default function Home() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [showTileOutline, setShowTileOutline] = useState<boolean>(false);
+  const [tileOutlineColor, setTileOutlineColor] = useState<string>('#38bdf8');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [portalReady, setPortalReady] = useState(false);
   const topBarHeight = 48; // px
   const sidebarContentWidth = 288; // 18rem
-  const toggleBarWidth = 32; // 2rem
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Scale Preview State
   const [scalePreviewSize, setScalePreviewSize] = useState<number | null>(null);
   const [isScalePreviewActive, setIsScalePreviewActive] = useState<boolean>(false);
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState<boolean>(false);
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState<boolean>(false);
 
   // Calculate scaled dimensions based on longest side input
   const getScaledDimensions = (longestSide: number) => {
@@ -78,10 +74,6 @@ export default function Home() {
   };
 
   // Handle paste from clipboard globally
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
-
   useEffect(() => {
     const handlePasteEvent = async (e: ClipboardEvent) => {
       if (!canRunFreeTest()) return;
@@ -136,7 +128,7 @@ export default function Home() {
             detectedDpi = 150;
             setDpi(150);
           }
-          
+
           // Load the image
           const img = new Image();
           const objectUrl = URL.createObjectURL(blob);
@@ -152,13 +144,13 @@ export default function Home() {
             setIsLoading(false);
             incrementFreeTests();
           };
-          
+
           img.onerror = () => {
             URL.revokeObjectURL(objectUrl);
             setIsLoading(false);
             console.error('Failed to load pasted image');
           };
-          
+
           img.src = objectUrl;
           break;
         }
@@ -306,64 +298,63 @@ export default function Home() {
         <ResumeUpgradeFromQuery />
       </Suspense>
 
-      {/* Main Content Area */}
-      <div
-        className="flex-1 flex overflow-hidden min-h-0"
-        style={{ height: `calc(100vh - ${topBarHeight}px)` }}
-      >
-        {/* Left Sidebar - Pattern Setup */}
-        <div
-          className="relative flex-shrink-0 h-full min-h-0 border-r border-[#e5e7eb]"
-          style={{
-            overflow: 'visible',
-            width: isLeftSidebarCollapsed
-              ? `${toggleBarWidth}px`
-              : `${sidebarContentWidth + toggleBarWidth}px`,
-          }}
-        >
-          {!isLeftSidebarCollapsed && (
-            <div style={{ width: `${sidebarContentWidth}px` }}>
-              <PatternSetupSidebar
-                repeatType={repeatType}
-                tileWidth={tileWidth}
-                tileHeight={tileHeight}
-                dpi={dpi}
-                showTileOutline={showTileOutline}
-                onRepeatTypeChange={setRepeatType}
-                onTileWidthChange={setTileWidth}
-                onTileHeightChange={setTileHeight}
-                onDpiChange={setDpi}
-                onShowTileOutlineChange={setShowTileOutline}
-                onFileUpload={handleFileUpload}
-                onPaste={() => {}}
-                scalePreviewSize={scalePreviewSize}
-                onScalePreviewChange={setScalePreviewSize}
-                isScalePreviewActive={isScalePreviewActive}
-                onScalePreviewActiveChange={setIsScalePreviewActive}
-                originalTileWidth={tileWidth}
-                originalTileHeight={tileHeight}
-              />
-            </div>
-          )}
-        </div>
+      {/* Pattern Controls Bar */}
+      <PatternControlsTopBar
+        repeatType={repeatType}
+        tileWidth={tileWidth}
+        tileHeight={tileHeight}
+        dpi={dpi}
+        showTileOutline={showTileOutline}
+        tileOutlineColor={tileOutlineColor}
+        onRepeatTypeChange={setRepeatType}
+        onTileWidthChange={setTileWidth}
+        onTileHeightChange={setTileHeight}
+        onDpiChange={setDpi}
+        onShowTileOutlineChange={setShowTileOutline}
+        onTileOutlineColorChange={setTileOutlineColor}
+        onFileUpload={handleFileUpload}
+        onPaste={() => {}}
+        scalePreviewSize={scalePreviewSize}
+        onScalePreviewChange={setScalePreviewSize}
+        isScalePreviewActive={isScalePreviewActive}
+        onScalePreviewActiveChange={setIsScalePreviewActive}
+        originalTileWidth={tileWidth}
+        originalTileHeight={tileHeight}
+      />
 
+      {/* Main Content Area: Canvas + Right Sidebar */}
+      <div className="flex-1 flex min-h-0">
         {/* Center - Pattern Preview Canvas */}
         <div className="relative flex-1 min-w-0">
-          <PatternPreviewCanvas
-            image={image}
-            repeatType={repeatType}
-            tileWidth={getEffectiveDimensions().width}
-            tileHeight={getEffectiveDimensions().height}
-            dpi={dpi}
-            zoom={zoom}
-            showTileOutline={showTileOutline}
-            onZoomChange={setZoom}
-            scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-          />
-          {/* #region agent log */}
-          {null}
-          {/* #endregion */}
-          
+          <div
+            className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 border-t border-[#2a2c30]"
+            style={{ minHeight: '100%' }}
+          >
+            <div className="flex justify-center items-start px-1 sm:px-2 mt-1 mb-4 sm:mt-2 sm:mb-6">
+              <div className="w-full max-w-5xl flex items-center gap-4">
+                <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
+                <p className="text-sm sm:text-base tracking-[0.2em] text-[rgba(255,255,255,0.66)] uppercase shrink-0">
+                  PRINT PREVIEW
+                </p>
+                <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
+              </div>
+            </div>
+            <div className="flex justify-center items-start">
+              <PatternPreviewCanvas
+                image={image}
+                repeatType={repeatType}
+                tileWidth={getEffectiveDimensions().width}
+                tileHeight={getEffectiveDimensions().height}
+                dpi={dpi}
+                zoom={zoom}
+                showTileOutline={showTileOutline}
+                tileOutlineColor={tileOutlineColor}
+                onZoomChange={setZoom}
+                scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
+              />
+            </div>
+          </div>
+
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50 pointer-events-none">
               <div className="text-sm text-gray-900">Loading...</div>
@@ -373,84 +364,25 @@ export default function Home() {
 
         {/* Right Sidebar - Actions */}
         <div
-          className="relative flex-shrink-0 h-full min-h-0 border-l border-[#e5e7eb]"
-          style={{
-            overflow: 'visible',
-            width: isRightSidebarCollapsed
-              ? `${toggleBarWidth}px`
-              : `${sidebarContentWidth + toggleBarWidth}px`,
-          }}
+          className="flex-shrink-0 border-l border-[#e5e7eb] overflow-y-auto"
+          style={{ width: `${sidebarContentWidth}px` }}
         >
-          {!isRightSidebarCollapsed && (
-            <div style={{ width: `${sidebarContentWidth}px`, marginLeft: `${toggleBarWidth}px` }}>
-              <Suspense fallback={null}>
-                <ActionsSidebar
-                  image={image}
-                  dpi={dpi}
-                  tileWidth={getEffectiveDimensions().width}
-                  tileHeight={getEffectiveDimensions().height}
-                  repeatType={repeatType}
-                  zoom={zoom}
-                  originalFilename={originalFilename}
-                  canvasRef={canvasRef}
-                  scaleFactor={getEffectiveDimensions().scaleFactor}
-                  scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-                />
-              </Suspense>
-            </div>
-          )}
+          <Suspense fallback={null}>
+            <ActionsSidebar
+              image={image}
+              dpi={dpi}
+              tileWidth={getEffectiveDimensions().width}
+              tileHeight={getEffectiveDimensions().height}
+              repeatType={repeatType}
+              zoom={zoom}
+              originalFilename={originalFilename}
+              canvasRef={canvasRef}
+              scaleFactor={getEffectiveDimensions().scaleFactor}
+              scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
+            />
+          </Suspense>
         </div>
       </div>
-      {portalReady &&
-        createPortal(
-          <>
-            <div
-              className="fixed z-40 bg-[#cdcdcd] border-l border-[#c4c4c4] pointer-events-none"
-              style={{
-                top: `${topBarHeight}px`,
-                bottom: 0,
-                width: `${toggleBarWidth}px`,
-                left: isLeftSidebarCollapsed ? 0 : sidebarContentWidth,
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setIsLeftSidebarCollapsed((prev) => !prev)}
-              className="fixed top-1/2 -translate-y-1/2 z-50 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151]"
-              style={{
-                left: isLeftSidebarCollapsed
-                  ? '4px'
-                  : `${sidebarContentWidth + toggleBarWidth / 2 - 12}px`,
-              }}
-              aria-label={isLeftSidebarCollapsed ? 'Expand left sidebar' : 'Collapse left sidebar'}
-            >
-              {isLeftSidebarCollapsed ? '▶' : '◀'}
-            </button>
-            <div
-              className="fixed z-40 bg-[#cdcdcd] border-r border-[#c4c4c4] pointer-events-none"
-              style={{
-                top: `${topBarHeight}px`,
-                bottom: 0,
-                width: `${toggleBarWidth}px`,
-                right: isRightSidebarCollapsed ? 0 : sidebarContentWidth,
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setIsRightSidebarCollapsed((prev) => !prev)}
-              className="fixed top-1/2 -translate-y-1/2 z-50 w-6 h-10 flex items-center justify-center bg-white border border-[#e5e7eb] rounded-full shadow-sm text-xs text-[#374151]"
-              style={{
-                right: isRightSidebarCollapsed
-                  ? '4px'
-                  : `${sidebarContentWidth + toggleBarWidth / 2 - 12}px`,
-              }}
-              aria-label={isRightSidebarCollapsed ? 'Expand right sidebar' : 'Collapse right sidebar'}
-            >
-              {isRightSidebarCollapsed ? '◀' : '▶'}
-            </button>
-          </>,
-          document.body
-        )}
     </div>
   );
 }

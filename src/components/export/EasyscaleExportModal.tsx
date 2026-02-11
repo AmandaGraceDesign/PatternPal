@@ -207,7 +207,7 @@ export default function EasyscaleExportModal({
                       key={size}
                       className={`flex items-center justify-center px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                         selectedSizes.includes(size)
-                          ? 'bg-[#ffe4e7] border-[#f1737c] text-[#294051]'
+                          ? 'bg-[#ffe4e7] border-[#e0c26e] text-[#294051]'
                           : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
                       }`}
                     >
@@ -248,7 +248,7 @@ export default function EasyscaleExportModal({
                       checked={selectedDPI === 150}
                       onChange={() => setSelectedDPI(150)}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#f1737c' }}
+                      style={{ accentColor: '#e0c26e' }}
                       disabled={isExporting}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
@@ -263,7 +263,7 @@ export default function EasyscaleExportModal({
                       checked={selectedDPI === 300}
                       onChange={() => setSelectedDPI(300)}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#f1737c' }}
+                      style={{ accentColor: '#e0c26e' }}
                       disabled={isExporting || currentDPI < 300 || !isPro}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
@@ -302,7 +302,7 @@ export default function EasyscaleExportModal({
                       checked={format === 'png'}
                       onChange={() => setFormat('png')}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#f1737c' }}
+                      style={{ accentColor: '#e0c26e' }}
                       disabled={isExporting || !isPro}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
@@ -317,7 +317,7 @@ export default function EasyscaleExportModal({
                       checked={format === 'jpg'}
                       onChange={() => setFormat('jpg')}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#f1737c' }}
+                      style={{ accentColor: '#e0c26e' }}
                       disabled={isExporting}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
@@ -332,7 +332,7 @@ export default function EasyscaleExportModal({
                       checked={format === 'tif'}
                       onChange={() => setFormat('tif')}
                       className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#f1737c' }}
+                      style={{ accentColor: '#e0c26e' }}
                       disabled={isExporting || !isPro}
                     />
                     <span className="text-sm text-[#374151] group-hover:text-[#294051]">
@@ -355,7 +355,7 @@ export default function EasyscaleExportModal({
                     checked={includeOriginal}
                     onChange={(e) => setIncludeOriginal(e.target.checked)}
                     className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
-                    style={{ accentColor: '#f1737c' }}
+                    style={{ accentColor: '#e0c26e' }}
                     disabled={isExporting || !isPro}
                   />
                   <span className="text-sm text-[#374151]">
@@ -398,15 +398,15 @@ export default function EasyscaleExportModal({
                   onClick={handleExport}
                   disabled={isExporting || selectedSizes.length === 0}
                   className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#f1737c' }}
+                  style={{ backgroundColor: '#e0c26e' }}
                   onMouseEnter={(e) => {
                     if (!e.currentTarget.disabled) {
-                      e.currentTarget.style.backgroundColor = '#e05a65';
+                      e.currentTarget.style.backgroundColor = '#c9a94e';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!e.currentTarget.disabled) {
-                      e.currentTarget.style.backgroundColor = '#f1737c';
+                      e.currentTarget.style.backgroundColor = '#e0c26e';
                     }
                   }}
                 >

@@ -103,12 +103,12 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
               <button
                 onClick={handleManageSubscription}
                 className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
-                style={{ backgroundColor: '#f1737c' }}
+                style={{ backgroundColor: '#e0c26e' }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e05a65';
+                  e.currentTarget.style.backgroundColor = '#c9a94e';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f1737c';
+                  e.currentTarget.style.backgroundColor = '#e0c26e';
                 }}
               >
                 Manage Subscription
@@ -117,12 +117,12 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
               <button
                 onClick={() => setIsCheckoutOpen(true)}
                 className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
-                style={{ backgroundColor: '#f1737c' }}
+                style={{ backgroundColor: '#e0c26e' }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e05a65';
+                  e.currentTarget.style.backgroundColor = '#c9a94e';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f1737c';
+                  e.currentTarget.style.backgroundColor = '#e0c26e';
                 }}
               >
                 Upgrade Now
@@ -132,12 +132,12 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
                 <button
                   onClick={handleSignInToUpgrade}
                   className="flex-1 px-4 py-2 text-white rounded-md transition-colors"
-                  style={{ backgroundColor: '#f1737c' }}
+                  style={{ backgroundColor: '#e0c26e' }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#e05a65';
+                    e.currentTarget.style.backgroundColor = '#c9a94e';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f1737c';
+                    e.currentTarget.style.backgroundColor = '#e0c26e';
                   }}
                 >
                   Log in to Upgrade

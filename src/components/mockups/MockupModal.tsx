@@ -63,7 +63,7 @@ export default function MockupModal({ isOpen, onClose, children, title, subtitle
                 <button
                   onClick={onDownload}
                   className="px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-all duration-200 hover:opacity-90"
-                  style={{ backgroundColor: '#f1737c' }}
+                  style={{ backgroundColor: '#e0c26e' }}
                   aria-label="Download"
                 >
                   Download

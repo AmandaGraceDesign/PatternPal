@@ -172,15 +172,15 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             onClick={() => setIsEasyscaleModalOpen(true)}
             disabled={!image}
             className="w-full px-4 py-2.5 text-xs font-semibold text-white rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#f1737c' }}
+            style={{ backgroundColor: '#e0c26e' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#ff8a94';
+                e.currentTarget.style.backgroundColor = '#e8d28e';
               }
             }}
             onMouseLeave={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#f1737c';
+                e.currentTarget.style.backgroundColor = '#e0c26e';
               }
             }}
           >
@@ -200,7 +200,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
         {!proAllowed ? (
           <div
-            className="p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#f1737c] transition-colors group"
+            className="p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#e0c26e] transition-colors group"
             onClick={() => setIsUpgradeModalOpen(true)}
           >
             <div className="text-3xl mb-2">🔒</div>
@@ -208,7 +208,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             <div className="text-xs text-gray-500 mb-3">
               Get advanced contrast analysis, composition insights, and seam inspection
             </div>
-            <div className="text-xs font-semibold text-[#f1737c] group-hover:text-[#e05a65]">
+            <div className="text-xs font-semibold text-[#e0c26e] group-hover:text-[#c9a94e]">
               Click to Upgrade →
             </div>
           </div>
@@ -341,13 +341,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
           {!proAllowed && (
             <div
-              className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#f1737c] transition-colors group"
+              className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#e0c26e] transition-colors group"
               onClick={() => setIsUpgradeModalOpen(true)}
             >
               <div className="text-xs text-gray-500 mb-2">
                 Preview mockups are available, but opening and downloads require Pro.
               </div>
-              <div className="text-xs font-semibold text-[#f1737c] group-hover:text-[#e05a65]">
+              <div className="text-xs font-semibold text-[#e0c26e] group-hover:text-[#c9a94e]">
                 Click to Upgrade →
               </div>
             </div>

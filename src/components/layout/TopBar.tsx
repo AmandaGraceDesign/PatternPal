@@ -38,9 +38,9 @@ export default function TopBar() {
             <button
               onClick={() => setIsUpgradeModalOpen(true)}
               className="text-xs font-medium text-white px-4 py-1.5 rounded-md transition-colors"
-              style={{ backgroundColor: '#f1737c' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e05a65'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1737c'}
+              style={{ backgroundColor: '#e0c26e' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c9a94e'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e0c26e'}
             >
               Upgrade
             </button>

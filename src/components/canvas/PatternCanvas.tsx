@@ -459,7 +459,7 @@ export default function PatternCanvas() {
             outlineY
           });
 
-          canvasCtx.strokeStyle = '#ff1493';
+          canvasCtx.strokeStyle = '#e0c26e';
           canvasCtx.lineWidth = 6;
           canvasCtx.setLineDash([]);
           canvasCtx.strokeRect(outlineX + 3, outlineY + 3, actualTileWidth - 6, actualTileHeight - 6);

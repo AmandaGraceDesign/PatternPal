@@ -79,8 +79,8 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
               onClick={() => setInterval('month')}
               className={`border rounded-lg p-3 text-left transition-colors ${
                 interval === 'month'
-                  ? 'border-[#f1737c] bg-[#fff4f5]'
-                  : 'border-[#e5e7eb] hover:border-[#f1737c]'
+                  ? 'border-[#e0c26e] bg-[#fff4f5]'
+                  : 'border-[#e5e7eb] hover:border-[#e0c26e]'
               }`}
             >
               <div className="text-sm font-semibold text-[#294051]">
@@ -92,15 +92,15 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
               onClick={() => setInterval('year')}
               className={`border rounded-lg p-3 text-left transition-colors ${
                 interval === 'year'
-                  ? 'border-[#f1737c] bg-[#fff4f5]'
-                  : 'border-[#e5e7eb] hover:border-[#f1737c]'
+                  ? 'border-[#e0c26e] bg-[#fff4f5]'
+                  : 'border-[#e5e7eb] hover:border-[#e0c26e]'
               }`}
             >
               <div className="text-sm font-semibold text-[#294051]">
                 Yearly
               </div>
               <div className="text-xs text-[#6b7280]">$79 / year</div>
-              <div className="text-[11px] text-[#f1737c] font-medium">
+              <div className="text-[11px] text-[#e0c26e] font-medium">
                 2 months free
               </div>
             </button>
@@ -112,7 +112,7 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
             onClick={handleStartCheckout}
             disabled={isLoading}
             className="w-full px-4 py-2 rounded-md text-white font-semibold disabled:opacity-50"
-            style={{ backgroundColor: '#f1737c' }}
+            style={{ backgroundColor: '#e0c26e' }}
           >
             {isLoading ? 'Starting checkout…' : 'Continue to payment'}
           </button>

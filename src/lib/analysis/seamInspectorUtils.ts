@@ -1,6 +1,6 @@
 import type { RepeatType } from './seamAnalyzer';
 
-const PINK_CROSSHAIR_COLOR = '#ff1493';
+const PINK_CROSSHAIR_COLOR = '#e0c26e';
 
 export type SeamView = 'horizontal' | 'vertical';
 

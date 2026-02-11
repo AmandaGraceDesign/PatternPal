@@ -12,6 +12,7 @@ interface PatternPreviewCanvasProps {
   dpi: number;
   zoom: number;
   showTileOutline: boolean;
+  tileOutlineColor?: string;
   onZoomChange: (zoom: number) => void;
   scalePreviewActive?: boolean;
 }
@@ -24,6 +25,7 @@ export default function PatternPreviewCanvas({
   dpi,
   zoom,
   showTileOutline,
+  tileOutlineColor = '#38bdf8',
   onZoomChange,
   scalePreviewActive = false,
 }: PatternPreviewCanvasProps) {
@@ -41,21 +43,29 @@ export default function PatternPreviewCanvas({
       if (canvasRef.current) {
         const viewportHeight = window.innerHeight;
 
-        // Canvas (pattern repeat area) is 110% of viewport height
-        const displaySize = Math.round(viewportHeight * 1.1);
+        // Width: measure the canvas's scroll container so we fit within
+        // the flex layout (respects sidebar). Fall back to viewport width.
+        // We go up to the overflow-auto div that wraps the canvas.
+        const scrollParent = canvasRef.current.parentElement;
+        const displayWidth = scrollParent
+          ? Math.round(scrollParent.clientWidth)
+          : Math.round(window.innerWidth);
 
-        // Container (background area) is 120% of viewport height for padding
+        // Height: 110% of viewport height for vertical scroll room
+        const displayHeight = Math.round(viewportHeight * 1.1);
+
+        // Container height for background padding
         const containerSize = Math.round(viewportHeight * 1.2);
 
         const ctx = canvasRef.current.getContext('2d');
 
         // Set canvas internal size (scaled by DPR for high-DPI displays)
-        canvasRef.current.width = displaySize * currentDpr;
-        canvasRef.current.height = displaySize * currentDpr;
+        canvasRef.current.width = displayWidth * currentDpr;
+        canvasRef.current.height = displayHeight * currentDpr;
 
         // Set canvas display size (CSS) to logical size
-        canvasRef.current.style.width = `${displaySize}px`;
-        canvasRef.current.style.height = `${displaySize}px`;
+        canvasRef.current.style.width = `${displayWidth}px`;
+        canvasRef.current.style.height = `${displayHeight}px`;
 
         if (ctx) {
           // Scale context by DPR so all drawing uses display coordinates
@@ -66,7 +76,7 @@ export default function PatternPreviewCanvas({
           ctx.imageSmoothingQuality = 'high';
         }
 
-        setCanvasSize({ width: displaySize, height: displaySize });
+        setCanvasSize({ width: displayWidth, height: displayHeight });
         setContainerHeight(containerSize);
       }
     };
@@ -168,7 +178,7 @@ export default function PatternPreviewCanvas({
               const outlineY = 0;
 
               // Draw hot pink outline
-              canvasCtx.strokeStyle = '#ff1493'; // Hot pink
+              canvasCtx.strokeStyle = tileOutlineColor;
               canvasCtx.lineWidth = 6;
               canvasCtx.setLineDash([]);
               canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
@@ -282,7 +292,7 @@ export default function PatternPreviewCanvas({
           // #endregion
           
           // Draw hot pink outline
-          canvasCtx.strokeStyle = '#ff1493'; // Hot pink
+          canvasCtx.strokeStyle = tileOutlineColor;
           canvasCtx.lineWidth = 6;
           canvasCtx.setLineDash([]);
           canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
@@ -299,7 +309,7 @@ export default function PatternPreviewCanvas({
       // Use PNG for lossless quality
       scaledImg.src = scaledCanvas.toDataURL('image/png');
     }
-  }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, canvasSize, dpr]);
+  }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr]);
 
   // Calculate pixels per unit for ruler
   // tileDisplaySize is the scaled tile size in pixels on screen
@@ -386,7 +396,7 @@ export default function PatternPreviewCanvas({
               className={`flex-1 h-1.5 bg-[#e5e7eb] rounded-lg appearance-none ${
                 scalePreviewActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
               }`}
-              style={{ accentColor: '#f1737c' }}
+              style={{ accentColor: '#e0c26e' }}
             />
             <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
             {scalePreviewActive && (

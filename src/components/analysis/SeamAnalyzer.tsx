@@ -50,7 +50,7 @@ export default function SeamAnalyzer({ canvas, image, repeatType, isPro }: SeamA
         <p className="text-xs text-[#6b7280] mb-3">
           Detect seamless pattern errors before upload
         </p>
-        <button className="w-full px-4 py-2 bg-[#f1737c] text-white rounded cursor-not-allowed flex items-center justify-center gap-2 text-sm font-semibold hover:bg-[#ff8a94] transition-colors disabled:opacity-50">
+        <button className="w-full px-4 py-2 bg-[#e0c26e] text-white rounded cursor-not-allowed flex items-center justify-center gap-2 text-sm font-semibold hover:bg-[#e8d28e] transition-colors disabled:opacity-50">
           Upgrade to Pro
         </button>
       </div>
@@ -84,15 +84,15 @@ export default function SeamAnalyzer({ canvas, image, repeatType, isPro }: SeamA
             onClick={handleInspect}
             disabled={!image}
             className="w-full px-4 py-2 text-sm font-semibold text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-3"
-            style={{ backgroundColor: '#f1737c' }}
+            style={{ backgroundColor: '#e0c26e' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#ff8a94';
+                e.currentTarget.style.backgroundColor = '#e8d28e';
               }
             }}
             onMouseLeave={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#f1737c';
+                e.currentTarget.style.backgroundColor = '#e0c26e';
               }
             }}
           >
