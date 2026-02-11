@@ -28,7 +28,6 @@ export default function PatternPreviewCanvas({
   scalePreviewActive = false,
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [tileDisplaySize, setTileDisplaySize] = useState({ width: 0, height: 0 });
   const [dpr, setDpr] = useState(1);
@@ -39,46 +38,44 @@ export default function PatternPreviewCanvas({
     const currentDpr = window.devicePixelRatio || 1;
     const updateCanvasSize = () => {
       setDpr(currentDpr);
-      if (!canvasRef.current || !containerRef.current) return;
+      if (canvasRef.current) {
+        const viewportHeight = window.innerHeight;
 
-      const rect = containerRef.current.getBoundingClientRect();
-      const displayWidth = Math.max(0, Math.round(rect.width));
-      const displayHeight = Math.max(0, Math.round(rect.height));
-      if (displayWidth === 0 || displayHeight === 0) return;
+        // Canvas (pattern repeat area) is 110% of viewport height
+        const displaySize = Math.round(viewportHeight * 1.1);
 
-      const ctx = canvasRef.current.getContext('2d');
+        // Container (background area) is 120% of viewport height for padding
+        const containerSize = Math.round(viewportHeight * 1.2);
 
-      // Set canvas internal size (scaled by DPR for high-DPI displays)
-      canvasRef.current.width = displayWidth * currentDpr;
-      canvasRef.current.height = displayHeight * currentDpr;
+        const ctx = canvasRef.current.getContext('2d');
 
-      // Set canvas display size (CSS) to logical size
-      canvasRef.current.style.width = `${displayWidth}px`;
-      canvasRef.current.style.height = `${displayHeight}px`;
+        // Set canvas internal size (scaled by DPR for high-DPI displays)
+        canvasRef.current.width = displaySize * currentDpr;
+        canvasRef.current.height = displaySize * currentDpr;
 
-      if (ctx) {
-        // Scale context by DPR so all drawing uses display coordinates
-        ctx.scale(currentDpr, currentDpr);
+        // Set canvas display size (CSS) to logical size
+        canvasRef.current.style.width = `${displaySize}px`;
+        canvasRef.current.style.height = `${displaySize}px`;
 
-        // Enable high-quality image smoothing
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        if (ctx) {
+          // Scale context by DPR so all drawing uses display coordinates
+          ctx.scale(currentDpr, currentDpr);
+
+          // Enable high-quality image smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+        }
+
+        setCanvasSize({ width: displaySize, height: displaySize });
+        setContainerHeight(containerSize);
       }
-
-      setCanvasSize({ width: displayWidth, height: displayHeight });
-      setContainerHeight(displayHeight);
     };
 
-    const observer = new ResizeObserver(() => updateCanvasSize());
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
+    // Initialize immediately
     updateCanvasSize();
 
-    return () => {
-      observer.disconnect();
-    };
+    window.addEventListener('resize', updateCanvasSize);
+    return () => window.removeEventListener('resize', updateCanvasSize);
   }, []);
 
   // Convert display zoom (0-200) to actual zoom
@@ -366,7 +363,7 @@ export default function PatternPreviewCanvas({
   const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-full min-h-0">
+    <div className="flex-1 flex flex-col bg-white">
       {/* Header with Zoom Slider */}
       <div className="h-12 border-b border-[#e5e7eb] px-6 flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
@@ -402,9 +399,10 @@ export default function PatternPreviewCanvas({
       </div>
 
       {/* Canvas Preview Area with Rulers */}
-      <div className="flex-1 flex flex-col bg-white overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
         {/* Top ruler */}
         <div className="flex border-b border-[#cdcdcd]">
+          <div className="w-[30px] h-[30px] bg-[#cdcdcd] border-r border-[#cdcdcd]" />
           <div className="flex-1 overflow-hidden">
             {tileDisplaySize.width > 0 && image ? (
               <Ruler
@@ -420,12 +418,24 @@ export default function PatternPreviewCanvas({
           </div>
         </div>
 
-        {/* Canvas */}
-        <div className="flex flex-1 overflow-auto min-h-0">
+        {/* Canvas with left ruler */}
+        <div className="flex flex-1 overflow-auto">
+          <div className="w-[30px] overflow-hidden border-r border-[#cdcdcd]">
+            {tileDisplaySize.height > 0 && image ? (
+              <Ruler
+                orientation="vertical"
+                length={canvasSize.height}
+                scale={1}
+                unit="in"
+                pixelsPerUnit={verticalPixelsPerUnit}
+              />
+            ) : (
+              <div className="w-[30px] bg-[#cdcdcd]" />
+            )}
+          </div>
           <div
-            className="flex-1 overflow-auto bg-white relative h-full min-h-0"
+            className="flex-1 overflow-auto bg-white relative"
             style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto' }}
-            ref={containerRef}
           >
             {/* Canvas - always rendered */}
             <canvas

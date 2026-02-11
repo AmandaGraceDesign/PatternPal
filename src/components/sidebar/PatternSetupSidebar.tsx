@@ -14,7 +14,7 @@ interface PatternSetupSidebarProps {
   onTileHeightChange: (height: number) => void;
   onDpiChange: (dpi: number) => void;
   onShowTileOutlineChange: (show: boolean) => void;
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File, preloadedBlob?: Blob) => void;
   onPaste: () => void;
   scalePreviewSize: number | null;
   onScalePreviewChange: (size: number | null) => void;
@@ -71,15 +71,31 @@ export default function PatternSetupSidebar({
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const inputEl = e.target;
+    const file = inputEl.files?.[0];
     console.log('File selected in sidebar:', file?.name);
     if (file) {
-      onFileUpload(file);
+      // Read the file into memory IMMEDIATELY in this event handler.
+      // Network-mounted files (Google Drive, iCloud, Dropbox) use virtual
+      // file handles that go stale if we wait even one async tick.
+      // IMPORTANT: Do NOT reset inputEl.value until the read finishes —
+      // clearing it can invalidate the file handle on FUSE filesystems.
+      const reader = new FileReader();
+      reader.onload = () => {
+        const blob = new Blob([reader.result as ArrayBuffer], { type: file.type });
+        inputEl.value = ''; // Reset only after bytes are captured
+        onFileUpload(file, blob);
+      };
+      reader.onerror = () => {
+        console.error('Failed to read file in sidebar:', reader.error);
+        inputEl.value = '';
+        onFileUpload(file);
+      };
+      reader.readAsArrayBuffer(file);
     } else {
       console.log('No file selected');
+      inputEl.value = '';
     }
-    // Reset input so same file can be selected again
-    e.target.value = '';
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -100,7 +116,15 @@ export default function PatternSetupSidebar({
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      onFileUpload(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const blob = new Blob([reader.result as ArrayBuffer], { type: file.type });
+        onFileUpload(file, blob);
+      };
+      reader.onerror = () => {
+        onFileUpload(file);
+      };
+      reader.readAsArrayBuffer(file);
     }
   };
 

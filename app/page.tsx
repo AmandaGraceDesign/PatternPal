@@ -169,32 +169,45 @@ export default function Home() {
     return () => window.removeEventListener('paste', handlePasteEvent);
   }, [dpi, isSignedIn, openSignIn]);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, preloadedBlob?: Blob) => {
+    // Use the preloaded blob if the caller already read the file into memory
+    // (required for Google Drive / iCloud / Dropbox virtual file handles).
+    // Fall back to reading the File directly for local files.
+    const localBlob = preloadedBlob ?? await new Promise<Blob>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(new Blob([reader.result as ArrayBuffer], { type: file.type }));
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(file);
+    }).catch((readError) => {
+      console.error('Failed to read file:', readError);
+      return null;
+    });
+
+    if (!localBlob) return;
+
+    // Now that bytes are safely in memory, check permissions
     if (!canRunFreeTest()) return;
+
     const softLimitBytes = 15 * 1024 * 1024;
-    if (file.size > softLimitBytes) {
-      const mb = (file.size / (1024 * 1024)).toFixed(1);
+    if (localBlob.size > softLimitBytes) {
+      const mb = (localBlob.size / (1024 * 1024)).toFixed(1);
       const proceed = window.confirm(
         `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
       );
       if (!proceed) return;
     }
 
-    // #region agent log
-    // #endregion
-    
     console.log('File upload started:', file.name);
     setIsLoading(true);
-    
+
     // Try to extract DPI from image metadata FIRST
     let detectedDpi = dpi; // Use current DPI as fallback
     try {
       console.log('Extracting DPI from file...');
-      const extractedDpi = await extractDpiFromFile(file);
+      const extractedDpi = await extractDpiFromFile(localBlob);
       console.log('Extracted DPI:', extractedDpi);
-
-      // #region agent log
-      // #endregion
 
       // Smart DPI detection logic
       // Common print DPI values: 150, 200, 300, 600
@@ -206,17 +219,14 @@ export default function Home() {
       );
 
       if (isCommonPrintDpi) {
-        // Common print DPI detected - use it
         detectedDpi = extractedDpi;
         setDpi(extractedDpi);
         console.log('Using extracted DPI:', extractedDpi);
       } else if (extractedDpi === 72 || extractedDpi === 96) {
-        // Web/screen DPI detected - upgrade to minimum print DPI
         detectedDpi = 150;
         setDpi(150);
         console.log('Web DPI detected (' + extractedDpi + '), upgrading to 150 DPI for print');
       } else {
-        // Unusual DPI (like 512) or no DPI - default to 150 (minimum for Easyscale)
         detectedDpi = 150;
         setDpi(150);
         console.log('Unusual or missing DPI (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
@@ -226,50 +236,36 @@ export default function Home() {
       detectedDpi = 150;
       setDpi(150);
     }
-    
-    // Load the image AFTER DPI detection
+
+    // Load the image from the in-memory blob
     const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(localBlob);
     img.onload = () => {
       console.log('Image loaded:', img.width, 'x', img.height);
-      
-      // Auto-detect tile dimensions from image using detected DPI
-      // Always use detectedDpi (which is now guaranteed to be set)
+
       const finalDpi = detectedDpi;
       console.log('Using DPI:', finalDpi);
-      
+
       // Calculate physical dimensions: pixels / DPI = inches
       const detectedWidth = img.width / finalDpi;
       const detectedHeight = img.height / finalDpi;
-      
+
       console.log('Detected dimensions:', detectedWidth, 'x', detectedHeight, 'inches');
-      console.log('Calculation: width =', img.width, '/', finalDpi, '=', detectedWidth);
-      console.log('Calculation: height =', img.height, '/', finalDpi, '=', detectedHeight);
-      
-      // #region agent log
-      // #endregion
-      
-      // Set the tile dimensions - these will update the input fields
+
       setTileWidth(detectedWidth);
       setTileHeight(detectedHeight);
       setImage(img);
-      
-      // #region agent log
-      // #endregion
-      
+
       // Extract and store original filename (without extension)
       const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
       setOriginalFilename(filenameWithoutExt);
-      
+
       setIsLoading(false);
       incrementFreeTests();
-      
-      // #region agent log
-      // #endregion
 
       URL.revokeObjectURL(objectUrl);
     };
-    
+
     img.onerror = (error) => {
       URL.revokeObjectURL(objectUrl);
       console.error('Failed to load image:', error);
@@ -286,7 +282,15 @@ export default function Home() {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      handleFileUpload(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const blob = new Blob([reader.result as ArrayBuffer], { type: file.type });
+        handleFileUpload(file, blob);
+      };
+      reader.onerror = () => {
+        handleFileUpload(file);
+      };
+      reader.readAsArrayBuffer(file);
     }
   };
 

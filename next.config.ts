@@ -1,18 +1,35 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const nextConfig: NextConfig = {
   async headers() {
+    const scriptSrc = [
+      "'self'",
+      "'unsafe-inline'",
+      "https://*.clerk.com",
+      "https://*.clerk.dev",
+      "https://*.accounts.dev",
+      "https://clerk.amandagracedesign.com",
+      "https://js.stripe.com",
+      "https://challenges.cloudflare.com",
+    ];
+
+    if (isDev) {
+      scriptSrc.push("'unsafe-eval'");
+    }
+
     const csp = [
       "default-src 'self'",
       "base-uri 'self'",
       "object-src 'none'",
       "frame-ancestors 'none'",
-      "script-src 'self' 'unsafe-inline' https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://js.stripe.com https://challenges.cloudflare.com",
+      `script-src ${scriptSrc.join(" ")}`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://img.clerk.com",
       "font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai",
-      "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://api.stripe.com https://r.stripe.com",
-      "frame-src https://*.clerk.com https://*.clerk.dev https://clerk.amandagracedesign.com https://js.stripe.com https://challenges.cloudflare.com",
+      "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://*.accounts.dev https://clerk.amandagracedesign.com https://api.stripe.com https://r.stripe.com",
+      "frame-src https://*.clerk.com https://*.clerk.dev https://*.accounts.dev https://clerk.amandagracedesign.com https://js.stripe.com https://challenges.cloudflare.com",
       "worker-src 'self' blob:",
     ].join("; ");
 
