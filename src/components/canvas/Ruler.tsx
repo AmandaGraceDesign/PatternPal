@@ -48,11 +48,11 @@ export default function Ruler({
     ctx.clearRect(0, 0, width, height);
 
     // Background
-    ctx.fillStyle = '#cdcdcd';
+    ctx.fillStyle = '#3a3d44';
     ctx.fillRect(0, 0, width, height);
 
     // Border
-    ctx.strokeStyle = '#cdcdcd';
+    ctx.strokeStyle = '#3a3d44';
     ctx.lineWidth = 1;
     if (isHorizontal) {
       ctx.strokeRect(0, 0, width, height);
@@ -69,8 +69,8 @@ export default function Ruler({
     }
 
     // Draw tick marks and labels
-    ctx.fillStyle = '#374151'; // Dark gray for text
-    ctx.strokeStyle = '#6b7280';
+    ctx.fillStyle = '#ffffff'; // White text
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.lineWidth = 1;
     ctx.font = '10px sans-serif';
     ctx.textAlign = isHorizontal ? 'center' : 'center';

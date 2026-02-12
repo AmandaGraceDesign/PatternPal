@@ -369,10 +369,10 @@ export default function PatternPreviewCanvas({
   const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
 
   return (
-    <div className="flex flex-col w-full bg-white rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
+    <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
         {/* Top ruler */}
-        <div className="flex border-b border-[#cdcdcd]">
-          <div className="w-[30px] h-[30px] bg-[#cdcdcd] border-r border-[#cdcdcd]" />
+        <div className="flex border-b border-[#3a3d44]">
+          <div className="w-[30px] h-[30px] bg-[#3a3d44] border-r border-[#3a3d44]" />
           <div className="flex-1 overflow-hidden">
             {tileDisplaySize.width > 0 && image ? (
               <Ruler
@@ -383,14 +383,14 @@ export default function PatternPreviewCanvas({
                 pixelsPerUnit={horizontalPixelsPerUnit}
               />
             ) : (
-              <div className="h-[30px] bg-[#cdcdcd]" />
+              <div className="h-[30px] bg-[#3a3d44]" />
             )}
           </div>
         </div>
 
         {/* Canvas with left ruler */}
         <div className="flex flex-1 overflow-auto">
-          <div className="w-[30px] overflow-hidden border-r border-[#cdcdcd]">
+          <div className="w-[30px] overflow-hidden border-r border-[#3a3d44]">
             {tileDisplaySize.height > 0 && image ? (
               <Ruler
                 orientation="vertical"
@@ -400,12 +400,11 @@ export default function PatternPreviewCanvas({
                 pixelsPerUnit={verticalPixelsPerUnit}
               />
             ) : (
-              <div className="w-[30px] bg-[#cdcdcd]" />
+              <div className="w-[30px] bg-[#3a3d44]" />
             )}
           </div>
           <div
-            className="flex-1 overflow-auto bg-white relative"
-            style={{ minHeight: containerHeight > 0 ? `${containerHeight}px` : 'auto' }}
+            className="flex-1 overflow-auto bg-[#0f172a] relative"
           >
             {/* Canvas - always rendered */}
             <canvas

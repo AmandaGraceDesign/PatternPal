@@ -180,8 +180,8 @@ export default function PatternControlsTopBar({
   };
 
   return (
-    <div className="relative z-50 w-full bg-[#3a3d44] px-5 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
-      <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start">
+    <div className="relative z-50 w-full bg-[#3a3d44] px-5 py-4 border-b-2 border-black shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+      <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start lg:justify-center">
         {/* Upload Tile Section */}
         <div
           className="min-w-0 col-span-2 lg:col-span-1 lg:min-w-[240px] space-y-2 rounded-lg transition-colors"
