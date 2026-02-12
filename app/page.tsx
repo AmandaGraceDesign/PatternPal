@@ -354,6 +354,7 @@ export default function Home() {
               tileHeight={getEffectiveDimensions().height}
               dpi={dpi}
               zoom={zoom}
+              onZoomChange={isScalePreviewActive && scalePreviewSize !== null ? undefined : setZoom}
               showTileOutline={showTileOutline}
               tileOutlineColor={tileOutlineColor}
             />

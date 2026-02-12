@@ -180,7 +180,7 @@ export default function PatternControlsTopBar({
   };
 
   return (
-    <div className="relative z-50 w-full bg-[#3a3d44] px-5 py-4 border-b-2 border-black shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+    <div className="relative z-50 w-full bg-[#3a3d44] px-3 py-3 sm:px-5 sm:py-4 border-b-2 border-black shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
       <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start lg:justify-center">
         {/* Upload Tile Section */}
         <div
@@ -324,7 +324,7 @@ export default function PatternControlsTopBar({
         </div>
 
         {/* Zoom Section */}
-        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[240px]">
+        <div className="min-w-0 col-span-2 sm:col-span-1 border-l border-white/20 pl-4 lg:min-w-[240px]">
           <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Zoom: {Math.round(zoom)}%
           </h2>
@@ -438,7 +438,7 @@ export default function PatternControlsTopBar({
           {isAdvancedToolsOpen && (
             <div
               className="absolute top-full right-0 mt-2 z-50 bg-white border border-[#e5e7eb] rounded-lg shadow-xl overflow-y-auto"
-              style={{ width: '320px', maxHeight: '70vh' }}
+              style={{ width: 'min(320px, calc(100vw - 32px))', maxHeight: '70vh' }}
             >
               <Suspense fallback={null}>
                 <ActionsSidebar

@@ -58,6 +58,18 @@ body {
   cursor: not-allowed;
 }
 
+/* Larger touch targets for zoom slider on mobile */
+@media (max-width: 640px) {
+  .zoom-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+  .zoom-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* Workspace well background */
 .workspaceWell {
   position: relative;

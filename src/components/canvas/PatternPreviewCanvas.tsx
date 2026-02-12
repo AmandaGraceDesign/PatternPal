@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { PatternTiler, RepeatType } from '@/lib/tiling/PatternTiler';
 import Ruler from './Ruler';
 
@@ -11,6 +11,7 @@ interface PatternPreviewCanvasProps {
   tileHeight: number;
   dpi: number;
   zoom: number;
+  onZoomChange?: (newZoom: number) => void;
   showTileOutline: boolean;
   tileOutlineColor?: string;
 }
@@ -22,14 +23,67 @@ export default function PatternPreviewCanvas({
   tileHeight,
   dpi,
   zoom,
+  onZoomChange,
   showTileOutline,
   tileOutlineColor = '#38bdf8',
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [tileDisplaySize, setTileDisplaySize] = useState({ width: 0, height: 0 });
   const [dpr, setDpr] = useState(1);
   const [containerHeight, setContainerHeight] = useState(0);
+
+  // Helper to get distance between two touch points
+  const getTouchDistance = useCallback((touches: React.TouchList): number => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  // Wheel zoom handler (ctrl/cmd + scroll = zoom)
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !onZoomChange) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const delta = -e.deltaY * 0.5;
+      const newZoom = Math.max(0, Math.min(200, zoom + delta));
+      onZoomChange(newZoom);
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [zoom, onZoomChange]);
+
+  // Pinch-to-zoom touch handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      pinchRef.current = {
+        startDist: getTouchDistance(e.touches),
+        startZoom: zoom,
+      };
+    }
+  }, [zoom, getTouchDistance]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current && onZoomChange) {
+      e.preventDefault();
+      const currentDist = getTouchDistance(e.touches);
+      const scale = currentDist / pinchRef.current.startDist;
+      const newZoom = Math.max(0, Math.min(200, pinchRef.current.startZoom * scale));
+      onZoomChange(newZoom);
+    }
+  }, [onZoomChange, getTouchDistance]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchRef.current = null;
+  }, []);
 
   // Set device pixel ratio and canvas size
   useEffect(() => {
@@ -404,7 +458,12 @@ export default function PatternPreviewCanvas({
             )}
           </div>
           <div
+            ref={scrollContainerRef}
             className="flex-1 overflow-auto bg-[#0f172a] relative"
+            style={{ touchAction: 'none' }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             {/* Canvas - always rendered */}
             <canvas
