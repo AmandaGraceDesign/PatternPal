@@ -180,59 +180,55 @@ export default function PatternControlsTopBar({
   };
 
   return (
-    <div className="w-full bg-white border-b border-[#e5e7eb] px-4 py-3">
+    <div className="relative z-50 w-full bg-[#3a3d44] px-5 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
       <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start">
         {/* Upload Tile Section */}
-        <div className="min-w-0 col-span-2 lg:col-span-1 lg:min-w-[240px]">
-          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
-            Upload Tile
-          </h2>
-          <div
-            className="space-y-2 rounded-md border border-dashed transition-colors"
-            style={{
-              borderColor: isDragging ? '#e0c26e' : '#e5e7eb',
-              backgroundColor: isDragging ? '#fff1f2' : 'transparent',
-              padding: '8px',
-            }}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <label className="block">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <span
-                className="inline-flex w-auto px-3 py-1.5 md:py-2 text-[11px] md:text-xs font-semibold text-center text-white rounded-md cursor-pointer transition-all duration-200"
-                style={{ backgroundColor: '#e0c26e' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e8d28e';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e0c26e';
-                }}
-              >
-                Choose File
-              </span>
-            </label>
-            <p className="text-[11px] text-[#6b7280] text-left max-w-[260px] leading-snug">
-              Paste your design with Cmd+V, or drag and drop your image onto the canvas.
+        <div
+          className="min-w-0 col-span-2 lg:col-span-1 lg:min-w-[240px] space-y-2 rounded-lg transition-colors"
+          style={{
+            borderColor: isDragging ? '#e0c26e' : 'transparent',
+            backgroundColor: isDragging ? 'rgba(224,194,110,0.1)' : 'transparent',
+            border: isDragging ? '2px dashed #e0c26e' : '2px dashed transparent',
+            padding: '4px',
+          }}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <label className="block">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <span
+              className="inline-flex w-full max-w-[220px] justify-center px-5 py-2.5 text-sm font-semibold text-white rounded-lg cursor-pointer transition-all duration-200"
+              style={{ backgroundColor: '#e0c26e' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#e8d28e';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#e0c26e';
+              }}
+            >
+              Upload Pattern
+            </span>
+          </label>
+          <p className="text-[11px] text-white text-left max-w-[220px] leading-snug">
+            Or paste with Cmd+V, or drag and drop your image onto the canvas.
+          </p>
+          {!isSignedIn && (
+            <p className="text-[11px] text-[#e0c26e] text-left font-medium">
+              Free tests: {freeTestsUsed}/{MAX_FREE_TESTS}
             </p>
-            {!isSignedIn && (
-              <p className="text-[11px] text-[#e0c26e] text-center font-medium">
-                Free tests: {freeTestsUsed}/{MAX_FREE_TESTS}
-              </p>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Repeat Type Section */}
-        <div className="min-w-0 border-l border-[#cdcdcd] pl-4 lg:min-w-[200px]">
-          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[200px]">
+          <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Repeat Type
           </h2>
           <div className="flex flex-col gap-2 text-sm">
@@ -246,7 +242,7 @@ export default function PatternControlsTopBar({
                 className="mr-2 w-3 h-3 border-slate-600 focus:ring-1"
                 style={{ accentColor: '#e0c26e' }}
               />
-              <span className="text-sm text-[#374151]">Full Drop</span>
+              <span className="text-sm text-white">Full Drop</span>
             </label>
             <label className="flex items-center cursor-pointer">
               <input
@@ -258,7 +254,7 @@ export default function PatternControlsTopBar({
                 className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                 style={{ accentColor: '#e0c26e' }}
               />
-              <span className="text-sm text-[#374151]">Half Drop</span>
+              <span className="text-sm text-white">Half Drop</span>
             </label>
             <label className="flex items-center cursor-pointer">
               <input
@@ -270,18 +266,18 @@ export default function PatternControlsTopBar({
                 className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
                 style={{ accentColor: '#e0c26e' }}
               />
-              <span className="text-sm text-[#374151]">Half Brick</span>
+              <span className="text-sm text-white">Half Brick</span>
             </label>
           </div>
         </div>
 
         {/* Scale Preview Section */}
-        <div className="min-w-0 border-l border-[#cdcdcd] pl-4 lg:min-w-[260px]">
-          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[260px]">
+          <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Scale Preview
           </h2>
           <div className="space-y-2">
-            <p className="text-[11px] text-[#6b7280]">
+            <p className="text-[11px] text-white">
               Preview your pattern at a specific scale
             </p>
             <input
@@ -300,10 +296,10 @@ export default function PatternControlsTopBar({
                 }
               }}
               placeholder={`${Math.max(originalTileWidth, originalTileHeight).toFixed(1)}"`}
-              className="w-full px-3 py-2 text-xs bg-white border border-[#e5e7eb] rounded-md text-[#374151] placeholder-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#e0c26e] focus:border-[#e0c26e]"
+              className="w-full px-3 py-2 text-xs bg-white/10 border border-white/20 rounded-md text-white placeholder-white/70 focus:outline-none focus:ring-1 focus:ring-[#e0c26e] focus:border-[#e0c26e]"
             />
             {isScalePreviewActive && scalePreviewSize !== null && (
-              <div className="text-[11px] text-[#6b7280]">
+              <div className="text-[11px] text-white">
                 Preview size: {(() => {
                   const longest = Math.max(originalTileWidth, originalTileHeight);
                   const scaleFactor = scalePreviewSize / longest;
@@ -319,7 +315,7 @@ export default function PatternControlsTopBar({
                   onScalePreviewChange(null);
                   onScalePreviewActiveChange(false);
                 }}
-                className="px-3 py-1.5 text-[11px] text-[#374151] hover:text-[#1f2937] bg-white hover:bg-[#f5f5f5] border border-[#e5e7eb] rounded-md transition-colors"
+                className="px-3 py-1.5 text-[11px] text-white hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-md transition-colors"
               >
                 Reset to Original
               </button>
@@ -328,12 +324,12 @@ export default function PatternControlsTopBar({
         </div>
 
         {/* Zoom Section */}
-        <div className="min-w-0 border-l border-[#cdcdcd] pl-4 lg:min-w-[240px]">
-          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[240px]">
+          <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Zoom: {Math.round(zoom)}%
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#6b7280] whitespace-nowrap">0%</span>
+            <span className="text-xs text-white whitespace-nowrap">0%</span>
             <input
               type="range"
               min="0"
@@ -350,22 +346,25 @@ export default function PatternControlsTopBar({
               }`}
               style={{
                 background: effectiveScalePreviewActive
-                  ? '#e5e7eb'
-                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, #e5e7eb ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, #e5e7eb 100%)`,
+                  ? 'rgba(255,255,255,0.2)'
+                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, rgba(255,255,255,0.2) ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, rgba(255,255,255,0.2) 100%)`,
               }}
             />
-            <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
+            <span className="text-xs text-white whitespace-nowrap">200%</span>
           </div>
           {effectiveScalePreviewActive && (
-            <span className="text-[11px] text-[#6b7280] italic mt-1 block">
+            <span className="text-[11px] text-white italic mt-1 block">
               Zoom locked by scale preview
             </span>
           )}
+          <span className="text-[11px] text-white mt-1 block">
+            Original Tile: {originalTileWidth.toFixed(1)}&quot; × {originalTileHeight.toFixed(1)}&quot;, {dpi}dpi
+          </span>
         </div>
 
         {/* Options Section */}
-        <div className="min-w-0 border-l border-[#cdcdcd] pl-4 lg:min-w-[160px]">
-          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[160px]">
+          <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Options
           </h2>
           <div className="space-y-2">
@@ -374,44 +373,44 @@ export default function PatternControlsTopBar({
                 type="checkbox"
                 checked={showTileOutline}
                 onChange={(e) => onShowTileOutlineChange(e.target.checked)}
-                className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
+                className="mr-2 w-4 h-4 border-white/20 rounded focus:ring-1 bg-white/10"
                 style={{ accentColor: '#e0c26e' }}
               />
-              <span className="text-sm text-[#374151]">Show Tile Outline</span>
+              <span className="text-sm text-white">Show Tile Outline</span>
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={tileOutlineColor}
                 onChange={(e) => onTileOutlineColorChange(e.target.value)}
-                className="h-7 w-10 rounded border border-[#e5e7eb] bg-white cursor-pointer"
+                className="h-7 w-10 rounded border border-white/20 bg-white/10 cursor-pointer"
                 aria-label="Tile outline color"
               />
-              <span className="text-xs text-[#6b7280]">Outline color</span>
+              <span className="text-xs text-white">Outline color</span>
             </div>
           </div>
         </div>
 
         {/* Advanced Tools Section */}
         <div
-          className="relative min-w-0 border-l border-[#cdcdcd] pl-4"
+          className="relative min-w-0 border-l border-white/20 pl-4"
           ref={advancedToolsRef}
         >
-          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+          <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Tools
           </h2>
           <button
             onClick={() => setIsAdvancedToolsOpen((prev) => !prev)}
             className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-md transition-all duration-200"
-            style={{ backgroundColor: '#3a3d44' }}
+            style={{ backgroundColor: '#e0c26e' }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#4a4d54';
+              e.currentTarget.style.backgroundColor = '#c9a94e';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3a3d44';
+              e.currentTarget.style.backgroundColor = '#e0c26e';
             }}
           >
-            {/* Gold 2x2 grid icon */}
+            {/* 2x2 grid icon */}
             <svg
               width="14"
               height="14"
@@ -419,10 +418,10 @@ export default function PatternControlsTopBar({
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <rect x="1" y="1" width="5" height="5" rx="1" fill="#e0c26e" />
-              <rect x="10" y="1" width="5" height="5" rx="1" fill="#e0c26e" />
-              <rect x="1" y="10" width="5" height="5" rx="1" fill="#e0c26e" />
-              <rect x="10" y="10" width="5" height="5" rx="1" fill="#e0c26e" />
+              <rect x="1" y="1" width="5" height="5" rx="1" fill="#1a1d23" />
+              <rect x="10" y="1" width="5" height="5" rx="1" fill="#1a1d23" />
+              <rect x="1" y="10" width="5" height="5" rx="1" fill="#1a1d23" />
+              <rect x="10" y="10" width="5" height="5" rx="1" fill="#1a1d23" />
             </svg>
             Advanced Tools
             <svg

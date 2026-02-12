@@ -286,10 +286,12 @@ export default function Home() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-white"
+      className="min-h-screen flex flex-col bg-[#1a1d23] p-3 sm:p-4"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {/* Floating App Container */}
+      <div className="flex flex-col flex-1 min-h-0 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
       {/* Top Bar */}
       <TopBar />
       <Suspense fallback={null}>
@@ -332,7 +334,7 @@ export default function Home() {
       {/* Main Content Area: Full-width Canvas */}
       <div className="flex-1 relative min-h-0">
         <div
-          className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 border-t border-[#2a2c30]"
+          className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 rounded-b-2xl"
           style={{ minHeight: '100%' }}
         >
           <div className="flex justify-center items-start px-1 sm:px-2 mt-1 mb-4 sm:mt-2 sm:mb-6">
@@ -359,11 +361,12 @@ export default function Home() {
         </div>
 
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50 pointer-events-none">
-            <div className="text-sm text-gray-900">Loading...</div>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50 pointer-events-none">
+            <div className="text-sm text-white">Loading...</div>
           </div>
         )}
       </div>
+      </div>{/* End Floating App Container */}
     </div>
   );
 }

@@ -16,7 +16,7 @@ export default function TopBar() {
   };
 
   return (
-    <header className="relative z-[60] pointer-events-auto h-12 border-b border-slate-700 bg-slate-900 flex items-center justify-between px-6">
+    <header className="relative z-[60] pointer-events-auto h-12 border-b border-slate-700 bg-slate-900 rounded-t-2xl flex items-center justify-between px-6">
       {/* Left: Branding */}
       <div className="flex items-center">
         <h1 className="text-sm font-semibold text-slate-100">PatternPAL Pro</h1>

@@ -61,13 +61,13 @@ body {
 /* Workspace well background */
 .workspaceWell {
   position: relative;
-  min-height: 100vh;
+  overflow: hidden;
   background:
     radial-gradient(
       1800px 900px at 50% 22%,
-      #979a9e 0%,
-      #424750 32%,
-      #322f2f 100%
+      #c8cbcf 0%,
+      #7a7e86 32%,
+      #2d2f31 100%
     );
 }
 

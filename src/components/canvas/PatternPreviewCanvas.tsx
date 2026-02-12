@@ -369,7 +369,7 @@ export default function PatternPreviewCanvas({
   const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
 
   return (
-    <div className="flex flex-col w-full bg-white rounded-2xl mt-3 overflow-hidden">
+    <div className="flex flex-col w-full bg-white rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
         {/* Top ruler */}
         <div className="flex border-b border-[#cdcdcd]">
           <div className="w-[30px] h-[30px] bg-[#cdcdcd] border-r border-[#cdcdcd]" />
