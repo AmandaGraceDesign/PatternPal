@@ -23,9 +23,10 @@ interface ActionsSidebarProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   scaleFactor?: number;
   scalePreviewActive?: boolean;
+  tileOutlineColor?: string;
 }
 
-export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef, scaleFactor = 1, scalePreviewActive = false }: ActionsSidebarProps) {
+export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repeatType, zoom, originalFilename, canvasRef, scaleFactor = 1, scalePreviewActive = false, tileOutlineColor = '#38bdf8' }: ActionsSidebarProps) {
   const { user, isSignedIn } = useUser();
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
@@ -159,7 +160,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     }
   }, [image, dpi, tileWidth, tileHeight, proAllowed]);
   return (
-    <aside className="w-72 bg-white border-l border-[#e5e7eb] p-6 overflow-y-auto">
+    <div className="bg-white p-6">
       {/* Export Section */}
       <div className="mb-8">
         <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
@@ -290,6 +291,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                     'halfbrick'
                   }
                   isPro={proAllowed}
+                  seamLineColor={tileOutlineColor}
                 />
               </div>
             )}
@@ -461,7 +463,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         initialPlan={upgradePlan}
         onClose={() => setIsUpgradeModalOpen(false)}
       />
-    </aside>
+    </div>
   );
 }
 

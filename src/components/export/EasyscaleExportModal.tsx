@@ -144,8 +144,8 @@ export default function EasyscaleExportModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#ffe4e7]">
-          <h3 className="text-sm font-semibold text-[#294051]">Easyscale Export</h3>
+        <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#e0c26e]">
+          <h3 className="text-sm font-semibold text-white">Easyscale Export</h3>
           <button
             onClick={onClose}
             className="text-[#705046] hover:text-[#294051] transition-all duration-200"
@@ -207,7 +207,7 @@ export default function EasyscaleExportModal({
                       key={size}
                       className={`flex items-center justify-center px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                         selectedSizes.includes(size)
-                          ? 'bg-[#ffe4e7] border-[#e0c26e] text-[#294051]'
+                          ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
                           : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
                       }`}
                     >

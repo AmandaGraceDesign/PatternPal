@@ -7,6 +7,7 @@ interface SeamInspectorProps {
   isOpen: boolean;
   onClose: () => void;
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
+  seamLineColor?: string;
 }
 
 type SeamType = 'horizontal' | 'vertical' | 'intersection';
@@ -50,7 +51,7 @@ function createTileGrid(
   return gridCanvas;
 }
 
-export default function SeamInspector({ image, isOpen, onClose, repeatType }: SeamInspectorProps) {
+export default function SeamInspector({ image, isOpen, onClose, repeatType, seamLineColor = '#38bdf8' }: SeamInspectorProps) {
   const [seamType, setSeamType] = useState<SeamType>('intersection');
   const [zoomLevel, setZoomLevel] = useState<number>(200); // Continuous zoom (percentage)
   const [seamSection, setSeamSection] = useState<SeamSection>('middle');
@@ -194,7 +195,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
 
       // Draw pink crosshair aligned with the tiled pattern intersection
       if (showPinkLines) {
-        ctx.strokeStyle = '#e0c26e';
+        ctx.strokeStyle = seamLineColor;
         ctx.lineWidth = 3;
         const crossX = (canvasWidth / 2) + panOffset.x;
         const crossY = (canvasHeight / 2) + panOffset.y;
@@ -237,7 +238,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
       
       // Draw pink seam line locked to pattern seam
       if (showPinkLines) {
-        ctx.strokeStyle = '#e0c26e';
+        ctx.strokeStyle = seamLineColor;
         ctx.lineWidth = 3;
         const seamSourceY = tileH;
         const seamScreenY = ((seamSourceY - clampedSourceY) / sourceHeight) * canvasHeight;
@@ -279,7 +280,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
       
       // Draw pink seam line locked to pattern seam
       if (showPinkLines) {
-        ctx.strokeStyle = '#e0c26e';
+        ctx.strokeStyle = seamLineColor;
         ctx.lineWidth = 3;
         const seamSourceX = tileW;
         const seamScreenX = ((seamSourceX - clampedSourceX) / sourceWidth) * canvasWidth;
@@ -289,7 +290,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType }: Se
         ctx.stroke();
       }
     }
-  }, [image, seamType, zoomLevel, seamSection, showPinkLines, repeatType, isOpen, containerSize, panOffset]);
+  }, [image, seamType, zoomLevel, seamSection, showPinkLines, repeatType, isOpen, containerSize, panOffset, seamLineColor]);
 
   if (!isOpen || !image) return null;
 

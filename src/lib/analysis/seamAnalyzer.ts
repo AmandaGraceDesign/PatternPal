@@ -1,7 +1,7 @@
 // lib/seamAnalyzer.ts
 
 // Color constants for seam visualization
-const TILE_EDGE_COLOR = '#FF1493'; // Deep Pink (visible on any background)
+const TILE_EDGE_COLOR = '#38bdf8'; // Cyan (matches default tile outline color)
 const PROBLEM_COLOR = 'rgba(255, 255, 0, 0.85)'; // Bright Yellow (85% opacity)
 const GOOD_EDGE_COLOR = 'rgba(0, 255, 0, 0.3)'; // Subtle green (30% opacity)
 

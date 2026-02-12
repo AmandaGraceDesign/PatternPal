@@ -1,6 +1,6 @@
 import type { RepeatType } from './seamAnalyzer';
 
-const PINK_CROSSHAIR_COLOR = '#e0c26e';
+const SEAM_LINE_COLOR = '#38bdf8';
 
 export type SeamView = 'horizontal' | 'vertical';
 
@@ -67,7 +67,7 @@ export function createSeamViewCanvas(
     );
     
     // Draw pink crosshair line
-    ctx.strokeStyle = PINK_CROSSHAIR_COLOR;
+    ctx.strokeStyle = SEAM_LINE_COLOR;
     ctx.lineWidth = 2 / zoom; // Scale line width inversely with zoom
     ctx.beginPath();
     ctx.moveTo(0, edgeHeight);
@@ -125,7 +125,7 @@ export function createSeamViewCanvas(
     );
     
     // Draw pink crosshair line
-    ctx.strokeStyle = PINK_CROSSHAIR_COLOR;
+    ctx.strokeStyle = SEAM_LINE_COLOR;
     ctx.lineWidth = 2 / zoom;
     ctx.beginPath();
     ctx.moveTo(edgeWidth, 0);

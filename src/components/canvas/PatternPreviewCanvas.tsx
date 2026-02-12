@@ -13,8 +13,6 @@ interface PatternPreviewCanvasProps {
   zoom: number;
   showTileOutline: boolean;
   tileOutlineColor?: string;
-  onZoomChange: (zoom: number) => void;
-  scalePreviewActive?: boolean;
 }
 
 export default function PatternPreviewCanvas({
@@ -26,8 +24,6 @@ export default function PatternPreviewCanvas({
   zoom,
   showTileOutline,
   tileOutlineColor = '#38bdf8',
-  onZoomChange,
-  scalePreviewActive = false,
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -373,43 +369,7 @@ export default function PatternPreviewCanvas({
   const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      {/* Header with Zoom Slider */}
-      <div className="h-12 border-b border-[#e5e7eb] px-6 flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1">
-          <label className="text-xs text-[#294051] whitespace-nowrap">
-            Zoom: {Math.round(zoom)}%
-          </label>
-          <div className="flex items-center gap-2 flex-1">
-            <span className="text-xs text-[#6b7280] whitespace-nowrap">0%</span>
-            <input
-              type="range"
-              min="0"
-              max="200"
-              step="1"
-              value={Math.max(0, Math.min(200, zoom))}
-              onChange={(e) => {
-                const newZoom = parseInt(e.target.value);
-                onZoomChange(Math.max(0, Math.min(200, newZoom)));
-              }}
-              disabled={scalePreviewActive}
-              className={`flex-1 h-1.5 bg-[#e5e7eb] rounded-lg appearance-none ${
-                scalePreviewActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-              }`}
-              style={{ accentColor: '#e0c26e' }}
-            />
-            <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
-            {scalePreviewActive && (
-              <span className="text-[11px] text-[#6b7280] italic whitespace-nowrap">
-                Zoom locked by scale preview
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Canvas Preview Area with Rulers */}
-      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="flex flex-col w-full bg-white rounded-2xl mt-3 overflow-hidden">
         {/* Top ruler */}
         <div className="flex border-b border-[#cdcdcd]">
           <div className="w-[30px] h-[30px] bg-[#cdcdcd] border-r border-[#cdcdcd]" />
@@ -454,7 +414,6 @@ export default function PatternPreviewCanvas({
             />
           </div>
         </div>
-      </div>
     </div>
   );
 }

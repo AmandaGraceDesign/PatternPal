@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useUser } from '@clerk/nextjs';
+import ActionsSidebar from '@/components/sidebar/ActionsSidebar';
 
 interface PatternControlsTopBarProps {
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
@@ -24,6 +25,16 @@ interface PatternControlsTopBarProps {
   onScalePreviewActiveChange: (active: boolean) => void;
   originalTileWidth: number;
   originalTileHeight: number;
+  // Advanced Tools flyout props (forwarded to ActionsSidebar)
+  image: HTMLImageElement | null;
+  zoom: number;
+  onZoomChange: (zoom: number) => void;
+  originalFilename: string | null;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  effectiveTileWidth: number;
+  effectiveTileHeight: number;
+  effectiveScaleFactor: number;
+  effectiveScalePreviewActive: boolean;
 }
 
 export default function PatternControlsTopBar({
@@ -47,12 +58,48 @@ export default function PatternControlsTopBar({
   onScalePreviewActiveChange,
   originalTileWidth,
   originalTileHeight,
+  image,
+  zoom,
+  onZoomChange,
+  originalFilename,
+  canvasRef,
+  effectiveTileWidth,
+  effectiveTileHeight,
+  effectiveScaleFactor,
+  effectiveScalePreviewActive,
 }: PatternControlsTopBarProps) {
   const { isSignedIn } = useUser();
   const FREE_TESTS_KEY = 'pp_free_tests_used';
   const MAX_FREE_TESTS = 3;
   const [freeTestsUsed, setFreeTestsUsed] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isAdvancedToolsOpen, setIsAdvancedToolsOpen] = useState(false);
+  const advancedToolsRef = useRef<HTMLDivElement>(null);
+
+  // Close flyout on click outside or Escape key
+  useEffect(() => {
+    if (!isAdvancedToolsOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        advancedToolsRef.current &&
+        !advancedToolsRef.current.contains(e.target as Node)
+      ) {
+        setIsAdvancedToolsOpen(false);
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsAdvancedToolsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isAdvancedToolsOpen]);
 
   useEffect(() => {
     const readFreeTests = () => {
@@ -280,6 +327,42 @@ export default function PatternControlsTopBar({
           </div>
         </div>
 
+        {/* Zoom Section */}
+        <div className="min-w-0 border-l border-[#cdcdcd] pl-4 lg:min-w-[240px]">
+          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+            Zoom: {Math.round(zoom)}%
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#6b7280] whitespace-nowrap">0%</span>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="1"
+              value={Math.max(0, Math.min(200, zoom))}
+              onChange={(e) => {
+                const newZoom = parseInt(e.target.value);
+                onZoomChange(Math.max(0, Math.min(200, newZoom)));
+              }}
+              disabled={effectiveScalePreviewActive}
+              className={`zoom-slider flex-1 h-1.5 rounded-lg appearance-none ${
+                effectiveScalePreviewActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+              }`}
+              style={{
+                background: effectiveScalePreviewActive
+                  ? '#e5e7eb'
+                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, #e5e7eb ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, #e5e7eb 100%)`,
+              }}
+            />
+            <span className="text-xs text-[#6b7280] whitespace-nowrap">200%</span>
+          </div>
+          {effectiveScalePreviewActive && (
+            <span className="text-[11px] text-[#6b7280] italic mt-1 block">
+              Zoom locked by scale preview
+            </span>
+          )}
+        </div>
+
         {/* Options Section */}
         <div className="min-w-0 border-l border-[#cdcdcd] pl-4 lg:min-w-[160px]">
           <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
@@ -307,6 +390,74 @@ export default function PatternControlsTopBar({
               <span className="text-xs text-[#6b7280]">Outline color</span>
             </div>
           </div>
+        </div>
+
+        {/* Advanced Tools Section */}
+        <div
+          className="relative min-w-0 border-l border-[#cdcdcd] pl-4"
+          ref={advancedToolsRef}
+        >
+          <h2 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+            Tools
+          </h2>
+          <button
+            onClick={() => setIsAdvancedToolsOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-md transition-all duration-200"
+            style={{ backgroundColor: '#3a3d44' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#4a4d54';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3a3d44';
+            }}
+          >
+            {/* Gold 2x2 grid icon */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect x="1" y="1" width="5" height="5" rx="1" fill="#e0c26e" />
+              <rect x="10" y="1" width="5" height="5" rx="1" fill="#e0c26e" />
+              <rect x="1" y="10" width="5" height="5" rx="1" fill="#e0c26e" />
+              <rect x="10" y="10" width="5" height="5" rx="1" fill="#e0c26e" />
+            </svg>
+            Advanced Tools
+            <svg
+              className={`w-3 h-3 transition-transform ${isAdvancedToolsOpen ? 'rotate-90' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Flyout Panel */}
+          {isAdvancedToolsOpen && (
+            <div
+              className="absolute top-full right-0 mt-2 z-50 bg-white border border-[#e5e7eb] rounded-lg shadow-xl overflow-y-auto"
+              style={{ width: '320px', maxHeight: '70vh' }}
+            >
+              <Suspense fallback={null}>
+                <ActionsSidebar
+                  image={image}
+                  dpi={dpi}
+                  tileWidth={effectiveTileWidth}
+                  tileHeight={effectiveTileHeight}
+                  repeatType={repeatType}
+                  zoom={zoom}
+                  originalFilename={originalFilename}
+                  canvasRef={canvasRef}
+                  scaleFactor={effectiveScaleFactor}
+                  scalePreviewActive={effectiveScalePreviewActive}
+                  tileOutlineColor={tileOutlineColor}
+                />
+              </Suspense>
+            </div>
+          )}
         </div>
       </div>
     </div>

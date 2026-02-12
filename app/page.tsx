@@ -5,7 +5,6 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
-import ActionsSidebar from '@/components/sidebar/ActionsSidebar';
 import { extractDpiFromFile } from '@/lib/utils/imageUtils';
 import ResumeUpgradeFromQuery from './_components/ResumeUpgradeFromQuery';
 
@@ -25,7 +24,6 @@ export default function Home() {
   const [tileOutlineColor, setTileOutlineColor] = useState<string>('#38bdf8');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const topBarHeight = 48; // px
-  const sidebarContentWidth = 288; // 18rem
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Scale Preview State
@@ -320,68 +318,51 @@ export default function Home() {
         onScalePreviewActiveChange={setIsScalePreviewActive}
         originalTileWidth={tileWidth}
         originalTileHeight={tileHeight}
+        image={image}
+        zoom={zoom}
+        onZoomChange={setZoom}
+        originalFilename={originalFilename}
+        canvasRef={canvasRef}
+        effectiveTileWidth={getEffectiveDimensions().width}
+        effectiveTileHeight={getEffectiveDimensions().height}
+        effectiveScaleFactor={getEffectiveDimensions().scaleFactor}
+        effectiveScalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
       />
 
-      {/* Main Content Area: Canvas + Right Sidebar */}
-      <div className="flex-1 flex min-h-0">
-        {/* Center - Pattern Preview Canvas */}
-        <div className="relative flex-1 min-w-0">
-          <div
-            className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 border-t border-[#2a2c30]"
-            style={{ minHeight: '100%' }}
-          >
-            <div className="flex justify-center items-start px-1 sm:px-2 mt-1 mb-4 sm:mt-2 sm:mb-6">
-              <div className="w-full max-w-5xl flex items-center gap-4">
-                <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
-                <p className="text-sm sm:text-base tracking-[0.2em] text-[rgba(255,255,255,0.66)] uppercase shrink-0">
-                  PRINT PREVIEW
-                </p>
-                <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
-              </div>
-            </div>
-            <div className="flex justify-center items-start">
-              <PatternPreviewCanvas
-                image={image}
-                repeatType={repeatType}
-                tileWidth={getEffectiveDimensions().width}
-                tileHeight={getEffectiveDimensions().height}
-                dpi={dpi}
-                zoom={zoom}
-                showTileOutline={showTileOutline}
-                tileOutlineColor={tileOutlineColor}
-                onZoomChange={setZoom}
-                scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-              />
+      {/* Main Content Area: Full-width Canvas */}
+      <div className="flex-1 relative min-h-0">
+        <div
+          className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 border-t border-[#2a2c30]"
+          style={{ minHeight: '100%' }}
+        >
+          <div className="flex justify-center items-start px-1 sm:px-2 mt-1 mb-4 sm:mt-2 sm:mb-6">
+            <div className="w-full max-w-5xl flex items-center gap-4">
+              <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
+              <p className="text-sm sm:text-base tracking-[0.2em] text-[rgba(255,255,255,0.66)] uppercase shrink-0">
+                PATTERN PREVIEW
+              </p>
+              <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
             </div>
           </div>
-
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50 pointer-events-none">
-              <div className="text-sm text-gray-900">Loading...</div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Sidebar - Actions */}
-        <div
-          className="flex-shrink-0 border-l border-[#e5e7eb] overflow-y-auto"
-          style={{ width: `${sidebarContentWidth}px` }}
-        >
-          <Suspense fallback={null}>
-            <ActionsSidebar
+          <div className="flex justify-center items-start" style={{ padding: '0 20px' }}>
+            <PatternPreviewCanvas
               image={image}
-              dpi={dpi}
+              repeatType={repeatType}
               tileWidth={getEffectiveDimensions().width}
               tileHeight={getEffectiveDimensions().height}
-              repeatType={repeatType}
+              dpi={dpi}
               zoom={zoom}
-              originalFilename={originalFilename}
-              canvasRef={canvasRef}
-              scaleFactor={getEffectiveDimensions().scaleFactor}
-              scalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
+              showTileOutline={showTileOutline}
+              tileOutlineColor={tileOutlineColor}
             />
-          </Suspense>
+          </div>
         </div>
+
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50 pointer-events-none">
+            <div className="text-sm text-gray-900">Loading...</div>
+          </div>
+        )}
       </div>
     </div>
   );
