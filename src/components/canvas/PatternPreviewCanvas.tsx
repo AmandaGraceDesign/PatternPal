@@ -460,7 +460,7 @@ export default function PatternPreviewCanvas({
           <div
             ref={scrollContainerRef}
             className="flex-1 overflow-auto bg-[#0f172a] relative"
-            style={{ touchAction: 'none' }}
+            style={{ touchAction: 'pan-x pan-y' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}

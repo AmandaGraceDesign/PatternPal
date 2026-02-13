@@ -434,28 +434,72 @@ export default function PatternControlsTopBar({
             </svg>
           </button>
 
-          {/* Flyout Panel */}
+          {/* Flyout Panel - dropdown on large screens, full-screen modal on small */}
           {isAdvancedToolsOpen && (
-            <div
-              className="absolute top-full right-0 mt-2 z-50 bg-white border border-[#e5e7eb] rounded-lg shadow-xl overflow-y-auto"
-              style={{ width: 'min(320px, calc(100vw - 32px))', maxHeight: '70vh' }}
-            >
-              <Suspense fallback={null}>
-                <ActionsSidebar
-                  image={image}
-                  dpi={dpi}
-                  tileWidth={effectiveTileWidth}
-                  tileHeight={effectiveTileHeight}
-                  repeatType={repeatType}
-                  zoom={zoom}
-                  originalFilename={originalFilename}
-                  canvasRef={canvasRef}
-                  scaleFactor={effectiveScaleFactor}
-                  scalePreviewActive={effectiveScalePreviewActive}
-                  tileOutlineColor={tileOutlineColor}
-                />
-              </Suspense>
-            </div>
+            <>
+              {/* Mobile/tablet: full-screen modal overlay */}
+              <div
+                className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 lg:hidden"
+                onClick={() => setIsAdvancedToolsOpen(false)}
+              >
+                <div
+                  className="relative w-[calc(100vw-32px)] max-w-md max-h-[85vh] bg-white rounded-xl shadow-2xl overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal header with close button */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-[#3a3d44]">
+                    <h3 className="text-sm font-semibold text-white">Advanced Tools</h3>
+                    <button
+                      onClick={() => setIsAdvancedToolsOpen(false)}
+                      className="text-white/70 hover:text-white p-1"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 52px)' }}>
+                    <Suspense fallback={null}>
+                      <ActionsSidebar
+                        image={image}
+                        dpi={dpi}
+                        tileWidth={effectiveTileWidth}
+                        tileHeight={effectiveTileHeight}
+                        repeatType={repeatType}
+                        zoom={zoom}
+                        originalFilename={originalFilename}
+                        canvasRef={canvasRef}
+                        scaleFactor={effectiveScaleFactor}
+                        scalePreviewActive={effectiveScalePreviewActive}
+                        tileOutlineColor={tileOutlineColor}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop: positioned dropdown */}
+              <div
+                className="absolute top-full right-0 mt-2 z-50 bg-white border border-[#e5e7eb] rounded-lg shadow-xl overflow-y-auto hidden lg:block"
+                style={{ width: '320px', maxHeight: '70vh' }}
+              >
+                <Suspense fallback={null}>
+                  <ActionsSidebar
+                    image={image}
+                    dpi={dpi}
+                    tileWidth={effectiveTileWidth}
+                    tileHeight={effectiveTileHeight}
+                    repeatType={repeatType}
+                    zoom={zoom}
+                    originalFilename={originalFilename}
+                    canvasRef={canvasRef}
+                    scaleFactor={effectiveScaleFactor}
+                    scalePreviewActive={effectiveScalePreviewActive}
+                    tileOutlineColor={tileOutlineColor}
+                  />
+                </Suspense>
+              </div>
+            </>
           )}
         </div>
       </div>
