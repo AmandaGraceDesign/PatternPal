@@ -5,10 +5,12 @@ import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupModal from '@/components/mockups/MockupModal';
+import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
+import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
 import UpgradeModal from '@/components/export/UpgradeModal';
-import SeamAnalyzer from '@/components/analysis/SeamAnalyzer';
-import { getMockupTemplate, getAllMockupTypes } from '@/lib/mockups/mockupTemplates';
+import SeamInspector from '@/components/analysis/SeamInspector';
+import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 
@@ -34,6 +36,9 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [isSeamInspectorOpen, setIsSeamInspectorOpen] = useState(false);
+  const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly' | undefined>(undefined);
   const [tileCanvas, setTileCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -82,29 +87,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
       return;
     }
 
-    // Create a canvas with the exact image dimensions (NO DPR scaling)
     const canvas = document.createElement('canvas');
-    // CRITICAL: Use naturalWidth/naturalHeight, NOT width/height (avoids DPR scaling)
     canvas.width = image.naturalWidth;
     canvas.height = image.naturalHeight;
     const ctx = canvas.getContext('2d');
-    
+
     if (ctx) {
-      // Draw at 1:1 scale (no width/height params = no scaling)
       ctx.drawImage(image, 0, 0);
-      
-      // CRITICAL DEBUG: Verify canvas matches image dimensions
-      console.log('🔍 Analysis canvas creation:', {
-        imageNaturalWidth: image.naturalWidth,
-        imageNaturalHeight: image.naturalHeight,
-        canvasWidth: canvas.width,
-        canvasHeight: canvas.height,
-        imageDisplayWidth: image.width,
-        imageDisplayHeight: image.height,
-        match: canvas.width === image.naturalWidth && canvas.height === image.naturalHeight,
-        warning: canvas.width !== image.naturalWidth ? '❌ DIMENSION MISMATCH - Analysis will be wrong!' : '✅ Dimensions match'
-      });
-      
       setTileCanvas(canvas);
     }
   }, [image]);
@@ -146,7 +135,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
     setIsAnalyzing(true);
 
-    // Run analyses
     try {
       const contrast = analyzeContrast(image, 'unspecified');
       const composition = analyzeComposition(image, 'unspecified');
@@ -159,290 +147,99 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
       setIsAnalyzing(false);
     }
   }, [image, dpi, tileWidth, tileHeight, proAllowed]);
+
+  // Tool button component for consistent styling
+  const ToolButton = ({ onClick, disabled, icon, label, description, proOnly }: {
+    onClick: () => void;
+    disabled?: boolean;
+    icon: React.ReactNode;
+    label: string;
+    description: string;
+    proOnly?: boolean;
+  }) => (
+    <button
+      onClick={proOnly && !proAllowed ? () => setIsUpgradeModalOpen(true) : onClick}
+      disabled={disabled}
+      className="w-full flex items-center gap-3 px-4 py-3 text-left rounded-lg border border-[#e5e7eb] hover:border-[#e0c26e] hover:bg-[#fdf8ec] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-[#e5e7eb] disabled:hover:bg-transparent group"
+    >
+      <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#e0c26e] flex items-center justify-center text-white">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-[#294051]">{label}</span>
+          {proOnly && !proAllowed && (
+            <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">PRO</span>
+          )}
+        </div>
+        <span className="text-xs text-[#6b7280]">{description}</span>
+      </div>
+      <svg className="w-4 h-4 text-gray-400 group-hover:text-[#e0c26e] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+  );
+
   return (
-    <div className="bg-white p-6">
-      {/* Export Section */}
-      <div className="mb-8">
-        <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
-          <h2 className="text-xs font-bold text-[#294051] uppercase tracking-wider">
-            Export
-          </h2>
-        </div>
-        <div className="space-y-2">
-          <button
-            onClick={() => setIsEasyscaleModalOpen(true)}
-            disabled={!image}
-            className="w-full px-4 py-2.5 text-xs font-semibold text-white rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#e0c26e' }}
-            onMouseEnter={(e) => {
-              if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#e8d28e';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!e.currentTarget.disabled) {
-                e.currentTarget.style.backgroundColor = '#e0c26e';
-              }
-            }}
-          >
-            Easyscale Export
-          </button>
+    <div className="bg-white p-4">
+      <div className="space-y-2">
+        {/* Easyscale Export */}
+        <ToolButton
+          onClick={() => setIsEasyscaleModalOpen(true)}
+          disabled={!image}
+          label="Easyscale Export"
+          description="Export pattern at multiple sizes"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          }
+        />
 
-        </div>
+        {/* Pattern Analysis */}
+        <ToolButton
+          onClick={() => setIsAnalysisModalOpen(true)}
+          disabled={!image}
+          proOnly
+          label="Pattern Analysis"
+          description="Contrast & composition insights"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          }
+        />
+
+        {/* Seam Analyzer */}
+        <ToolButton
+          onClick={() => setIsSeamInspectorOpen(true)}
+          disabled={!image}
+          proOnly
+          label="Seam Analyzer"
+          description="Inspect pattern seam alignment"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+        />
+
+        {/* Mockups */}
+        <ToolButton
+          onClick={() => setIsMockupGalleryOpen(true)}
+          disabled={!image}
+          proOnly
+          label="Mockups"
+          description="Preview on products & download"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          }
+        />
       </div>
 
-      {/* Analysis Section */}
-      <div className="mb-8">
-        <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
-          <h2 className="text-xs font-bold text-[#294051] uppercase tracking-wider">
-            Analysis
-          </h2>
-        </div>
-
-        {!proAllowed ? (
-          <div
-            className="p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#e0c26e] transition-colors group"
-            onClick={() => setIsUpgradeModalOpen(true)}
-          >
-            <div className="text-3xl mb-2">🔒</div>
-            <div className="text-sm font-semibold text-gray-700 mb-1">Pro Feature</div>
-            <div className="text-xs text-gray-500 mb-3">
-              Get advanced contrast analysis, composition insights, and seam inspection
-            </div>
-            <div className="text-xs font-semibold text-[#e0c26e] group-hover:text-[#c9a94e]">
-              Click to Upgrade →
-            </div>
-          </div>
-        ) : (
-          <>
-            {!image && (
-              <div className="text-xs text-[#6b7280] text-center py-4">
-                Upload a pattern tile to see analysis
-              </div>
-            )}
-
-            {isAnalyzing && (
-              <div className="text-xs text-[#6b7280] text-center py-4">
-                Analyzing...
-              </div>
-            )}
-
-            {image && !isAnalyzing && (
-              <div className="space-y-4">
-                {/* Contrast Analysis */}
-                {contrastAnalysis && (
-                  <div className="p-3 bg-white border border-[#e5e7eb] rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-[#294051]">
-                        {contrastAnalysis.label}
-                      </span>
-                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded uppercase ${
-                        contrastAnalysis.severity === 'none' ? 'bg-emerald-100 text-emerald-700' :
-                        contrastAnalysis.severity === 'info' ? 'bg-blue-100 text-blue-700' :
-                        'bg-orange-100 text-orange-700'
-                      }`}>
-                        {contrastAnalysis.band.toUpperCase().replace('_', ' ')}
-                      </span>
-                    </div>
-                    <div className="text-xs text-[#374151] mb-2">
-                      Global contrast: {(contrastAnalysis.globalContrast * 100).toFixed(0)}%
-                    </div>
-                    <p className="text-sm text-[#374151] leading-relaxed">
-                      {contrastAnalysis.message}
-                    </p>
-                  </div>
-                )}
-
-                {/* Composition Analysis */}
-                {compositionAnalysis && (
-                  <div className="p-3 bg-white border border-[#e5e7eb] rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-[#294051]">
-                        {compositionAnalysis.label}
-                      </span>
-                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded uppercase ${
-                        compositionAnalysis.band === 'balanced' ? 'bg-emerald-100 text-emerald-700' :
-                        compositionAnalysis.band === 'dynamic' ? 'bg-blue-100 text-blue-700' :
-                        'bg-orange-100 text-orange-700'
-                      }`}>
-                        {compositionAnalysis.band}
-                      </span>
-                    </div>
-                    <div className="text-xs text-[#374151] mb-2">
-                      Pattern: {compositionAnalysis.distributionPattern.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      {' • '}Balance: {(compositionAnalysis.balanceScore * 100).toFixed(0)}%
-                    </div>
-                    <p className="text-sm text-[#374151] leading-relaxed mb-2">
-                      {compositionAnalysis.message}
-                    </p>
-                    <p className="text-xs text-[#6b7280] leading-relaxed italic">
-                      {compositionAnalysis.contextHint}
-                    </p>
-                  </div>
-                )}
-
-                {/* Seam Analyzer */}
-                <SeamAnalyzer
-                  canvas={tileCanvas}
-                  image={image}
-                  repeatType={
-                    repeatType === 'full-drop' ? 'fulldrop' :
-                    repeatType === 'half-drop' ? 'halfdrop' :
-                    'halfbrick'
-                  }
-                  isPro={proAllowed}
-                  seamLineColor={tileOutlineColor}
-                />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Mockups Section */}
-      <div>
-        <div className="bg-[#f5f5f5] px-4 py-2.5 rounded-lg mb-4">
-          <h2 className="text-xs font-bold text-[#294051] uppercase tracking-wider">
-            Mockups
-          </h2>
-        </div>
-
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {(['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const).map((mockupType) => {
-              const template = getMockupTemplate(mockupType);
-              return (
-                <div key={mockupType} className="relative">
-                  <MockupRenderer
-                    template={template}
-                    patternImage={image}
-                    tileWidth={tileWidth}
-                    tileHeight={tileHeight}
-                    dpi={dpi}
-                    repeatType={repeatType}
-                    zoom={zoom}
-                    scaleFactor={scaleFactor}
-                    scalePreviewActive={scalePreviewActive}
-                    onClick={() => {
-                      if (proAllowed) {
-                        setSelectedMockup(mockupType);
-                      } else {
-                        setIsUpgradeModalOpen(true);
-                      }
-                    }}
-                  />
-                  {!proAllowed && (
-                    <div className="absolute inset-0 rounded-md flex items-center justify-center text-[#294051] pointer-events-none">
-                      <span className="text-xs font-semibold">🔒 Pro</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {!proAllowed && (
-            <div
-              className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-[#e0c26e] transition-colors group"
-              onClick={() => setIsUpgradeModalOpen(true)}
-            >
-              <div className="text-xs text-gray-500 mb-2">
-                Preview mockups are available, but opening and downloads require Pro.
-              </div>
-              <div className="text-xs font-semibold text-[#e0c26e] group-hover:text-[#c9a94e]">
-                Click to Upgrade →
-              </div>
-            </div>
-          )}
-
-          {/* Mockup Modal */}
-          {selectedMockup && (
-            <MockupModal
-              isOpen={!!selectedMockup}
-              onClose={() => {
-                setSelectedMockup(null);
-                setMockupColorOverride(null);
-              }}
-              title={getMockupTemplate(selectedMockup as any)?.name}
-              subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
-              onDownload={async () => {
-                const allowed = await verifyProAccess();
-                if (!allowed) {
-                  setIsUpgradeModalOpen(true);
-                  return;
-                }
-
-                // Find the canvas element in the mockup renderer
-                const mockupCanvas = document.querySelector(
-                  '[data-mockup-modal] .mockup-canvas'
-                ) as HTMLCanvasElement | null;
-                if (mockupCanvas) {
-                  const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
-                  const link = document.createElement('a');
-                  const template = getMockupTemplate(selectedMockup as any);
-                  const templateSlug =
-                    template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-                  const baseName = originalFilename
-                    ? `${originalFilename}-${templateSlug}`
-                    : `mockup-${templateSlug}`;
-                  const suggested = sanitizeFilename(baseName, 'mockup');
-                  const userInput = window.prompt('Name your mockup file:', suggested);
-                  if (!userInput) return;
-                  link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
-                  link.href = dataURL;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }
-              }}
-            >
-              <div className="flex flex-col gap-3">
-                {/* Color picker for onesie and wrapping paper bow */}
-                {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
-                  <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
-                    <label className="text-xs font-medium text-[#294051]">
-                      {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
-                    </label>
-                    <input
-                      type="color"
-                      value={mockupColorOverride || '#ffffff'}
-                      onChange={(e) => setMockupColorOverride(e.target.value)}
-                      className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
-                    />
-                    {mockupColorOverride && (
-                      <button
-                        onClick={() => setMockupColorOverride(null)}
-                        className="text-xs text-[#705046] hover:text-[#294051] underline"
-                      >
-                        Reset to auto
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Mockup preview */}
-                <div className="flex items-center justify-center bg-white rounded-lg p-4">
-                  <div className="w-full max-w-2xl">
-                    <MockupRenderer
-                      template={getMockupTemplate(selectedMockup as any)}
-                      patternImage={image}
-                      tileWidth={tileWidth}
-                      tileHeight={tileHeight}
-                      dpi={dpi}
-                      repeatType={repeatType}
-                      zoom={zoom}
-                      scaleFactor={scaleFactor}
-                      scalePreviewActive={scalePreviewActive}
-                      onClick={() => {}}
-                      colorOverride={mockupColorOverride}
-                    />
-                  </div>
-                </div>
-              </div>
-            </MockupModal>
-          )}
-        </div>
-      </div>
+      {/* ===== MODALS ===== */}
 
       {/* Easyscale Export Modal */}
       {isEasyscaleModalOpen && (
@@ -457,6 +254,133 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         />
       )}
 
+      {/* Pattern Analysis Modal */}
+      <PatternAnalysisModal
+        isOpen={isAnalysisModalOpen}
+        onClose={() => setIsAnalysisModalOpen(false)}
+        image={image}
+        contrastAnalysis={contrastAnalysis}
+        compositionAnalysis={compositionAnalysis}
+        isAnalyzing={isAnalyzing}
+        isPro={proAllowed}
+        onUpgrade={() => setIsUpgradeModalOpen(true)}
+      />
+
+      {/* Seam Inspector Modal */}
+      <SeamInspector
+        image={image}
+        isOpen={isSeamInspectorOpen}
+        onClose={() => setIsSeamInspectorOpen(false)}
+        repeatType={repeatType}
+        seamLineColor={tileOutlineColor}
+      />
+
+      {/* Mockup Gallery Modal */}
+      <MockupGalleryModal
+        isOpen={isMockupGalleryOpen}
+        onClose={() => setIsMockupGalleryOpen(false)}
+        onSelectMockup={(type) => {
+          setSelectedMockup(type);
+          setIsMockupGalleryOpen(false);
+        }}
+        image={image}
+        tileWidth={tileWidth}
+        tileHeight={tileHeight}
+        dpi={dpi}
+        repeatType={repeatType}
+        zoom={zoom}
+        scaleFactor={scaleFactor}
+        scalePreviewActive={scalePreviewActive}
+        isPro={proAllowed}
+        onUpgrade={() => setIsUpgradeModalOpen(true)}
+      />
+
+      {/* Individual Mockup Modal (opens from gallery) */}
+      {selectedMockup && (
+        <MockupModal
+          isOpen={!!selectedMockup}
+          onClose={() => {
+            setSelectedMockup(null);
+            setMockupColorOverride(null);
+          }}
+          title={getMockupTemplate(selectedMockup as any)?.name}
+          subtitle={`Based on ${tileWidth.toFixed(1)} \u00d7 ${tileHeight.toFixed(1)} inch repeat`}
+          onDownload={async () => {
+            const allowed = await verifyProAccess();
+            if (!allowed) {
+              setIsUpgradeModalOpen(true);
+              return;
+            }
+
+            const mockupCanvas = document.querySelector(
+              '[data-mockup-modal] .mockup-canvas'
+            ) as HTMLCanvasElement | null;
+            if (mockupCanvas) {
+              const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
+              const link = document.createElement('a');
+              const template = getMockupTemplate(selectedMockup as any);
+              const templateSlug =
+                template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+              const baseName = originalFilename
+                ? `${originalFilename}-${templateSlug}`
+                : `mockup-${templateSlug}`;
+              const suggested = sanitizeFilename(baseName, 'mockup');
+              const userInput = window.prompt('Name your mockup file:', suggested);
+              if (!userInput) return;
+              link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
+              link.href = dataURL;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+          }}
+        >
+          <div className="flex flex-col gap-3">
+            {/* Color picker for onesie and wrapping paper bow */}
+            {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
+              <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
+                <label className="text-xs font-medium text-[#294051]">
+                  {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
+                </label>
+                <input
+                  type="color"
+                  value={mockupColorOverride || '#ffffff'}
+                  onChange={(e) => setMockupColorOverride(e.target.value)}
+                  className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
+                />
+                {mockupColorOverride && (
+                  <button
+                    onClick={() => setMockupColorOverride(null)}
+                    className="text-xs text-[#705046] hover:text-[#294051] underline"
+                  >
+                    Reset to auto
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Mockup preview */}
+            <div className="flex items-center justify-center bg-white rounded-lg p-4">
+              <div className="w-full max-w-2xl">
+                <MockupRenderer
+                  template={getMockupTemplate(selectedMockup as any)}
+                  patternImage={image}
+                  tileWidth={tileWidth}
+                  tileHeight={tileHeight}
+                  dpi={dpi}
+                  repeatType={repeatType}
+                  zoom={zoom}
+                  scaleFactor={scaleFactor}
+                  scalePreviewActive={scalePreviewActive}
+                  onClick={() => {}}
+                  colorOverride={mockupColorOverride}
+                />
+              </div>
+            </div>
+          </div>
+        </MockupModal>
+      )}
+
       {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={isUpgradeModalOpen}
@@ -466,5 +390,3 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     </div>
   );
 }
-
-

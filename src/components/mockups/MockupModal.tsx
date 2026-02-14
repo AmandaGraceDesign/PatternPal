@@ -41,7 +41,7 @@ export default function MockupModal({ isOpen, onClose, children, title, subtitle
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#fff6e4]/90 backdrop-blur-sm"
+      className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/50"
       data-mockup-modal="true"
       onClick={onClose}
     >
