@@ -19,7 +19,12 @@ export async function POST(req: NextRequest) {
     const customerId = user.privateMetadata?.stripeCustomerId as string | undefined;
 
     if (!customerId) {
-      console.error("[create-portal-link] Missing stripeCustomerId", { userId });
+      // Don't log userId in production (GDPR compliance)
+      if (process.env.NODE_ENV === "development") {
+        console.error("[create-portal-link] Missing stripeCustomerId", { userId });
+      } else {
+        console.error("[create-portal-link] Missing stripeCustomerId");
+      }
       return NextResponse.json({ error: "No Stripe customer ID" }, { status: 400 });
     }
 

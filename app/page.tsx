@@ -121,18 +121,26 @@ export default function Home() {
             if (isCommonPrintDpi) {
               detectedDpi = extractedDpi;
               setDpi(extractedDpi);
-              console.log('Using extracted DPI from paste:', extractedDpi);
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Using extracted DPI from paste:', extractedDpi);
+              }
             } else if (extractedDpi === 72 || extractedDpi === 96) {
               detectedDpi = 150;
               setDpi(150);
-              console.log('Web DPI detected in paste (' + extractedDpi + '), upgrading to 150 DPI');
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Web DPI detected in paste (' + extractedDpi + '), upgrading to 150 DPI');
+              }
             } else {
               detectedDpi = 150;
               setDpi(150);
-              console.log('Unusual or missing DPI in paste (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Unusual or missing DPI in paste (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
+              }
             }
           } catch (error) {
-            console.warn('Could not extract DPI from pasted image, using default 150:', error);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Could not extract DPI from pasted image, using default 150:', error);
+            }
             detectedDpi = 150;
             setDpi(150);
           }
@@ -209,15 +217,21 @@ export default function Home() {
       if (!proceed) return;
     }
 
-    console.log('File upload started:', file.name);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('File upload started:', file.name);
+    }
     setIsLoading(true);
 
     // Try to extract DPI from image metadata FIRST
     let detectedDpi = dpi; // Use current DPI as fallback
     try {
-      console.log('Extracting DPI from file...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Extracting DPI from file...');
+      }
       const extractedDpi = await extractDpiFromFile(localBlob);
-      console.log('Extracted DPI:', extractedDpi);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Extracted DPI:', extractedDpi);
+      }
 
       // Smart DPI detection logic
       // Common print DPI values: 150, 200, 300, 600
@@ -231,18 +245,26 @@ export default function Home() {
       if (isCommonPrintDpi) {
         detectedDpi = extractedDpi;
         setDpi(extractedDpi);
-        console.log('Using extracted DPI:', extractedDpi);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Using extracted DPI:', extractedDpi);
+        }
       } else if (extractedDpi === 72 || extractedDpi === 96) {
         detectedDpi = 150;
         setDpi(150);
-        console.log('Web DPI detected (' + extractedDpi + '), upgrading to 150 DPI for print');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Web DPI detected (' + extractedDpi + '), upgrading to 150 DPI for print');
+        }
       } else {
         detectedDpi = 150;
         setDpi(150);
-        console.log('Unusual or missing DPI (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Unusual or missing DPI (' + (extractedDpi || 'none') + '), defaulting to 150 DPI');
+        }
       }
     } catch (error) {
-      console.warn('Could not extract DPI from image, using default 150:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Could not extract DPI from image, using default 150:', error);
+      }
       detectedDpi = 150;
       setDpi(150);
     }
@@ -251,16 +273,22 @@ export default function Home() {
     const img = new Image();
     const objectUrl = URL.createObjectURL(localBlob);
     img.onload = () => {
-      console.log('Image loaded:', img.width, 'x', img.height);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Image loaded:', img.width, 'x', img.height);
+      }
 
       const finalDpi = detectedDpi;
-      console.log('Using DPI:', finalDpi);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Using DPI:', finalDpi);
+      }
 
       // Calculate physical dimensions: pixels / DPI = inches
       const detectedWidth = img.width / finalDpi;
       const detectedHeight = img.height / finalDpi;
 
-      console.log('Detected dimensions:', detectedWidth, 'x', detectedHeight, 'inches');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Detected dimensions:', detectedWidth, 'x', detectedHeight, 'inches');
+      }
 
       setTileWidth(detectedWidth);
       setTileHeight(detectedHeight);
