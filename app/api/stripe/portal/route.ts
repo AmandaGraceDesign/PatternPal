@@ -26,10 +26,29 @@ export async function POST(req: Request) {
       );
     }
 
-    const origin = req.headers.get("origin");
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
-    const allowedOrigins = [appUrl].filter(Boolean);
-    const returnUrl = origin && allowedOrigins.includes(origin) ? origin : appUrl;
+    // Validate origin to prevent session hijacking
+    const ALLOWED_ORIGINS = [
+      "https://pattern-tester.amandagracedesign.com",
+      "https://www.pattern-tester.amandagracedesign.com",
+      process.env.NEXT_PUBLIC_APP_URL, // Production URL from env
+      process.env.APP_URL, // Legacy env var support
+      ...(process.env.NODE_ENV === "development"
+        ? ["http://localhost:3000", "http://localhost:3001"]
+        : [])
+    ].filter(Boolean);
+
+    const requestOrigin = req.headers.get("origin");
+    const isValidOrigin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin);
+
+    if (!isValidOrigin) {
+      console.error("Invalid origin attempted portal access:", requestOrigin);
+      return NextResponse.json(
+        { error: "Invalid origin", code: "invalid_origin" },
+        { status: 403 }
+      );
+    }
+
+    const returnUrl = requestOrigin;
 
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,

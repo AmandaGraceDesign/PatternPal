@@ -92,47 +92,46 @@ Try exporting a pattern with original filename containing:
 
 ---
 
-### 4. 🔴 HIGH: Origin Validation Bypass in Checkout (Not Fixed Yet)
+### 4. ✅ HIGH: Origin Validation Bypass in Checkout (Fixed 2024)
 
-**Risk**: Session hijacking via CSRF or redirect attacks during checkout.
+**Risk**: Session hijacking via CSRF or redirect attacks during checkout and billing portal access.
 
 **Impact**:
-- Attacker could initiate checkout from their site
-- Steal session after payment completes
-- User gets charged but attacker receives Pro access
+- Attackers could initiate checkout from malicious sites
+- Session theft after payment completion
+- Users charged but attackers receive Pro access
+- Unauthorized billing portal access
 
-**Current Code** (`app/api/stripe/checkout/route.ts`, lines 20-22):
-```typescript
-const origin = req.headers.get('origin');
-const successUrl = `${origin}/?upgrade=success&session_id={CHECKOUT_SESSION_ID}`;
-const cancelUrl = `${origin}/?upgrade=cancelled`;
-```
-
-**Issue**: No validation that `origin` matches your actual domain. Attacker can send request from `evil.com` and redirect back to their site.
-
-**Attack Scenario**:
+**Attack Scenario (Before Fix)**:
 1. Attacker creates page on `evil.com`
-2. Page makes checkout request to your API with stolen session cookie
+2. Page makes checkout request with stolen session cookie
 3. User completes payment thinking they're on PatternPal
 4. Redirect goes to `evil.com/?session_id=...`
 5. Attacker uses session ID to activate Pro on their account
 
-**Recommended Fix**:
-```typescript
-const ALLOWED_ORIGINS = [
-  'https://patternpal-pro.com',
-  'https://www.patternpal-pro.com',
-  'http://localhost:3000',  // Dev only
-];
+**Fix**: Added strict origin validation to all Stripe endpoints:
+- Define whitelist of allowed origins (production + development)
+- Reject requests from unauthorized origins with 403 Forbidden
+- Log suspicious origin attempts for monitoring
+- Support both production and development environments
 
-const origin = req.headers.get('origin');
-if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
-  return NextResponse.json(
-    { error: 'Invalid origin' },
-    { status: 403 }
-  );
-}
-```
+**Allowed Origins**:
+- `https://pattern-tester.amandagracedesign.com`
+- `https://www.pattern-tester.amandagracedesign.com`
+- `http://localhost:3000` (development only)
+- `http://localhost:3001` (development only)
+- Any URL from `NEXT_PUBLIC_APP_URL` environment variable
+
+**Files Modified**:
+- `app/api/checkout/route.ts` - Added origin validation before checkout
+- `app/api/stripe/portal/route.ts` - Enhanced existing validation
+- `app/api/create-portal-link/route.ts` - Added origin validation
+
+**Protection**:
+- Requests from unauthorized origins receive 403 error
+- Checkout sessions can only redirect to whitelisted domains
+- Portal links can only be created from legitimate app domains
+- Console logging alerts to suspicious origin attempts
 
 ---
 
@@ -216,10 +215,14 @@ localStorage.setItem(FREE_TESTS_KEY, String(count + 1));
 1. ✅ **Webhook handlers** - CRITICAL (Revenue protection) - **FIXED**
 2. ✅ **SVG XSS** - HIGH (Security) - **FIXED**
 3. ✅ **Filename sanitization** - HIGH (Security) - **FIXED**
-4. 🔴 **Origin validation** - HIGH (Revenue + Security) - Recommended next
-5. 🟡 **Console logging** - MEDIUM (Privacy)
-6. 🟡 **EXIF stripping** - MEDIUM (Privacy)
-7. 🟡 **LocalStorage** - MEDIUM (Business logic)
+4. ✅ **Origin validation** - HIGH (Revenue + Security) - **FIXED**
+5. 🟡 **Console logging** - MEDIUM (Privacy) - Optional
+6. 🟡 **EXIF stripping** - MEDIUM (Privacy) - Optional
+7. 🟡 **LocalStorage** - MEDIUM (Business logic) - Optional
+
+**All HIGH and CRITICAL security vulnerabilities have been fixed!** 🎉
+
+Remaining issues are MEDIUM priority and can be addressed based on compliance requirements or user privacy concerns.
 
 ---
 

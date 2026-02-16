@@ -56,7 +56,28 @@ export async function POST(req: Request) {
     const user = await client.users.getUser(userId);
     const email = user.emailAddresses?.[0]?.emailAddress;
 
-    const origin = req.headers.get("origin") || "https://pattern-tester.amandagracedesign.com";
+    // Validate origin to prevent session hijacking and CSRF attacks
+    const ALLOWED_ORIGINS = [
+      "https://pattern-tester.amandagracedesign.com",
+      "https://www.pattern-tester.amandagracedesign.com",
+      process.env.NEXT_PUBLIC_APP_URL, // Production URL from env
+      ...(process.env.NODE_ENV === "development"
+        ? ["http://localhost:3000", "http://localhost:3001"]
+        : [])
+    ].filter(Boolean); // Remove any undefined values
+
+    const requestOrigin = req.headers.get("origin");
+    const isValidOrigin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin);
+
+    if (!isValidOrigin) {
+      console.error("Invalid origin attempted checkout:", requestOrigin);
+      return NextResponse.json(
+        { error: "Invalid origin", code: "invalid_origin" },
+        { status: 403 }
+      );
+    }
+
+    const origin = requestOrigin;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

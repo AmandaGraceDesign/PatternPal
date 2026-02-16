@@ -23,6 +23,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No Stripe customer ID" }, { status: 400 });
     }
 
+    // Validate origin to prevent unauthorized portal link requests
+    const ALLOWED_ORIGINS = [
+      "https://pattern-tester.amandagracedesign.com",
+      "https://www.pattern-tester.amandagracedesign.com",
+      process.env.NEXT_PUBLIC_APP_URL,
+      ...(process.env.NODE_ENV === "development"
+        ? ["http://localhost:3000", "http://localhost:3001"]
+        : [])
+    ].filter(Boolean);
+
+    const requestOrigin = req.headers.get("origin");
+    if (requestOrigin && !ALLOWED_ORIGINS.includes(requestOrigin)) {
+      console.error("[create-portal-link] Invalid origin:", requestOrigin);
+      return NextResponse.json(
+        { error: "Invalid origin", code: "invalid_origin" },
+        { status: 403 }
+      );
+    }
+
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://pattern-tester.amandagracedesign.com";
 
