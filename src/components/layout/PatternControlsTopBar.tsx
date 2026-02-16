@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
-import ActionsSidebar from '@/components/sidebar/ActionsSidebar';
+import AdvancedToolsBar from '@/components/layout/AdvancedToolsBar';
 
 interface PatternControlsTopBarProps {
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
@@ -73,33 +73,6 @@ export default function PatternControlsTopBar({
   const MAX_FREE_TESTS = 3;
   const [freeTestsUsed, setFreeTestsUsed] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isAdvancedToolsOpen, setIsAdvancedToolsOpen] = useState(false);
-  const advancedToolsRef = useRef<HTMLDivElement>(null);
-
-  // Close flyout on click outside or Escape key
-  useEffect(() => {
-    if (!isAdvancedToolsOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        advancedToolsRef.current &&
-        !advancedToolsRef.current.contains(e.target as Node)
-      ) {
-        setIsAdvancedToolsOpen(false);
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsAdvancedToolsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isAdvancedToolsOpen]);
 
   useEffect(() => {
     const readFreeTests = () => {
@@ -180,8 +153,9 @@ export default function PatternControlsTopBar({
   };
 
   return (
-    <div className="relative z-50 w-full bg-[#3a3d44] px-3 py-3 sm:px-5 sm:py-4 border-b-2 border-black shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
-      <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start lg:justify-center">
+    <>
+      <div className="relative z-50 w-full bg-[#3a3d44] px-3 py-3 sm:px-5 sm:py-4 border-b-2 border-black shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+        <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start lg:justify-center">
         {/* Upload Tile Section */}
         <div
           className="min-w-0 col-span-2 lg:col-span-1 lg:min-w-[240px] space-y-2 rounded-lg transition-colors"
@@ -391,118 +365,23 @@ export default function PatternControlsTopBar({
           </div>
         </div>
 
-        {/* Advanced Tools Section */}
-        <div
-          className="relative min-w-0 border-l border-white/20 pl-4"
-          ref={advancedToolsRef}
-        >
-          <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
-            Tools
-          </h2>
-          <button
-            onClick={() => setIsAdvancedToolsOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-md transition-all duration-200"
-            style={{ backgroundColor: '#e0c26e' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#c9a94e';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#e0c26e';
-            }}
-          >
-            {/* 2x2 grid icon */}
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect x="1" y="1" width="5" height="5" rx="1" fill="#1a1d23" />
-              <rect x="10" y="1" width="5" height="5" rx="1" fill="#1a1d23" />
-              <rect x="1" y="10" width="5" height="5" rx="1" fill="#1a1d23" />
-              <rect x="10" y="10" width="5" height="5" rx="1" fill="#1a1d23" />
-            </svg>
-            Advanced Tools
-            <svg
-              className={`w-3 h-3 transition-transform ${isAdvancedToolsOpen ? 'rotate-90' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          {/* Flyout Panel - dropdown on large screens, full-screen modal on small */}
-          {isAdvancedToolsOpen && (
-            <>
-              {/* Mobile/tablet: full-screen modal overlay */}
-              <div
-                className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 lg:hidden"
-                onClick={() => setIsAdvancedToolsOpen(false)}
-              >
-                <div
-                  className="relative w-[calc(100vw-32px)] max-w-md max-h-[85vh] bg-white rounded-xl shadow-2xl overflow-hidden"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Modal header with close button */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-[#3a3d44]">
-                    <h3 className="text-sm font-semibold text-white">Advanced Tools</h3>
-                    <button
-                      onClick={() => setIsAdvancedToolsOpen(false)}
-                      className="text-white/70 hover:text-white p-1"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 52px)' }}>
-                    <Suspense fallback={null}>
-                      <ActionsSidebar
-                        image={image}
-                        dpi={dpi}
-                        tileWidth={effectiveTileWidth}
-                        tileHeight={effectiveTileHeight}
-                        repeatType={repeatType}
-                        zoom={zoom}
-                        originalFilename={originalFilename}
-                        canvasRef={canvasRef}
-                        scaleFactor={effectiveScaleFactor}
-                        scalePreviewActive={effectiveScalePreviewActive}
-                        tileOutlineColor={tileOutlineColor}
-                      />
-                    </Suspense>
-                  </div>
-                </div>
-              </div>
-
-              {/* Desktop: positioned dropdown */}
-              <div
-                className="absolute top-full right-0 mt-2 z-50 bg-white border border-[#e5e7eb] rounded-lg shadow-xl overflow-y-auto hidden lg:block"
-                style={{ width: '320px', maxHeight: '70vh' }}
-              >
-                <Suspense fallback={null}>
-                  <ActionsSidebar
-                    image={image}
-                    dpi={dpi}
-                    tileWidth={effectiveTileWidth}
-                    tileHeight={effectiveTileHeight}
-                    repeatType={repeatType}
-                    zoom={zoom}
-                    originalFilename={originalFilename}
-                    canvasRef={canvasRef}
-                    scaleFactor={effectiveScaleFactor}
-                    scalePreviewActive={effectiveScalePreviewActive}
-                    tileOutlineColor={tileOutlineColor}
-                  />
-                </Suspense>
-              </div>
-            </>
-          )}
-        </div>
       </div>
     </div>
+
+    {/* Advanced Tools Bar - Horizontal Card Layout */}
+    <AdvancedToolsBar
+      image={image}
+      dpi={dpi}
+      tileWidth={effectiveTileWidth}
+      tileHeight={effectiveTileHeight}
+      repeatType={repeatType}
+      zoom={zoom}
+      originalFilename={originalFilename}
+      canvasRef={canvasRef}
+      scaleFactor={effectiveScaleFactor}
+      scalePreviewActive={effectiveScalePreviewActive}
+      tileOutlineColor={tileOutlineColor}
+    />
+  </>
   );
 }

@@ -11,7 +11,7 @@ export default function ResumeUpgradeFromQuery() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (!isSignedIn || !searchParams) return;
     if (searchParams.get('upgrade') !== '1') return;
 
     const planParam = searchParams.get('plan');
@@ -22,7 +22,7 @@ export default function ResumeUpgradeFromQuery() {
     nextParams.delete('upgrade');
     nextParams.delete('plan');
     const nextQuery = nextParams.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    router.replace(nextQuery ? `${pathname ?? '/'}?${nextQuery}` : (pathname ?? '/'), { scroll: false });
   }, [isSignedIn, pathname, router, searchParams]);
 
   return null;

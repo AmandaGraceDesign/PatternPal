@@ -394,7 +394,6 @@ export default function PatternCanvas() {
 
     scaledCtx.imageSmoothingEnabled = true;
     scaledCtx.imageSmoothingQuality = 'high';
-    scaledCtx.clearRect(0, 0, scaledCanvas.width, scaledCanvas.height);
     scaledCtx.drawImage(image, 0, 0, scaledCanvas.width, scaledCanvas.height);
 
     const renderSource = viewZoom === 1 ? image : scaledCanvas;

@@ -178,17 +178,20 @@ export default function PatternPreviewCanvas({
       const placeholderImg = new Image();
       placeholderImg.onload = () => {
         const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
-        
-        // Use default tile size for placeholder (18x18 inches at 150 DPI)
+
+        // Use actual placeholder image dimensions (800x800px seamless JPG)
+        // Treat as 18x18 inches at 150 DPI for display purposes
         const defaultDpi = 150;
         const defaultTileWidth = 18;
         const defaultTileHeight = 18;
-        const placeholderWidth = defaultTileWidth * defaultDpi; // 2700px
-        const placeholderHeight = defaultTileHeight * defaultDpi; // 2700px
-        
-        // Calculate display scale at 50% (0.5)
+        const placeholderWidth = placeholderImg.width; // 800px actual size
+        const placeholderHeight = placeholderImg.height; // 800px actual size
+
+        // Calculate display scale - scale the 800px image to appear as 18" at current zoom
         const viewZoom = displayZoomToActualZoom(zoom);
-        const displayScale = (96 / defaultDpi) * viewZoom * 0.5; // 50% scale
+        // Target size is 18 inches at 150 DPI = 2700px, then scale for zoom
+        const targetSize = defaultTileWidth * defaultDpi; // 2700px
+        const displayScale = (targetSize / placeholderWidth) * (96 / defaultDpi) * viewZoom * 0.5; // Scale 800px to target, then apply zoom
         
         const displayWidth = Math.round(placeholderWidth * displayScale);
         const displayHeight = Math.round(placeholderHeight * displayScale);
@@ -237,7 +240,7 @@ export default function PatternPreviewCanvas({
           scaledImg.src = scaledCanvas.toDataURL('image/png');
         }
       };
-      placeholderImg.src = '/placeholder-pattern.svg';
+      placeholderImg.src = '/place_design_here.jpg';
       return;
     }
 
