@@ -60,37 +60,35 @@ This document tracks security vulnerabilities that have been identified and fixe
 
 ## Remaining Vulnerabilities
 
-### 3. 🔴 HIGH: Weak Filename Sanitization (Not Fixed Yet)
+### 3. ✅ HIGH: Weak Filename Sanitization (Fixed 2024)
 
-**Risk**: Path traversal attacks via malicious filenames.
+**Risk**: Path traversal attacks via malicious filenames containing `..`, `/`, `\`, or null bytes.
 
-**Impact**: Potential to overwrite system files or access files outside intended directories.
+**Impact**: Could potentially overwrite system files or access files outside intended directories.
 
-**Attack Vector**:
+**Attack Vectors**:
 ```javascript
 // User uploads file named: "../../../etc/passwd.png"
 // Or: "../../../../.env"
+// Or: "file\x00.png.exe" (null byte injection)
 ```
 
-**Current Code** (`src/lib/utils/zipUtils.ts`, line 15):
-```typescript
-const cleanName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
-```
+**Fix**: Enhanced `sanitizeFilename()` function to:
+- Explicitly reject filenames containing `..` (directory traversal)
+- Remove null bytes (`\x00`) that can truncate filenames
+- Remove control characters (0x00-0x1F, 0x7F-0x9F)
+- Replace path separators (`/`, `\`) with underscores
+- Limit filename length to 120 characters
+- Use safe fallback if sanitization removes all characters
 
-**Issue**: Only sanitizes the basename, doesn't prevent directory traversal.
+**Files Modified**:
+- `src/lib/utils/sanitizeFilename.ts` - Enhanced validation and documentation
 
-**Recommended Fix**:
-```typescript
-// Reject filenames with path separators entirely
-if (originalName.includes('/') || originalName.includes('\\') || originalName.includes('..')) {
-  throw new Error('Invalid filename: path separators not allowed');
-}
-
-// Then sanitize the basename
-const cleanName = originalName
-  .replace(/[^a-zA-Z0-9._-]/g, '_')  // Remove dangerous chars
-  .slice(0, 200);  // Limit length to prevent filesystem issues
-```
+**Testing**:
+Try exporting a pattern with original filename containing:
+- `../../etc/passwd` → Should use fallback "file"
+- `test\x00malicious.png` → Should become "testmalicious.png"
+- `/path/to/file` → Should become "_path_to_file"
 
 ---
 
@@ -217,7 +215,7 @@ localStorage.setItem(FREE_TESTS_KEY, String(count + 1));
 
 1. ✅ **Webhook handlers** - CRITICAL (Revenue protection) - **FIXED**
 2. ✅ **SVG XSS** - HIGH (Security) - **FIXED**
-3. 🔴 **Filename sanitization** - HIGH (Security) - Recommended next
+3. ✅ **Filename sanitization** - HIGH (Security) - **FIXED**
 4. 🔴 **Origin validation** - HIGH (Revenue + Security) - Recommended next
 5. 🟡 **Console logging** - MEDIUM (Privacy)
 6. 🟡 **EXIF stripping** - MEDIUM (Privacy)
