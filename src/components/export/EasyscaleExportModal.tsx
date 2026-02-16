@@ -46,6 +46,21 @@ export default function EasyscaleExportModal({
   const [error, setError] = useState<string | null>(null);
   const [currentSize, setCurrentSize] = useState<{ width: number; height: number } | null>(null);
 
+  // Calculate the maximum exportable size (in inches) without upscaling
+  // Based on the image's actual pixel dimensions and the target DPI
+  const getMaxExportSize = (targetDPI: number): number => {
+    if (!image) return 0;
+    const longestPixelSide = Math.max(image.naturalWidth, image.naturalHeight);
+    return longestPixelSide / targetDPI;
+  };
+
+  const maxExportSize = getMaxExportSize(selectedDPI);
+
+  // Check if a size would cause upscaling/pixelation
+  const isSizeAllowed = (size: number): boolean => {
+    return size <= maxExportSize;
+  };
+
   // Calculate current size when image or DPI changes
   useEffect(() => {
     if (image && currentDPI) {
@@ -60,6 +75,13 @@ export default function EasyscaleExportModal({
       setCurrentSize(null);
     }
   }, [image, currentDPI]);
+
+  // Auto-deselect sizes that become invalid when DPI changes
+  useEffect(() => {
+    if (!image) return;
+    const maxSize = getMaxExportSize(selectedDPI);
+    setSelectedSizes(prev => prev.filter(size => size <= maxSize));
+  }, [selectedDPI, image]);
 
   // Close on Escape key
   useEffect(() => {
@@ -76,6 +98,9 @@ export default function EasyscaleExportModal({
   }, [isOpen, onClose]);
 
   const handleSizeToggle = (size: number) => {
+    // Block sizes that would cause upscaling
+    if (!isSizeAllowed(size)) return;
+
     if (!isPro) {
       // Free users can select up to 2 sizes (8" and 12" only)
       setSelectedSizes((prev) => {
@@ -98,6 +123,14 @@ export default function EasyscaleExportModal({
   const handleExport = async () => {
     if (!image || selectedSizes.length === 0) {
       setError('Please select at least one size to export.');
+      return;
+    }
+
+    // Final safety check: block any sizes that would cause pixelation
+    const invalidSizes = selectedSizes.filter(size => !isSizeAllowed(size));
+    if (invalidSizes.length > 0) {
+      setError(`Cannot export ${invalidSizes.join('", "')}\" — would cause pixelation. Max size at ${selectedDPI} DPI is ${maxExportSize.toFixed(1)}".`);
+      setSelectedSizes(prev => prev.filter(size => isSizeAllowed(size)));
       return;
     }
 
@@ -185,7 +218,10 @@ export default function EasyscaleExportModal({
                   {currentSize && (
                     <>
                       <p>Size: {currentSize.width.toFixed(2)}" × {currentSize.height.toFixed(2)}"</p>
-                      <p>DPI: {currentDPI}</p>
+                      <p>DPI: {currentDPI} &bull; Pixels: {image?.naturalWidth} × {image?.naturalHeight}</p>
+                      <p className="text-xs text-emerald-700 font-medium mt-1">
+                        Max export at {selectedDPI} DPI: {maxExportSize.toFixed(1)}" (no pixelation)
+                      </p>
                     </>
                   )}
                 </div>
@@ -202,25 +238,34 @@ export default function EasyscaleExportModal({
                   )}
                 </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {(isPro ? PRESET_SIZES : FREE_USER_SIZES).map((size) => (
-                    <label
-                      key={size}
-                      className={`flex items-center justify-center px-3 py-2 rounded-md border cursor-pointer transition-colors ${
-                        selectedSizes.includes(size)
-                          ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
-                          : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSizes.includes(size)}
-                        onChange={() => handleSizeToggle(size)}
-                        className="sr-only"
-                        disabled={isExporting}
-                      />
-                      <span className="text-xs font-medium">{size}"</span>
-                    </label>
-                  ))}
+                  {(isPro ? PRESET_SIZES : FREE_USER_SIZES).map((size) => {
+                    const allowed = isSizeAllowed(size);
+                    return (
+                      <label
+                        key={size}
+                        className={`flex flex-col items-center justify-center px-3 py-2 rounded-md border transition-colors ${
+                          !allowed
+                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                            : selectedSizes.includes(size)
+                              ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051] cursor-pointer'
+                              : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5] cursor-pointer'
+                        }`}
+                        title={!allowed ? `Cannot export at ${size}" — would require upscaling (max ${maxExportSize.toFixed(1)}" at ${selectedDPI} DPI)` : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSizes.includes(size)}
+                          onChange={() => handleSizeToggle(size)}
+                          className="sr-only"
+                          disabled={isExporting || !allowed}
+                        />
+                        <span className="text-xs font-medium">{size}"</span>
+                        {!allowed && (
+                          <span className="text-[9px] text-gray-400 leading-tight">too large</span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
