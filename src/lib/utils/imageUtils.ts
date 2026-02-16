@@ -176,7 +176,71 @@ function detectFileType(view: DataView): string {
   if (view.byteLength >= 2 && view.getUint16(0) === 0xffd8) {
     return 'JPEG';
   }
+  // Check for SVG (starts with '<' or '<?xml' or whitespace + '<svg')
+  if (view.byteLength >= 5) {
+    const firstBytes = String.fromCharCode(
+      view.getUint8(0),
+      view.getUint8(1),
+      view.getUint8(2),
+      view.getUint8(3),
+      view.getUint8(4)
+    );
+    if (firstBytes.includes('<svg') || firstBytes.startsWith('<?xml') || firstBytes.startsWith('<')) {
+      return 'SVG';
+    }
+  }
   return 'UNKNOWN';
+}
+
+/**
+ * Validate and sanitize SVG files to prevent XSS attacks
+ * Rejects SVGs with dangerous elements (script, object, embed, iframe)
+ * @throws Error if SVG contains dangerous content
+ */
+export async function validateSvgSafety(file: File | Blob): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) {
+        reject(new Error('Failed to read SVG file'));
+        return;
+      }
+
+      // Check for dangerous tags and attributes
+      const dangerousPatterns = [
+        /<script[\s>]/i,                    // <script> tags
+        /on\w+\s*=/i,                       // Event handlers (onclick, onload, etc.)
+        /<object[\s>]/i,                    // <object> tags
+        /<embed[\s>]/i,                     // <embed> tags
+        /<iframe[\s>]/i,                    // <iframe> tags
+        /javascript:/i,                     // javascript: protocol
+        /data:text\/html/i,                 // data: HTML URIs
+        /<foreignObject[\s>]/i,             // <foreignObject> can contain HTML
+        /<use[\s>][^>]*href\s*=\s*["']?data:/i, // data URIs in <use>
+        /<image[\s>][^>]*href\s*=\s*["']?data:(?!image)/i, // Non-image data URIs
+      ];
+
+      for (const pattern of dangerousPatterns) {
+        if (pattern.test(text)) {
+          reject(new Error('SVG contains potentially dangerous content and cannot be uploaded. Please use PNG or JPEG formats instead.'));
+          return;
+        }
+      }
+
+      // Additional check: ensure it's actually an SVG
+      if (!text.includes('<svg')) {
+        reject(new Error('File does not appear to be a valid SVG'));
+        return;
+      }
+
+      resolve();
+    };
+
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
 }
 
 /**

@@ -5,7 +5,7 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
-import { extractDpiFromFile } from '@/lib/utils/imageUtils';
+import { extractDpiFromFile, validateSvgSafety } from '@/lib/utils/imageUtils';
 import ResumeUpgradeFromQuery from './_components/ResumeUpgradeFromQuery';
 
 export default function Home() {
@@ -82,6 +82,16 @@ export default function Home() {
         if (items[i].type.indexOf('image') !== -1) {
           const blob = items[i].getAsFile();
           if (!blob) continue;
+
+          // Validate SVG safety before processing
+          if (blob.type === 'image/svg+xml') {
+            try {
+              await validateSvgSafety(blob);
+            } catch (error) {
+              alert(error instanceof Error ? error.message : 'SVG validation failed');
+              continue;
+            }
+          }
 
           const softLimitBytes = 15 * 1024 * 1024;
           if (blob.size > softLimitBytes) {
@@ -176,6 +186,16 @@ export default function Home() {
     });
 
     if (!localBlob) return;
+
+    // Validate SVG safety before processing
+    if (file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg')) {
+      try {
+        await validateSvgSafety(localBlob);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'SVG validation failed');
+        return;
+      }
+    }
 
     // Now that bytes are safely in memory, check permissions
     if (!canRunFreeTest()) return;
