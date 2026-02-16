@@ -204,15 +204,22 @@ export default function PatternPreviewCanvas({
         
         const scaledCtx = scaledCanvas.getContext('2d');
         if (scaledCtx) {
+          // Fill with white background first to prevent transparent/black artifacts
+          scaledCtx.fillStyle = '#ffffff';
+          scaledCtx.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
+
           // Scale context by DPR
           scaledCtx.scale(dpr, dpr);
-          
+
           scaledCtx.imageSmoothingEnabled = true;
           scaledCtx.imageSmoothingQuality = 'high';
           scaledCtx.drawImage(placeholderImg, 0, 0, displayWidth, displayHeight);
-          
-          const scaledImg = new Image();
-          scaledImg.onload = () => {
+
+          // Force canvas to finish rendering before converting to data URL
+          // This prevents black/transparent artifacts
+          requestAnimationFrame(() => {
+            const scaledImg = new Image();
+            scaledImg.onload = () => {
             tiler.render(scaledImg, repeatType);
             
             // Draw tile outline for placeholder if enabled
@@ -236,8 +243,9 @@ export default function PatternPreviewCanvas({
               canvasCtx.setLineDash([]);
               canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
             }
-          };
-          scaledImg.src = scaledCanvas.toDataURL('image/png');
+            };
+            scaledImg.src = scaledCanvas.toDataURL('image/png');
+          });
         }
       };
       placeholderImg.src = '/place_design_here.jpg';
@@ -286,16 +294,23 @@ export default function PatternPreviewCanvas({
     const scaledCtx = scaledCanvas.getContext('2d');
 
     if (scaledCtx) {
+      // Fill with white background first to prevent transparent/black artifacts
+      scaledCtx.fillStyle = '#ffffff';
+      scaledCtx.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
+
       // Enable high-quality image smoothing
       scaledCtx.imageSmoothingEnabled = true;
       scaledCtx.imageSmoothingQuality = 'high';
 
       // Draw original image scaled to display size
       scaledCtx.drawImage(image, 0, 0, displayWidth, displayHeight);
-      
-      // Create image from canvas - use PNG for lossless quality
-      const scaledImg = new Image();
-      scaledImg.onload = () => {
+
+      // Force canvas to finish rendering before converting to data URL
+      // This prevents black/transparent artifacts during rapid scaling
+      requestAnimationFrame(() => {
+        // Create image from canvas - use PNG for lossless quality
+        const scaledImg = new Image();
+        scaledImg.onload = () => {
         // #region agent log
         // #endregion
         
@@ -353,14 +368,15 @@ export default function PatternPreviewCanvas({
           // #region agent log
           // #endregion
         }
-      };
-      
-      scaledImg.onerror = (error) => {
-        console.error('Failed to load scaled image:', error);
-      };
-      
-      // Use PNG for lossless quality
-      scaledImg.src = scaledCanvas.toDataURL('image/png');
+        };
+
+        scaledImg.onerror = (error) => {
+          console.error('Failed to load scaled image:', error);
+        };
+
+        // Use PNG for lossless quality
+        scaledImg.src = scaledCanvas.toDataURL('image/png');
+      });
     }
   }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr]);
 
@@ -463,7 +479,7 @@ export default function PatternPreviewCanvas({
           <div
             ref={scrollContainerRef}
             className="flex-1 overflow-auto bg-[#0f172a] relative"
-            style={{ touchAction: 'pan-x pan-y' }}
+            style={{ touchAction: 'manipulation' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}

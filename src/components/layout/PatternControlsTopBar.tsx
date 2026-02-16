@@ -319,6 +319,7 @@ export default function PatternControlsTopBar({
                 effectiveScalePreviewActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
               }`}
               style={{
+                touchAction: 'none', // Prevent scroll interference on mobile
                 background: effectiveScalePreviewActive
                   ? 'rgba(255,255,255,0.2)'
                   : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, rgba(255,255,255,0.2) ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, rgba(255,255,255,0.2) 100%)`,
