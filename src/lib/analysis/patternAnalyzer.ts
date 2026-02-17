@@ -436,6 +436,7 @@ function analyzeBalanceMetrics(grid: number[][]): {
   leftRightBalance: number;
   topBottomBalance: number;
   centerRatio: number;
+  radialBalance: number;
   variance: number;
   overallBalance: number;
 } {
@@ -452,6 +453,7 @@ function analyzeBalanceMetrics(grid: number[][]): {
       leftRightBalance: 1,
       topBottomBalance: 1,
       centerRatio: 0,
+      radialBalance: 1,
       variance: 0,
       overallBalance: 1,
     };
@@ -471,6 +473,10 @@ function analyzeBalanceMetrics(grid: number[][]): {
   const centerWeight = grid[1][1];
   const centerRatio = centerWeight / totalWeight;
 
+  // Radial balance: how close center's share is to the ideal 1/9
+  const idealCenterShare = 1 / 9;
+  const radialBalance = Math.max(0, 1 - Math.abs(centerRatio - idealCenterShare) * 9);
+
   // Variance (how evenly distributed)
   const mean = totalWeight / 9;
   let varianceSum = 0;
@@ -481,13 +487,14 @@ function analyzeBalanceMetrics(grid: number[][]): {
   }
   const variance = Math.sqrt(varianceSum / 9) / (mean + 0.001); // Normalized
 
-  // Overall balance (weighted average)
-  const overallBalance = (leftRightBalance * 0.4) + (topBottomBalance * 0.4) + (1 - Math.min(1, variance)) * 0.2;
+  // Overall balance: L/R (35%) + T/B (35%) + radial (30%)
+  const overallBalance = (leftRightBalance * 0.35) + (topBottomBalance * 0.35) + (radialBalance * 0.30);
 
   return {
     leftRightBalance,
     topBottomBalance,
     centerRatio,
+    radialBalance,
     variance,
     overallBalance,
   };
@@ -607,23 +614,23 @@ function classifyDistributionPattern(
   const symmetryScore = calculateSymmetryScore(grid);
 
   // All-Over: Low variance, even distribution
-  if (metrics.variance < 0.15) {
+  if (metrics.variance < 0.08) {
     return { pattern: 'all-over', confidence: 1 - metrics.variance };
   }
 
   // Focal Point: High center ratio
-  if (metrics.centerRatio > 0.4) {
+  if (metrics.centerRatio > 0.25) {
     return { pattern: 'focal-point', confidence: metrics.centerRatio };
   }
 
   // Directional: Strong gradient
   const maxGradient = Math.max(horizontalGradient, verticalGradient);
-  if (maxGradient > 0.7) {
+  if (maxGradient > 0.4) {
     return { pattern: 'directional', confidence: Math.min(1, maxGradient) };
   }
 
   // Structured: High symmetry + medium variance
-  if (symmetryScore > 0.7 && metrics.variance > 0.15 && metrics.variance < 0.35) {
+  if (symmetryScore > 0.6 && metrics.variance > 0.08 && metrics.variance < 0.35) {
     return { pattern: 'structured', confidence: symmetryScore };
   }
 
@@ -646,10 +653,10 @@ function generateCompositionFeedback(
   let band: CompositionAnalysis['band'];
   let severity: CompositionAnalysis['severity'];
 
-  if (balanceScore > 0.7) {
+  if (balanceScore > 0.82) {
     band = 'balanced';
     severity = 'none';
-  } else if (balanceScore > 0.4) {
+  } else if (balanceScore > 0.55) {
     band = 'dynamic';
     severity = 'info';
   } else {
@@ -661,56 +668,58 @@ function generateCompositionFeedback(
   let message: string;
   let contextHint: string;
 
-  // Pattern-specific messaging
-  switch (pattern) {
-    case 'all-over':
-      label = 'Composition: Balanced All-Over';
-      message = 'Visual weight is evenly distributed across the pattern, creating a harmonious all-over design.';
-      contextHint = 'This balanced composition works well for fabric yardage and wallpaper where you want consistent visual interest without dominant focal points.';
-      break;
-
-    case 'focal-point':
-      label = 'Composition: Centered Focal Point';
-      message = 'Visual weight concentrates toward the center, drawing the eye to a central motif.';
-      contextHint = 'This works beautifully for wallpaper panels or centered placement on products. For seamless repeats, ensure the transition to edges feels intentional.';
-      break;
-
-    case 'directional':
-      label = 'Composition: Directional Flow';
-      message = 'The pattern creates visual movement, guiding the eye across the design.';
-      contextHint = 'Directional patterns add dynamic energy. Consider how this flow works when the pattern repeats.';
-      break;
-
-    case 'structured':
-      label = 'Composition: Structured Grid';
-      message = 'Elements follow a geometric grid structure, creating order and rhythm.';
-      contextHint = 'The structured layout creates visual predictability and calm. This works especially well for modern, architectural interiors.';
-      break;
-
-    case 'organic':
-      label = 'Composition: Organic Distribution';
-      message = 'Elements are distributed irregularly, creating a natural, hand-drawn feel.';
-      contextHint = 'This organic composition feels relaxed and spontaneous. The varied spacing prevents monotony in large-scale installations.';
-      break;
-  }
-
-  // Override for asymmetric patterns
-  if (band === 'asymmetric') {
-    // Determine which side is heavier
-    let direction = '';
-    if (metrics.leftRightBalance < 0.6) {
-      const leftWeight = metrics.leftRightBalance < 0.5 ? 'right' : 'left';
-      direction = leftWeight === 'left' ? 'Left-Heavy' : 'Right-Heavy';
-    } else if (metrics.topBottomBalance < 0.6) {
-      const topWeight = metrics.topBottomBalance < 0.5 ? 'bottom' : 'top';
-      direction = topWeight === 'top' ? 'Top-Heavy' : 'Bottom-Heavy';
-    } else {
-      direction = 'Asymmetric';
+  if (band === 'balanced') {
+    // Pattern-specific copy for balanced compositions
+    switch (pattern) {
+      case 'all-over':
+        label = 'Even Distribution';
+        message = 'Visual weight is evenly spread — great for seamless repeats.';
+        contextHint = 'Works well for fabric yardage and wallpaper.';
+        break;
+      case 'focal-point':
+        label = 'Centered Focal Point';
+        message = 'Eye is drawn to a central motif with balanced surroundings.';
+        contextHint = 'Beautiful for panels or centered product placement.';
+        break;
+      case 'directional':
+        label = 'Directional Flow';
+        message = 'Pattern creates visual movement while staying balanced.';
+        contextHint = 'Adds energy without feeling uneven.';
+        break;
+      case 'structured':
+        label = 'Structured Grid';
+        message = 'Elements follow a geometric grid with good rhythm.';
+        contextHint = 'Creates calm, predictable visual order.';
+        break;
+      case 'organic':
+        label = 'Organic Distribution';
+        message = 'Elements are naturally scattered with good overall balance.';
+        contextHint = 'Feels relaxed and hand-drawn.';
+        break;
     }
+  } else if (band === 'dynamic') {
+    label = 'Dynamic Composition';
+    message = 'Visual weight is unevenly distributed but creates intentional energy.';
+    contextHint = 'Can feel lively — check it reads well at scale.';
+  } else {
+    // Asymmetric — detect WHY and give context-aware warning
+    const mean = metrics.variance > 0 ? 1 / 9 : 0; // normalized mean weight share
 
-    label = `Composition: ${direction}`;
-    message = 'Visual weight concentrates in one area, creating strong asymmetry.';
-    contextHint = 'This composition can feel unbalanced across large areas. If this is intentional (e.g., for a border pattern), great! If you want more balance, consider redistributing elements.';
+    if (metrics.centerRatio > 0.25) {
+      // Heavy center, sparse edges = isolated motif
+      label = 'Isolated Motif';
+      message = 'Isolated motif — will tile as repeating spots.';
+      contextHint = 'Consider spreading visual weight outward so the repeat feels less spotty.';
+    } else if (metrics.leftRightBalance < 0.5 || metrics.topBottomBalance < 0.5) {
+      // Weight piled on one edge
+      label = 'Edge-Heavy';
+      message = 'Edge-heavy — may create grid lines when tiled.';
+      contextHint = 'Try redistributing elements so edges don\'t stack up in the repeat.';
+    } else {
+      label = 'Asymmetric';
+      message = 'Weight concentrated in one area — may look unbalanced when tiled.';
+      contextHint = 'If this is intentional (e.g., border pattern), great! Otherwise, consider redistributing elements.';
+    }
   }
 
   return { label, message, contextHint, band, severity };

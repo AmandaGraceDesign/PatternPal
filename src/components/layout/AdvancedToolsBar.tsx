@@ -11,7 +11,7 @@ import MockupRenderer from '@/components/mockups/MockupRenderer';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
-import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
+import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useEffect } from 'react';
@@ -113,6 +113,7 @@ export default function AdvancedToolsBar({
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
+  const [colorHarmonyAnalysis, setColorHarmonyAnalysis] = useState<ColorHarmonyAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
 
@@ -161,8 +162,10 @@ export default function AdvancedToolsBar({
     try {
       const contrast = analyzeContrast(image, 'unspecified');
       const composition = analyzeComposition(image, 'unspecified');
+      const harmony = analyzeColorHarmony(image);
       setContrastAnalysis(contrast);
       setCompositionAnalysis(composition);
+      setColorHarmonyAnalysis(harmony);
     } catch (error) {
       console.error('Error analyzing pattern:', error);
     } finally {
@@ -270,6 +273,7 @@ export default function AdvancedToolsBar({
         image={image}
         contrastAnalysis={contrastAnalysis}
         compositionAnalysis={compositionAnalysis}
+        colorHarmonyAnalysis={colorHarmonyAnalysis}
         isAnalyzing={isAnalyzing}
         isPro={proAllowed}
         onUpgrade={() => setIsUpgradeModalOpen(true)}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
+import { ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 
 interface PatternAnalysisModalProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ interface PatternAnalysisModalProps {
   image: HTMLImageElement | null;
   contrastAnalysis: ContrastAnalysis | null;
   compositionAnalysis: CompositionAnalysis | null;
+  colorHarmonyAnalysis?: ColorHarmonyAnalysis | null;
   isAnalyzing: boolean;
   isPro: boolean;
   onUpgrade: () => void;
@@ -20,6 +21,7 @@ export default function PatternAnalysisModal({
   image,
   contrastAnalysis,
   compositionAnalysis,
+  colorHarmonyAnalysis,
   isAnalyzing,
   isPro,
   onUpgrade,
@@ -108,6 +110,22 @@ export default function PatternAnalysisModal({
                 </div>
               </div>
 
+              {/* Blurred Harmony Preview */}
+              <div className="relative">
+                <div className="p-4 bg-white border border-[#e5e7eb] rounded-lg" style={{ filter: 'blur(6px)', opacity: 0.6 }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🎨</span>
+                    <span className="text-sm font-semibold text-[#294051]">Color Harmony</span>
+                  </div>
+                  <div className="text-xs text-[#374151] mb-1">Colors work beautifully together</div>
+                  <div className="flex gap-2 mt-2">
+                    {['#e07b54', '#d4a853', '#7ab87a', '#5b8db8', '#9b6bb5'].map((c, i) => (
+                      <div key={i} className="w-8 h-8 rounded-full" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Upgrade CTA */}
               <button
                 onClick={onUpgrade}
@@ -146,7 +164,7 @@ export default function PatternAnalysisModal({
                       contrastAnalysis.severity === 'info' ? 'bg-blue-100 text-blue-700' :
                       'bg-orange-100 text-orange-700'
                     }`}>
-                      {contrastAnalysis.band.toUpperCase().replace('_', ' ')}
+                      {contrastAnalysis.band === 'very_low' ? 'VERY LOW' : contrastAnalysis.band.toUpperCase()}
                     </span>
                   </div>
                   <div className="text-xs text-[#374151] mb-2">
@@ -190,7 +208,70 @@ export default function PatternAnalysisModal({
                 </div>
               )}
 
-              {!contrastAnalysis && !compositionAnalysis && (
+              {/* Color Harmony Analysis */}
+              {colorHarmonyAnalysis && (
+                <div className="p-4 bg-white border border-[#e5e7eb] rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🎨</span>
+                    <span className="text-sm font-semibold text-[#294051]">Color Harmony</span>
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-[#294051]">
+                      {colorHarmonyAnalysis.label}
+                    </span>
+                    <span className={`px-2 py-0.5 text-[10px] font-medium rounded uppercase ${
+                      colorHarmonyAnalysis.severity === 'none' ? 'bg-emerald-100 text-emerald-700' :
+                      colorHarmonyAnalysis.severity === 'info' ? 'bg-blue-100 text-blue-700' :
+                      'bg-orange-100 text-orange-700'
+                    }`}>
+                      {colorHarmonyAnalysis.band === 'too_similar' ? 'TOO SIMILAR' :
+                       colorHarmonyAnalysis.band === 'beautiful' ? 'HARMONIOUS' :
+                       colorHarmonyAnalysis.band === 'mostly' ? 'MOSTLY' : 'CLASHING'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed mb-3">
+                    {colorHarmonyAnalysis.message}
+                  </p>
+
+                  {/* Swatches */}
+                  {colorHarmonyAnalysis.isNeutralDominant ? (
+                    <p className="text-xs text-[#6b7280] italic">
+                      Mostly neutral palette — no strong color conflicts detected.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {colorHarmonyAnalysis.chromaticColors.map((color, i) => (
+                          <div
+                            key={i}
+                            className="relative"
+                            title={color.isClashing ? 'This color may be clashing' : undefined}
+                          >
+                            <div
+                              className={`w-8 h-8 rounded-full ${
+                                color.isClashing
+                                  ? 'ring-2 ring-orange-400 ring-offset-1'
+                                  : ''
+                              }`}
+                              style={{ backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})` }}
+                            />
+                            {color.isClashing && (
+                              <span className="absolute -top-1 -right-1 text-[10px] leading-none">⚠️</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {colorHarmonyAnalysis.totalChromaticCount > 6 && (
+                        <p className="text-[10px] text-[#9ca3af] mt-2">
+                          Showing 6 of {colorHarmonyAnalysis.totalChromaticCount} colors
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!contrastAnalysis && !compositionAnalysis && !colorHarmonyAnalysis && (
                 <div className="text-sm text-gray-500 text-center py-8">
                   No analysis data available
                 </div>
