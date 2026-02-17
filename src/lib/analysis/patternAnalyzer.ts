@@ -27,6 +27,22 @@ export interface CompositionAnalysis {
   weightGrid?: number[][]; // 3x3 grid (optional visualization)
 }
 
+export interface ColorHarmonyAnalysis {
+  band: 'beautiful' | 'mostly' | 'fighting' | 'too_similar';
+  severity: 'none' | 'info' | 'warning';
+  label: string;
+  message: string;
+  chromaticColors: Array<{
+    r: number;
+    g: number;
+    b: number;
+    hue: number;
+    isClashing: boolean;
+  }>;
+  totalChromaticCount: number;
+  isNeutralDominant: boolean;
+}
+
 /**
  * Calculate relative luminance from RGB values (WCAG formula)
  */
@@ -278,38 +294,24 @@ export function analyzeContrast(
   if (band === 'high') {
     status = 'ok';
     severity = 'none';
-    message = 'Contrast range: strong. Motifs should read clearly on most fabrics and wallpapers.';
-    label = 'Contrast: Strong';
+    message = 'Bold, dramatic patterns where motifs really pop.';
+    label = 'High Contrast';
   } else if (band === 'moderate') {
     status = 'ok';
     severity = 'info';
-    message = 'Contrast range: moderate. Pattern should read clearly while still feeling soft.';
-    label = 'Contrast: Moderate';
+    message = 'Balanced patterns that read clearly.';
+    label = 'Moderate Contrast';
   } else if (band === 'soft') {
-    if (highDetail || intendedUse === 'wallpaper') {
-      status = 'soft';
-      severity = 'info';
-      message = 'Contrast is on the softer side. Fine for tonal or blender styles; if you want small details to pop at a distance, consider adding a slightly lighter or darker accent.';
-      label = 'Contrast: Soft';
-    } else {
-      status = 'ok';
-      severity = 'none';
-      message = 'Soft overall contrast. This will read as a gentle, tonal pattern rather than a bold, graphic print.';
-      label = 'Contrast: Soft';
-    }
+    status = 'soft';
+    severity = 'info';
+    message = 'Subtle, tonal patterns — check they don\'t look too flat.';
+    label = 'Soft Contrast';
   } else {
     // very_low
-    if (intendedUse === 'blender/tonal' && !highDetail) {
-      status = 'soft_tonal';
-      severity = 'info';
-      message = 'Contrast is very soft. Expect a subtle, hazy effect similar to a tonal blender. If you want clearer motif separation, increase light–dark differences slightly.';
-      label = 'Contrast: Very Low';
-    } else {
-      status = 'risky';
-      severity = 'warning';
-      message = 'Contrast is very low across the design. On fabric or wallpaper, details may blend together and read as a soft haze. If you want motifs to be clearly distinguishable, increase light–dark separation.';
-      label = 'Contrast: Very Low (Details may blur)';
-    }
+    status = 'risky';
+    severity = 'warning';
+    message = 'Warning! Motifs may disappear or look muddy on fabric.';
+    label = 'Very Low Contrast';
   }
   
   return {
@@ -337,6 +339,43 @@ function getSaturation(r: number, g: number, b: number): number {
 
   if (max === 0) return 0;
   return delta / max;
+}
+
+/**
+ * Convert RGB to HSL. Returns hue in degrees [0, 360), saturation [0,1], lightness [0,1].
+ */
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const delta = max - min;
+  const l = (max + min) / 2;
+
+  if (delta === 0) return { h: 0, s: 0, l };
+
+  const s = delta / (1 - Math.abs(2 * l - 1));
+
+  let h = 0;
+  if (max === rNorm) {
+    h = ((gNorm - bNorm) / delta) % 6;
+  } else if (max === gNorm) {
+    h = (bNorm - rNorm) / delta + 2;
+  } else {
+    h = (rNorm - gNorm) / delta + 4;
+  }
+  h = ((h * 60) + 360) % 360;
+
+  return { h, s, l };
+}
+
+/**
+ * Circular angular distance between two hues (degrees). Always returns 0–180.
+ */
+function hueDistance(h1: number, h2: number): number {
+  const diff = Math.abs(h1 - h2);
+  return Math.min(diff, 360 - diff);
 }
 
 /**
@@ -729,4 +768,129 @@ export function analyzeComposition(
   };
 }
 
+/**
+ * Analyze color harmony of a pattern based on hue relationships.
+ * Contrast and harmony are independent: harmonious colors can still have poor contrast.
+ */
+export function analyzeColorHarmony(
+  image: HTMLImageElement
+): ColorHarmonyAnalysis {
+  const canvas = document.createElement('canvas');
+  const maxSampleSize = 500;
+  const scale = Math.min(1, maxSampleSize / Math.max(image.width, image.height));
+  canvas.width = Math.floor(image.width * scale);
+  canvas.height = Math.floor(image.height * scale);
 
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const dominantColors = extractDominantColors(imageData, 6);
+
+  // Convert to HSL and filter out neutrals
+  const withHsl = dominantColors.map(c => ({
+    ...c,
+    ...rgbToHsl(c.r, c.g, c.b),
+  }));
+
+  const chromatic = withHsl.filter(
+    c => c.s >= 0.15 && c.l >= 0.1 && c.l <= 0.9
+  );
+
+  const totalChromaticCount = chromatic.length;
+  const isNeutralDominant = totalChromaticCount < 2;
+
+  if (isNeutralDominant) {
+    return {
+      band: 'beautiful',
+      severity: 'none',
+      label: 'Colors work beautifully together',
+      message: 'Your palette has a natural balance that feels intentional.',
+      chromaticColors: chromatic.slice(0, 6).map(c => ({
+        r: c.r, g: c.g, b: c.b, hue: c.h, isClashing: false,
+      })),
+      totalChromaticCount,
+      isNeutralDominant: true,
+    };
+  }
+
+  // Cap at 6 for scoring and display (already sorted by count from extractDominantColors)
+  const top = chromatic.slice(0, 6);
+
+  // Find clashing pairs (25–60° apart)
+  const clashingIndices = new Set<number>();
+  let totalDist = 0;
+  let pairCount = 0;
+
+  for (let i = 0; i < top.length; i++) {
+    for (let j = i + 1; j < top.length; j++) {
+      const dist = hueDistance(top[i].h, top[j].h);
+      totalDist += dist;
+      pairCount++;
+      if (dist >= 25 && dist <= 60) {
+        clashingIndices.add(i);
+        clashingIndices.add(j);
+      }
+    }
+  }
+
+  const meanSpread = pairCount > 0 ? totalDist / pairCount : 0;
+  const hasClashes = clashingIndices.size > 0;
+
+  // Determine band
+  let band: ColorHarmonyAnalysis['band'];
+  if (meanSpread < 25) {
+    band = 'too_similar';
+  } else if (hasClashes) {
+    band = 'fighting';
+  } else if (meanSpread > 80) {
+    band = 'beautiful';
+  } else {
+    band = 'mostly';
+  }
+
+  // For too_similar: don't flag individual swatches
+  const flagSwatches = band !== 'too_similar' && band !== 'beautiful';
+
+  const bandCopy: Record<ColorHarmonyAnalysis['band'], { label: string; message: string; severity: ColorHarmonyAnalysis['severity'] }> = {
+    beautiful: {
+      label: 'Colors work beautifully together',
+      message: 'Your palette has a natural balance that feels intentional.',
+      severity: 'none',
+    },
+    mostly: {
+      label: 'Colors mostly work',
+      message: 'A few combinations might create visual tension — worth a second look.',
+      severity: 'info',
+    },
+    fighting: {
+      label: 'Colors are fighting each other',
+      message: 'Some hues compete for attention in a way that feels unintentional.',
+      severity: 'warning',
+    },
+    too_similar: {
+      label: 'Too similar to read as separate colors',
+      message: 'Your palette may blend into a single muddy tone on fabric.',
+      severity: 'warning',
+    },
+  };
+
+  const { label, message, severity } = bandCopy[band];
+
+  return {
+    band,
+    severity,
+    label,
+    message,
+    chromaticColors: top.map((c, i) => ({
+      r: c.r,
+      g: c.g,
+      b: c.b,
+      hue: c.h,
+      isClashing: flagSwatches && clashingIndices.has(i),
+    })),
+    totalChromaticCount,
+    isNeutralDominant: false,
+  };
+}
