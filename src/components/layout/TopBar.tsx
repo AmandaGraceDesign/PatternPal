@@ -18,8 +18,17 @@ export default function TopBar() {
   return (
     <header className="relative z-[60] pointer-events-auto h-12 border-b border-slate-700 bg-slate-900 rounded-t-2xl flex items-center justify-between px-6">
       {/* Left: Branding */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-2">
         <h1 className="text-sm font-semibold text-slate-100">PatternPAL Pro</h1>
+        <span className="text-[10px] text-slate-500">by</span>
+        <a
+          href="https://www.amandagracedesign.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-slate-400 hover:text-[#e0c26e] transition-colors"
+        >
+          Amanda Grace Design
+        </a>
       </div>
 
       {/* Right: Help and Upgrade */}
