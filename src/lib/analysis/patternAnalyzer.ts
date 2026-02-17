@@ -999,9 +999,15 @@ export function evaluateColorHarmony(
     ...rgbToHsl(c.r, c.g, c.b),
   }));
 
-  const chromatic = withHsl.filter(
-    c => c.s >= 0.08 && c.l >= 0.05 && c.l <= 0.95
-  );
+  const isChromaticColor = (c: { s: number; l: number }) =>
+    c.s >= 0.08 && c.l >= 0.05 && c.l <= 0.95;
+
+  const chromatic = withHsl.filter(isChromaticColor);
+
+  // All colors (including neutrals like white/black) for display as swatches.
+  // Users can manually add any color — neutrals should still appear, just not
+  // participate in clash detection.
+  const allTop = withHsl.slice(0, 6);
 
   const totalChromaticCount = chromatic.length;
   const isNeutralDominant = totalChromaticCount < 2;
@@ -1012,7 +1018,7 @@ export function evaluateColorHarmony(
       severity: 'none',
       label: 'Colors work beautifully together',
       message: 'Your palette has a natural balance that feels intentional.',
-      chromaticColors: chromatic.slice(0, 6).map(c => ({
+      chromaticColors: allTop.map(c => ({
         r: c.r, g: c.g, b: c.b, hue: c.h, isClashing: false, clashingWith: [],
       })),
       clashPairs: [],
@@ -1181,14 +1187,26 @@ export function evaluateColorHarmony(
     label,
     message,
     detectedScheme: isRecognizedScheme ? effectiveScheme : undefined,
-    chromaticColors: top.map((c, i) => ({
-      r: c.r,
-      g: c.g,
-      b: c.b,
-      hue: c.h,
-      isClashing: flagSwatches && clashingIndices.has(i),
-      clashingWith: flagSwatches ? (clashingWithMap.get(i) ?? []) : [],
-    })),
+    chromaticColors: [
+      // Chromatic colors (participate in harmony analysis)
+      ...top.map((c, i) => ({
+        r: c.r,
+        g: c.g,
+        b: c.b,
+        hue: c.h,
+        isClashing: flagSwatches && clashingIndices.has(i),
+        clashingWith: flagSwatches ? (clashingWithMap.get(i) ?? []) : [],
+      })),
+      // Neutral colors (white, black, grays) — always shown, never clashing
+      ...withHsl.filter(c => !isChromaticColor(c)).slice(0, 6 - top.length).map(c => ({
+        r: c.r,
+        g: c.g,
+        b: c.b,
+        hue: c.h,
+        isClashing: false,
+        clashingWith: [] as number[],
+      })),
+    ],
     clashPairs: flagSwatches ? clashPairs : [],
     tensePairs: band === 'mostly' ? tensePairs : [],
     totalChromaticCount,

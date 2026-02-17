@@ -352,11 +352,21 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType, seam
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-[#374151]">Zoom:</span>
                 <button
-                  onClick={() => setZoomLevel(prev => Math.max(100, prev - 25))}
+                  onClick={() => setZoomLevel(prev => Math.max(50, prev - 25))}
                   className="px-3 py-1 rounded font-semibold bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db] transition-colors"
                   aria-label="Zoom out"
                 >
                   −
+                </button>
+                <button
+                  onClick={() => setZoomLevel(50)}
+                  className={`px-3 py-1 rounded font-semibold transition-colors ${
+                    Math.abs(zoomLevel - 50) < 10
+                      ? 'bg-[#e0c26e] text-white'
+                      : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]'
+                  }`}
+                >
+                  50%
                 </button>
                 <button
                   onClick={() => setZoomLevel(100)}
@@ -485,7 +495,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType, seam
           <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
             <p className="text-sm text-blue-900">
               <strong>💡 What to look for:</strong> Perfect seams show no visible breaks or misalignment where tiles meet.
-              {seamType === 'intersection' && ' Check all four quadrants where the pink lines cross.'}
+              {seamType === 'intersection' && ' Check all four quadrants where the tile lines cross.'}
               {' '}Drag to pan, use zoom controls to inspect closely.
             </p>
           </div>
