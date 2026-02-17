@@ -32,13 +32,17 @@ export interface ColorHarmonyAnalysis {
   severity: 'none' | 'info' | 'warning';
   label: string;
   message: string;
+  detectedScheme?: string; // e.g. 'analogous', 'complementary', 'triadic'
   chromaticColors: Array<{
     r: number;
     g: number;
     b: number;
     hue: number;
     isClashing: boolean;
+    clashingWith: number[];
   }>;
+  clashPairs: Array<[number, number]>;
+  tensePairs: Array<[number, number]>;
   totalChromaticCount: number;
   isNeutralDominant: boolean;
 }
@@ -65,18 +69,49 @@ function extractDominantColors(
   const data = imageData.data;
   const pixels: Array<[number, number, number]> = [];
   
-  // Sample pixels (every 4th pixel for performance)
-  for (let i = 0; i < data.length; i += 16) {
+  // Sample every 2nd pixel (stride 8 in RGBA) to catch minority colors
+  for (let i = 0; i < data.length; i += 8) {
     pixels.push([data[i], data[i + 1], data[i + 2]]);
   }
   
   if (pixels.length === 0) return [];
   
-  // Initialize centroids randomly
+  // Initialize centroids with k-means++ (spreads seeds across distinct colors)
   const centroids: Array<[number, number, number]> = [];
-  for (let i = 0; i < k; i++) {
-    const randomPixel = pixels[Math.floor(Math.random() * pixels.length)];
-    centroids.push([...randomPixel]);
+  centroids.push([...pixels[Math.floor(Math.random() * pixels.length)]]);
+
+  for (let i = 1; i < k; i++) {
+    // Compute squared distance from each pixel to its nearest existing centroid
+    const distances = pixels.map(pixel => {
+      let minDist = Infinity;
+      for (const c of centroids) {
+        const dist =
+          (pixel[0] - c[0]) ** 2 +
+          (pixel[1] - c[1]) ** 2 +
+          (pixel[2] - c[2]) ** 2;
+        if (dist < minDist) minDist = dist;
+      }
+      return minDist;
+    });
+
+    // Weighted random selection — pixels far from existing centroids are more likely
+    const totalDist = distances.reduce((a, b) => a + b, 0);
+    if (totalDist === 0) {
+      centroids.push([...pixels[Math.floor(Math.random() * pixels.length)]]);
+      continue;
+    }
+    let r = Math.random() * totalDist;
+    for (let j = 0; j < distances.length; j++) {
+      r -= distances[j];
+      if (r <= 0) {
+        centroids.push([...pixels[j]]);
+        break;
+      }
+    }
+    // Fallback in case of floating-point drift
+    if (centroids.length <= i) {
+      centroids.push([...pixels[pixels.length - 1]]);
+    }
   }
   
   // K-means iterations
@@ -154,7 +189,8 @@ function extractDominantColors(
     clusters[nearestCluster].push(pixel);
   }
   
-  return centroids
+  // Build result and merge near-duplicate centroids (< 25 RGB distance)
+  const results = centroids
     .map((centroid, i) => ({
       r: centroid[0],
       g: centroid[1],
@@ -162,8 +198,24 @@ function extractDominantColors(
       count: clusters[i].length,
     }))
     .filter(color => color.count > 0)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8); // Return top 8
+    .sort((a, b) => b.count - a.count);
+
+  const merged: typeof results = [];
+  for (const color of results) {
+    const duplicate = merged.find(m => {
+      const dist = Math.sqrt(
+        (m.r - color.r) ** 2 + (m.g - color.g) ** 2 + (m.b - color.b) ** 2
+      );
+      return dist < 25;
+    });
+    if (duplicate) {
+      duplicate.count += color.count;
+    } else {
+      merged.push({ ...color });
+    }
+  }
+
+  return merged.slice(0, 8);
 }
 
 /**
@@ -376,6 +428,50 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
 function hueDistance(h1: number, h2: number): number {
   const diff = Math.abs(h1 - h2);
   return Math.min(diff, 360 - diff);
+}
+
+/**
+ * Smallest arc (in degrees) that contains all given hues.
+ * Used to detect analogous palettes (spread <= 90°).
+ */
+function circularHueSpread(hues: number[]): number {
+  if (hues.length < 2) return 0;
+  const sorted = [...hues].sort((a, b) => a - b);
+  let maxGap = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    maxGap = Math.max(maxGap, sorted[i] - sorted[i - 1]);
+  }
+  const wrapGap = (360 - sorted[sorted.length - 1]) + sorted[0];
+  maxGap = Math.max(maxGap, wrapGap);
+  return 360 - maxGap;
+}
+
+/**
+ * Human-readable name for a hue angle.
+ * When saturation and lightness are provided, distinguishes muted variants
+ * (e.g. Tan vs Orange, Mauve vs Pink).
+ */
+function hueName(h: number, s?: number, l?: number): string {
+  // Muted warm hues: low saturation → Tan/Cream instead of Orange/Yellow
+  if (s !== undefined && l !== undefined) {
+    if (h >= 15 && h < 50 && s < 0.35) {
+      return l > 0.65 ? 'Cream' : 'Tan';
+    }
+    if (h >= 290 && h < 345 && s < 0.30) {
+      return 'Mauve';
+    }
+  }
+  if (h < 15 || h >= 345) return 'Red';
+  if (h < 40) return 'Orange';
+  if (h < 50) return 'Gold';
+  if (h < 65) return 'Yellow';
+  if (h < 80) return 'Yellow-Green';
+  if (h < 160) return 'Green';
+  if (h < 190) return 'Teal';
+  if (h < 250) return 'Blue';
+  if (h < 290) return 'Purple';
+  if (h < 330) return 'Pink';
+  return 'Red';
 }
 
 /**
@@ -781,30 +877,130 @@ export function analyzeComposition(
  * Analyze color harmony of a pattern based on hue relationships.
  * Contrast and harmony are independent: harmonious colors can still have poor contrast.
  */
-export function analyzeColorHarmony(
-  image: HTMLImageElement
+/**
+ * Evaluate harmony from an explicit list of RGB colors.
+ * Used both by initial image analysis and by manual color edits from the UI.
+ */
+/**
+ * Detect which color scheme best fits a set of unique hues.
+ * Returns the scheme name and a fit score (0-1, higher = better match).
+ * Tolerance values are generous to account for real-world palette imprecision.
+ */
+function detectColorScheme(uniqueHues: number[]): { scheme: string; fit: number } {
+  if (uniqueHues.length < 2) return { scheme: 'monochromatic', fit: 1 };
+
+  const spread = circularHueSpread(uniqueHues);
+
+  // Analogous: all hues within ~90° arc
+  if (spread <= 90) {
+    return { scheme: 'analogous', fit: 1 - (spread / 90) * 0.3 };
+  }
+
+  const tol = 40; // tolerance in degrees for scheme matching
+
+  // Try multiple clustering gap sizes to find the best scheme fit.
+  // Real-world palettes have bridge colors (e.g., greens between teal and gold)
+  // that need wider gaps to cluster with their nearest anchor.
+  for (const gap of [50, 70, 90]) {
+    const groups = clusterHuesIntoGroups(uniqueHues, gap);
+
+    if (groups.length === 2) {
+      const g1Avg = circularMean(groups[0]);
+      const g2Avg = circularMean(groups[1]);
+      const groupDist = hueDistance(g1Avg, g2Avg);
+      // Complementary: two groups roughly opposite
+      if (groupDist >= 180 - tol) {
+        return { scheme: 'complementary', fit: 1 - Math.abs(groupDist - 180) / 180 };
+      }
+      // Split-complementary: two groups 100-160° apart
+      if (groupDist >= 100) {
+        return { scheme: 'split-complementary', fit: 0.8 };
+      }
+    }
+
+    if (groups.length === 3) {
+      const avgs = groups.map(g => circularMean(g));
+      const dists = [
+        hueDistance(avgs[0], avgs[1]),
+        hueDistance(avgs[1], avgs[2]),
+        hueDistance(avgs[0], avgs[2]),
+      ];
+      // Triadic: three groups roughly equidistant
+      if (dists.every(d => d >= 80 && d <= 160)) {
+        return { scheme: 'triadic', fit: 0.85 };
+      }
+    }
+
+    if (groups.length === 4) {
+      const avgs = groups.map(g => circularMean(g));
+      const pairings = [[0,1,2,3], [0,2,1,3], [0,3,1,2]];
+      for (const [a, b, c, d] of pairings) {
+        const d1 = hueDistance(avgs[a], avgs[b]);
+        const d2 = hueDistance(avgs[c], avgs[d]);
+        if (d1 >= 140 && d2 >= 140) {
+          return { scheme: 'tetradic', fit: 0.85 };
+        }
+      }
+    }
+  }
+
+  // Warm-cool contrast: one side of the wheel vs the other with optional bridges.
+  // Warm = 0-70° and 330-360°, Cool = 160-270°, Bridge = the rest.
+  const warm = uniqueHues.filter(h => h < 70 || h >= 330);
+  const cool = uniqueHues.filter(h => h >= 160 && h < 270);
+  if (warm.length >= 1 && cool.length >= 1) {
+    return { scheme: 'warm-cool contrast', fit: 0.75 };
+  }
+
+  return { scheme: 'none', fit: 0 };
+}
+
+/**
+ * Cluster hues into groups where members are within `maxGap` degrees of each other.
+ */
+function clusterHuesIntoGroups(hues: number[], maxGap: number): number[][] {
+  const sorted = [...hues].sort((a, b) => a - b);
+  const groups: number[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] - sorted[i - 1] <= maxGap) {
+      groups[groups.length - 1].push(sorted[i]);
+    } else {
+      groups.push([sorted[i]]);
+    }
+  }
+  // Check wrap-around: if first and last are close, merge them
+  if (groups.length > 1) {
+    const first = groups[0];
+    const last = groups[groups.length - 1];
+    if ((360 - last[last.length - 1] + first[0]) <= maxGap) {
+      groups[0] = [...last, ...first];
+      groups.pop();
+    }
+  }
+  return groups;
+}
+
+/**
+ * Circular mean of a set of angles (degrees).
+ */
+function circularMean(angles: number[]): number {
+  const sinSum = angles.reduce((s, a) => s + Math.sin(a * Math.PI / 180), 0);
+  const cosSum = angles.reduce((s, a) => s + Math.cos(a * Math.PI / 180), 0);
+  let mean = Math.atan2(sinSum / angles.length, cosSum / angles.length) * 180 / Math.PI;
+  if (mean < 0) mean += 360;
+  return mean;
+}
+
+export function evaluateColorHarmony(
+  colors: Array<{ r: number; g: number; b: number }>
 ): ColorHarmonyAnalysis {
-  const canvas = document.createElement('canvas');
-  const maxSampleSize = 500;
-  const scale = Math.min(1, maxSampleSize / Math.max(image.width, image.height));
-  canvas.width = Math.floor(image.width * scale);
-  canvas.height = Math.floor(image.height * scale);
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not get canvas context');
-
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const dominantColors = extractDominantColors(imageData, 6);
-
-  // Convert to HSL and filter out neutrals
-  const withHsl = dominantColors.map(c => ({
+  const withHsl = colors.map(c => ({
     ...c,
     ...rgbToHsl(c.r, c.g, c.b),
   }));
 
   const chromatic = withHsl.filter(
-    c => c.s >= 0.15 && c.l >= 0.1 && c.l <= 0.9
+    c => c.s >= 0.08 && c.l >= 0.05 && c.l <= 0.95
   );
 
   const totalChromaticCount = chromatic.length;
@@ -817,18 +1013,65 @@ export function analyzeColorHarmony(
       label: 'Colors work beautifully together',
       message: 'Your palette has a natural balance that feels intentional.',
       chromaticColors: chromatic.slice(0, 6).map(c => ({
-        r: c.r, g: c.g, b: c.b, hue: c.h, isClashing: false,
+        r: c.r, g: c.g, b: c.b, hue: c.h, isClashing: false, clashingWith: [],
       })),
+      clashPairs: [],
+      tensePairs: [],
       totalChromaticCount,
       isNeutralDominant: true,
     };
   }
 
-  // Cap at 6 for scoring and display (already sorted by count from extractDominantColors)
   const top = chromatic.slice(0, 6);
+  const allHues = top.map(c => c.h);
 
-  // Find clashing pairs (25–60° apart)
-  const clashingIndices = new Set<number>();
+  // Deduplicate hues: merge hues within 15° into one representative
+  const uniqueHues: number[] = [];
+  for (const h of allHues) {
+    if (!uniqueHues.some(u => hueDistance(u, h) < 15)) {
+      uniqueHues.push(h);
+    }
+  }
+
+  // Detect color scheme
+  const { scheme, fit } = detectColorScheme(uniqueHues);
+  let isRecognizedScheme = scheme !== 'none' && fit > 0.3;
+  let effectiveScheme = scheme;
+
+  // Muted/tonal palettes: when most colors are desaturated, they harmonize
+  // regardless of hue distance (earth tones, dusty pastels, etc.)
+  const avgSat = top.reduce((s, c) => s + c.s, 0) / top.length;
+  const maxSat = Math.max(...top.map(c => c.s));
+  if (!isRecognizedScheme && maxSat < 0.55 && avgSat < 0.40) {
+    isRecognizedScheme = true;
+    effectiveScheme = 'tonal';
+  }
+
+  // Dominant background check: colors are sorted by pixel count (most dominant first).
+  // If the most dominant color acts as a background (darkest or lightest) and other
+  // colors each have meaningful lightness contrast against it, they're separated by
+  // the background — they never directly compete. This is how most patterns work:
+  // a dark/light background with accent colors placed on top.
+  if (!isRecognizedScheme && top.length >= 3) {
+    const dominant = top[0];
+    const accents = top.slice(1);
+    const dominantL = dominant.l;
+    // Check if dominant is clearly dark or light (acting as background)
+    const isDominantExtreme = dominantL < 0.30 || dominantL > 0.70;
+    if (isDominantExtreme) {
+      // Check that each accent has meaningful lightness contrast against the dominant
+      const allContrastWell = accents.every(c =>
+        Math.abs(c.l - dominantL) > 0.15
+      );
+      if (allContrastWell) {
+        isRecognizedScheme = true;
+        effectiveScheme = 'contrast';
+      }
+    }
+  }
+
+  // Compute pairwise distances for fallback analysis
+  const allPairsWithDist: Array<{ pair: [number, number]; dist: number }> = [];
   let totalDist = 0;
   let pairCount = 0;
 
@@ -837,35 +1080,80 @@ export function analyzeColorHarmony(
       const dist = hueDistance(top[i].h, top[j].h);
       totalDist += dist;
       pairCount++;
-      if (dist >= 25 && dist <= 60) {
-        clashingIndices.add(i);
-        clashingIndices.add(j);
-      }
+      allPairsWithDist.push({ pair: [i, j], dist });
     }
   }
 
   const meanSpread = pairCount > 0 ? totalDist / pairCount : 0;
+
+  // Find clashing pairs (25–60° apart) — only if NO recognized scheme was detected
+  const clashingIndices = new Set<number>();
+  const clashPairs: Array<[number, number]> = [];
+  const clashingWithMap = new Map<number, number[]>();
+
+  if (!isRecognizedScheme) {
+    for (const { pair: [i, j], dist } of allPairsWithDist) {
+      if (dist >= 25 && dist <= 60) {
+        clashingIndices.add(i);
+        clashingIndices.add(j);
+        clashPairs.push([i, j]);
+        if (!clashingWithMap.has(i)) clashingWithMap.set(i, []);
+        if (!clashingWithMap.has(j)) clashingWithMap.set(j, []);
+        clashingWithMap.get(i)!.push(j);
+        clashingWithMap.get(j)!.push(i);
+      }
+    }
+  }
+
+  // For 'mostly' band: show the most noteworthy pairs
+  const tensePairs: Array<[number, number]> = allPairsWithDist
+    .filter(p => p.dist > 10)
+    .sort((a, b) => b.dist - a.dist)
+    .slice(0, 2)
+    .map(p => p.pair);
+
   const hasClashes = clashingIndices.size > 0;
 
-  // Determine band
+  // Band assignment — scheme-aware
   let band: ColorHarmonyAnalysis['band'];
-  if (meanSpread < 25) {
+  if (meanSpread < 25 && uniqueHues.length <= 2) {
     band = 'too_similar';
+  } else if (isRecognizedScheme) {
+    band = 'beautiful';
   } else if (hasClashes) {
     band = 'fighting';
-  } else if (meanSpread > 80) {
-    band = 'beautiful';
   } else {
     band = 'mostly';
   }
 
-  // For too_similar: don't flag individual swatches
   const flagSwatches = band !== 'too_similar' && band !== 'beautiful';
+
+  // Build message — include detected scheme for beautiful palettes
+  const schemeName: Record<string, string> = {
+    monochromatic: 'monochromatic',
+    analogous: 'analogous',
+    complementary: 'complementary',
+    'split-complementary': 'split-complementary',
+    triadic: 'triadic',
+    tetradic: 'tetradic',
+    tonal: 'tonal',
+    'warm-cool contrast': 'warm-cool',
+    contrast: 'contrast',
+  };
+
+  const schemeMessages: Record<string, string> = {
+    tonal: 'These muted, earthy tones share a similar intensity — they naturally harmonize regardless of hue.',
+    'warm-cool contrast': 'Warm and cool tones play off each other — a timeless combination that creates depth and visual interest.',
+    contrast: 'Your accent colors each stand out clearly against the background — the palette reads as intentional and balanced.',
+  };
 
   const bandCopy: Record<ColorHarmonyAnalysis['band'], { label: string; message: string; severity: ColorHarmonyAnalysis['severity'] }> = {
     beautiful: {
       label: 'Colors work beautifully together',
-      message: 'Your palette has a natural balance that feels intentional.',
+      message: schemeMessages[effectiveScheme]
+        ?? (isRecognizedScheme && schemeName[effectiveScheme]
+          ? `This is a ${schemeName[effectiveScheme]} palette — a classic color relationship that feels intentional and balanced.`
+          : 'Your palette has a natural balance that feels intentional.'),
       severity: 'none',
     },
     mostly: {
@@ -892,14 +1180,43 @@ export function analyzeColorHarmony(
     severity,
     label,
     message,
+    detectedScheme: isRecognizedScheme ? effectiveScheme : undefined,
     chromaticColors: top.map((c, i) => ({
       r: c.r,
       g: c.g,
       b: c.b,
       hue: c.h,
       isClashing: flagSwatches && clashingIndices.has(i),
+      clashingWith: flagSwatches ? (clashingWithMap.get(i) ?? []) : [],
     })),
+    clashPairs: flagSwatches ? clashPairs : [],
+    tensePairs: band === 'mostly' ? tensePairs : [],
     totalChromaticCount,
     isNeutralDominant: false,
   };
+}
+
+/**
+ * Analyze color harmony of a pattern by extracting dominant colors from the image.
+ */
+export function analyzeColorHarmony(
+  image: HTMLImageElement
+): ColorHarmonyAnalysis {
+  const canvas = document.createElement('canvas');
+  const maxSampleSize = 800;
+  const scale = Math.min(1, maxSampleSize / Math.max(image.width, image.height));
+  canvas.width = Math.floor(image.width * scale);
+  canvas.height = Math.floor(image.height * scale);
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+
+  // Nearest-neighbor: prevents blending minority colors into the background
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // Over-cluster to k=12 so minority colors get their own bucket, then merge down
+  const dominantColors = extractDominantColors(imageData, 12);
+
+  return evaluateColorHarmony(dominantColors);
 }

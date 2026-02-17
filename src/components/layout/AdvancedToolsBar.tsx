@@ -274,6 +274,7 @@ export default function AdvancedToolsBar({
         contrastAnalysis={contrastAnalysis}
         compositionAnalysis={compositionAnalysis}
         colorHarmonyAnalysis={colorHarmonyAnalysis}
+        onColorHarmonyUpdate={(updated) => setColorHarmonyAnalysis(updated)}
         isAnalyzing={isAnalyzing}
         isPro={proAllowed}
         onUpgrade={() => setIsUpgradeModalOpen(true)}
