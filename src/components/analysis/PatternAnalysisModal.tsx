@@ -168,8 +168,13 @@ export default function PatternAnalysisModal({
           </button>
         </div>
 
+        {/* Disclaimer */}
+        <p className="text-[10px] text-gray-400 text-center py-2 px-4 border-b border-gray-100">
+          Results are for educational purposes — this tool may not read every pattern perfectly.
+        </p>
+
         {/* Content */}
-        <div className="overflow-y-auto p-4 space-y-4" style={{ maxHeight: 'calc(85vh - 52px)' }}>
+        <div className="overflow-y-auto p-4 space-y-4" style={{ maxHeight: 'calc(85vh - 82px)' }}>
           {!isPro ? (
             // Non-Pro: Show blurred preview with upgrade CTA
             <>
