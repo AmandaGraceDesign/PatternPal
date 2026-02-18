@@ -100,6 +100,11 @@ export default function MockupGalleryModal({
                     <span className="text-xs font-medium text-[#294051]">
                       {template?.name || mockupType}
                     </span>
+                    {template?.physicalDimensions?.displayLabel && (
+                      <span className="block text-[10px] text-gray-400">
+                        {template.physicalDimensions.displayLabel}
+                      </span>
+                    )}
                   </div>
                   {!isPro && (
                     <div className="absolute inset-0 rounded-md flex items-center justify-center text-[#294051] pointer-events-none">
