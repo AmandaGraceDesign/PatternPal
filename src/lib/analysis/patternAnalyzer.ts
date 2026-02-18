@@ -16,7 +16,7 @@ export interface ContrastAnalysis {
 
 export interface CompositionAnalysis {
   balanceScore: number; // 0-1, higher = more balanced
-  distributionPattern: 'all-over' | 'focal-point' | 'directional' | 'structured' | 'organic';
+  distributionPattern: 'all-over' | 'focal-point' | 'directional' | 'structured' | 'organic' | 'dominant-motif';
   distributionConfidence: number; // 0-1
   rhythmStrength: number; // 0-1
   band: 'balanced' | 'dynamic' | 'asymmetric';
@@ -25,6 +25,14 @@ export interface CompositionAnalysis {
   message: string;
   contextHint: string;
   weightGrid?: number[][]; // 3x3 grid (optional visualization)
+  scaleAlert?: {
+    type: 'dominant-motif' | 'river' | 'both';
+    largestBlobRatio: number;
+    blobCount: number;
+    coveragePercent: number;
+    hasVerticalRiver: boolean;
+    hasHorizontalRiver: boolean;
+  };
 }
 
 export interface ColorHarmonyAnalysis {
@@ -477,16 +485,43 @@ function hueName(h: number, s?: number, l?: number): string {
 /**
  * Calculate visual weight grid (3x3) based on luminance and saturation
  */
-function calculateVisualWeightGrid(imageData: ImageData): number[][] {
+function calculateVisualWeightGrid(imageData: ImageData): {
+  grid: number[][];
+  bgLuminance: number;
+  bgSaturation: number;
+} {
   const width = imageData.width;
   const height = imageData.height;
   const data = imageData.data;
 
+  // First pass: estimate background luminance and saturation via median.
+  // Background is the most common pixel value — median is robust to
+  // foreground elements (flowers, motifs) that are outliers.
+  const luminanceSamples: number[] = [];
+  const saturationSamples: number[] = [];
+
+  for (let y = 0; y < height; y += 4) {
+    for (let x = 0; x < width; x += 4) {
+      const idx = (y * width + x) * 4;
+      if (data[idx + 3] < 10) continue;
+      luminanceSamples.push(getRelativeLuminance(data[idx], data[idx + 1], data[idx + 2]));
+      saturationSamples.push(getSaturation(data[idx], data[idx + 1], data[idx + 2]));
+    }
+  }
+
+  luminanceSamples.sort((a, b) => a - b);
+  saturationSamples.sort((a, b) => a - b);
+  const mid = Math.floor(luminanceSamples.length / 2);
+  const bgLuminance = luminanceSamples.length > 0 ? luminanceSamples[mid] : 0;
+  const bgSaturation = saturationSamples.length > 0 ? saturationSamples[mid] : 0;
+
+  // Second pass: accumulate contrast-based weight per grid cell.
+  // Weight = how much a pixel deviates from the background, so background
+  // pixels contribute ~0 and design elements (flowers, stems) carry the weight.
   const grid: number[][] = Array(3).fill(null).map(() => Array(3).fill(0));
   const cellWidth = width / 3;
   const cellHeight = height / 3;
 
-  // Sample every 4th pixel for performance
   for (let y = 0; y < height; y += 4) {
     for (let x = 0; x < width; x += 4) {
       const idx = (y * width + x) * 4;
@@ -495,18 +530,15 @@ function calculateVisualWeightGrid(imageData: ImageData): number[][] {
       const b = data[idx + 2];
       const a = data[idx + 3];
 
-      if (a < 10) continue; // Skip transparent pixels
+      if (a < 10) continue;
 
       const luminance = getRelativeLuminance(r, g, b);
       const saturation = getSaturation(r, g, b);
 
-      // Darkness = 1 - luminance (darker = heavier weight)
-      const darkness = 1 - luminance;
+      const lumDeviation = Math.abs(luminance - bgLuminance);
+      const satDeviation = Math.abs(saturation - bgSaturation);
+      const weight = (lumDeviation * 0.7) + (satDeviation * 0.3);
 
-      // Visual weight = darkness (60%) + saturation (40%)
-      const weight = (darkness * 0.6) + (saturation * 0.4);
-
-      // Determine which grid cell this pixel belongs to
       const gridX = Math.min(2, Math.floor(x / cellWidth));
       const gridY = Math.min(2, Math.floor(y / cellHeight));
 
@@ -522,7 +554,7 @@ function calculateVisualWeightGrid(imageData: ImageData): number[][] {
     }
   }
 
-  return grid;
+  return { grid, bgLuminance, bgSaturation };
 }
 
 /**
@@ -703,8 +735,19 @@ function calculateRhythmStrength(imageData: ImageData): number {
  */
 function classifyDistributionPattern(
   grid: number[][],
-  metrics: ReturnType<typeof analyzeBalanceMetrics>
+  metrics: ReturnType<typeof analyzeBalanceMetrics>,
+  motifScale?: { dominantMotif: boolean; blobCount: number; largestBlobRatio: number }
 ): { pattern: CompositionAnalysis['distributionPattern']; confidence: number } {
+
+  // Dominant motif overrides grid classification — the 3x3 grid can't see
+  // scale imbalance, so when blob analysis detects it, that signal takes priority.
+  // HOWEVER: if the grid says the weight is very evenly distributed (low variance,
+  // high balance), the large blob is likely a structured pattern (plaid, stripes)
+  // that naturally creates big connected regions — NOT a problematic dominant motif.
+  if (motifScale?.dominantMotif && !(metrics.variance < 0.10 && metrics.overallBalance > 0.80)) {
+    return { pattern: 'dominant-motif', confidence: Math.min(1, motifScale.largestBlobRatio / 5) };
+  }
+
   const horizontalGradient = calculateHorizontalGradient(grid);
   const verticalGradient = calculateVerticalGradient(grid);
   const symmetryScore = calculateSymmetryScore(grid);
@@ -741,7 +784,8 @@ function generateCompositionFeedback(
   pattern: CompositionAnalysis['distributionPattern'],
   metrics: ReturnType<typeof analyzeBalanceMetrics>,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _intendedUse: string
+  _intendedUse: string,
+  scaleAlert?: CompositionAnalysis['scaleAlert']
 ): Pick<CompositionAnalysis, 'label' | 'message' | 'contextHint' | 'band' | 'severity'> {
   const balanceScore = metrics.overallBalance;
 
@@ -764,7 +808,24 @@ function generateCompositionFeedback(
   let message: string;
   let contextHint: string;
 
-  if (band === 'balanced') {
+  // Dominant motif — detected by blob analysis, overrides grid-based classification
+  if (pattern === 'dominant-motif' && scaleAlert) {
+    label = 'Dominant Motif';
+    contextHint = 'Try scaling down the dominant element or adding mid-sized elements to bridge the gap.';
+
+    const ratio = scaleAlert.largestBlobRatio;
+    const coverage = scaleAlert.coveragePercent;
+
+    if (ratio >= 8 || coverage >= 25) {
+      message = `One motif is ${ratio.toFixed(0)}x larger than the rest and covers ${coverage.toFixed(0)}% of the tile — it will dominate the repeat.`;
+      band = 'asymmetric';
+      severity = 'warning';
+    } else {
+      message = `One motif is ${ratio.toFixed(0)}x larger than the median element — consider whether this is intentional.`;
+      band = 'dynamic';
+      severity = 'info';
+    }
+  } else if (band === 'balanced') {
     // Pattern-specific copy for balanced compositions
     switch (pattern) {
       case 'all-over':
@@ -792,6 +853,10 @@ function generateCompositionFeedback(
         message = 'Elements are naturally scattered with good overall balance.';
         contextHint = 'Feels relaxed and hand-drawn.';
         break;
+      default:
+        label = 'Balanced';
+        message = 'Visual weight is well distributed across the tile.';
+        contextHint = 'Works well for most surface pattern applications.';
     }
   } else if (band === 'dynamic') {
     label = 'Dynamic Composition';
@@ -799,15 +864,11 @@ function generateCompositionFeedback(
     contextHint = 'Can feel lively — check it reads well at scale.';
   } else {
     // Asymmetric — detect WHY and give context-aware warning
-    const mean = metrics.variance > 0 ? 1 / 9 : 0; // normalized mean weight share
-
     if (metrics.centerRatio > 0.25) {
-      // Heavy center, sparse edges = isolated motif
       label = 'Isolated Motif';
       message = 'Isolated motif — will tile as repeating spots.';
       contextHint = 'Consider spreading visual weight outward so the repeat feels less spotty.';
     } else if (metrics.leftRightBalance < 0.5 || metrics.topBottomBalance < 0.5) {
-      // Weight piled on one edge
       label = 'Edge-Heavy';
       message = 'Edge-heavy — may create grid lines when tiled.';
       contextHint = 'Try redistributing elements so edges don\'t stack up in the repeat.';
@@ -818,7 +879,241 @@ function generateCompositionFeedback(
     }
   }
 
+  // Append river warning to contextHint for ANY classification
+  if (scaleAlert?.hasVerticalRiver || scaleAlert?.hasHorizontalRiver) {
+    const direction = scaleAlert.hasVerticalRiver && scaleAlert.hasHorizontalRiver
+      ? 'vertical and horizontal'
+      : scaleAlert.hasVerticalRiver ? 'vertical' : 'horizontal';
+    contextHint += ` Note: a ${direction} background channel may form rivers when tiled.`;
+  }
+
   return { label, message, contextHint, band, severity };
+}
+
+// ─── Blob / Scale / River Detection ─────────────────────────────────────────
+
+/**
+ * Create a binary foreground mask: 1 = foreground (design element), 0 = background.
+ * Uses the same background estimate as the weight grid.
+ */
+function createForegroundMask(
+  imageData: ImageData,
+  bgLuminance: number,
+  bgSaturation: number
+): Uint8Array {
+  const { width, height, data } = imageData;
+  const mask = new Uint8Array(width * height);
+  const FG_THRESHOLD = 0.08;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      if (data[idx + 3] < 10) continue;
+      const lum = getRelativeLuminance(data[idx], data[idx + 1], data[idx + 2]);
+      const sat = getSaturation(data[idx], data[idx + 1], data[idx + 2]);
+      const weight = Math.abs(lum - bgLuminance) * 0.7 + Math.abs(sat - bgSaturation) * 0.3;
+      if (weight > FG_THRESHOLD) {
+        mask[y * width + x] = 1;
+      }
+    }
+  }
+  return mask;
+}
+
+/**
+ * Connected component labeling via Union-Find.
+ * Returns blob sizes (pixel counts) keyed by root label.
+ */
+function labelConnectedComponents(
+  mask: Uint8Array,
+  width: number,
+  height: number
+): Map<number, number> {
+  const labels = new Int32Array(width * height);
+  const parent: number[] = [0]; // index 0 unused
+  const rank: number[] = [0];
+  let nextLabel = 1;
+
+  function find(x: number): number {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]]; // path compression
+      x = parent[x];
+    }
+    return x;
+  }
+
+  function union(a: number, b: number): void {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA === rootB) return;
+    if (rank[rootA] < rank[rootB]) {
+      parent[rootA] = rootB;
+    } else if (rank[rootA] > rank[rootB]) {
+      parent[rootB] = rootA;
+    } else {
+      parent[rootB] = rootA;
+      rank[rootA]++;
+    }
+  }
+
+  // First pass: assign labels, merge equivalences
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pos = y * width + x;
+      if (mask[pos] === 0) continue;
+
+      const up = y > 0 ? labels[(y - 1) * width + x] : 0;
+      const left = x > 0 ? labels[y * width + (x - 1)] : 0;
+
+      if (up === 0 && left === 0) {
+        labels[pos] = nextLabel;
+        parent[nextLabel] = nextLabel;
+        rank[nextLabel] = 0;
+        nextLabel++;
+      } else if (up > 0 && left === 0) {
+        labels[pos] = up;
+      } else if (up === 0 && left > 0) {
+        labels[pos] = left;
+      } else {
+        const minLabel = Math.min(find(up), find(left));
+        labels[pos] = minLabel;
+        union(up, left);
+      }
+    }
+  }
+
+  // Second pass: resolve labels and count sizes
+  const blobSizes = new Map<number, number>();
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i] > 0) {
+      const root = find(labels[i]);
+      blobSizes.set(root, (blobSizes.get(root) || 0) + 1);
+    }
+  }
+
+  return blobSizes;
+}
+
+/**
+ * Compute blob metrics from blob sizes.
+ */
+function computeBlobMetrics(
+  blobSizes: Map<number, number>,
+  imagePixelCount: number
+): {
+  dominantMotif: boolean;
+  blobCount: number;
+  largestBlobRatio: number;
+  coverageRatio: number;
+} {
+  const minBlobSize = Math.max(1, Math.floor(imagePixelCount * 0.001)); // 0.1% of image
+  const sizes = Array.from(blobSizes.values())
+    .filter(s => s >= minBlobSize)
+    .sort((a, b) => b - a);
+
+  if (sizes.length < 2) {
+    return { dominantMotif: false, blobCount: sizes.length, largestBlobRatio: 1, coverageRatio: 0 };
+  }
+
+  const largest = sizes[0];
+  const median = sizes[Math.floor(sizes.length / 2)];
+  const scaleRatio = median > 0 ? largest / median : 1;
+  const coverageRatio = largest / imagePixelCount;
+
+  return {
+    dominantMotif: scaleRatio >= 3.0 && coverageRatio >= 0.08,
+    blobCount: sizes.length,
+    largestBlobRatio: scaleRatio,
+    coverageRatio,
+  };
+}
+
+/**
+ * Detect rivers: continuous background channels running through the pattern.
+ */
+function detectRivers(
+  mask: Uint8Array,
+  width: number,
+  height: number
+): {
+  hasVerticalRiver: boolean;
+  hasHorizontalRiver: boolean;
+  hasRiver: boolean;
+} {
+  const RIVER_THRESHOLD = 0.55;
+
+  // Vertical rivers: scan each column for longest background run
+  let hasVerticalRiver = false;
+  for (let x = 0; x < width && !hasVerticalRiver; x++) {
+    let maxRun = 0;
+    let currentRun = 0;
+    for (let y = 0; y < height; y++) {
+      if (mask[y * width + x] === 0) {
+        currentRun++;
+        if (currentRun > maxRun) maxRun = currentRun;
+      } else {
+        currentRun = 0;
+      }
+    }
+    if (maxRun >= height * RIVER_THRESHOLD) hasVerticalRiver = true;
+  }
+
+  // Horizontal rivers: scan each row for longest background run
+  let hasHorizontalRiver = false;
+  for (let y = 0; y < height && !hasHorizontalRiver; y++) {
+    let maxRun = 0;
+    let currentRun = 0;
+    for (let x = 0; x < width; x++) {
+      if (mask[y * width + x] === 0) {
+        currentRun++;
+        if (currentRun > maxRun) maxRun = currentRun;
+      } else {
+        currentRun = 0;
+      }
+    }
+    if (maxRun >= width * RIVER_THRESHOLD) hasHorizontalRiver = true;
+  }
+
+  return { hasVerticalRiver, hasHorizontalRiver, hasRiver: hasVerticalRiver || hasHorizontalRiver };
+}
+
+/**
+ * Analyze motif scale: detect dominant motifs and rivers.
+ * Orchestrates foreground mask → connected components → blob metrics → river detection.
+ */
+function analyzeMotifScale(
+  imageData: ImageData,
+  bgLuminance: number,
+  bgSaturation: number
+): {
+  dominantMotif: boolean;
+  blobCount: number;
+  largestBlobRatio: number;
+  coverageRatio: number;
+  hasVerticalRiver: boolean;
+  hasHorizontalRiver: boolean;
+  hasRiver: boolean;
+} {
+  const { width, height } = imageData;
+  const totalPixels = width * height;
+
+  const mask = createForegroundMask(imageData, bgLuminance, bgSaturation);
+
+  // Quick check: if very little foreground, skip blob analysis
+  let fgCount = 0;
+  for (let i = 0; i < mask.length; i++) fgCount += mask[i];
+  if (fgCount < totalPixels * 0.01) {
+    return {
+      dominantMotif: false, blobCount: 0, largestBlobRatio: 1, coverageRatio: 0,
+      hasVerticalRiver: false, hasHorizontalRiver: false, hasRiver: false,
+    };
+  }
+
+  const blobSizes = labelConnectedComponents(mask, width, height);
+  const blobMetrics = computeBlobMetrics(blobSizes, totalPixels);
+  const riverMetrics = detectRivers(mask, width, height);
+
+  return { ...blobMetrics, ...riverMetrics };
 }
 
 /**
@@ -844,20 +1139,40 @@ export function analyzeComposition(
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  // Calculate visual weight grid
-  const weightGrid = calculateVisualWeightGrid(imageData);
+  // Calculate visual weight grid + background estimates
+  const { grid: weightGrid, bgLuminance, bgSaturation } = calculateVisualWeightGrid(imageData);
 
   // Analyze balance metrics
   const metrics = analyzeBalanceMetrics(weightGrid);
 
-  // Classify distribution pattern
-  const { pattern, confidence } = classifyDistributionPattern(weightGrid, metrics);
+  // Analyze motif scale (blob detection + river detection)
+  const motifScale = analyzeMotifScale(imageData, bgLuminance, bgSaturation);
+
+  // Classify distribution pattern (motif scale can override grid classification)
+  const { pattern, confidence } = classifyDistributionPattern(weightGrid, metrics, motifScale);
 
   // Calculate rhythm strength
   const rhythmStrength = calculateRhythmStrength(imageData);
 
+  // Build scaleAlert if relevant — but suppress for well-balanced structured
+  // patterns (plaid, stripes) where large blobs and background channels are
+  // intentional, not problematic.
+  const isStructuredBalanced = metrics.variance < 0.10 && metrics.overallBalance > 0.80;
+  let scaleAlert: CompositionAnalysis['scaleAlert'] | undefined;
+  if ((motifScale.dominantMotif || motifScale.hasRiver) && !isStructuredBalanced) {
+    scaleAlert = {
+      type: motifScale.dominantMotif && motifScale.hasRiver ? 'both'
+            : motifScale.dominantMotif ? 'dominant-motif' : 'river',
+      largestBlobRatio: motifScale.largestBlobRatio,
+      blobCount: motifScale.blobCount,
+      coveragePercent: motifScale.coverageRatio * 100,
+      hasVerticalRiver: motifScale.hasVerticalRiver,
+      hasHorizontalRiver: motifScale.hasHorizontalRiver,
+    };
+  }
+
   // Generate feedback
-  const feedback = generateCompositionFeedback(pattern, metrics, intendedUse);
+  const feedback = generateCompositionFeedback(pattern, metrics, intendedUse, scaleAlert);
 
   return {
     balanceScore: metrics.overallBalance,
@@ -870,6 +1185,7 @@ export function analyzeComposition(
     message: feedback.message,
     contextHint: feedback.contextHint,
     weightGrid,
+    scaleAlert,
   };
 }
 
