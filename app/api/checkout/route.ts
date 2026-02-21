@@ -91,6 +91,7 @@ export async function POST(req: Request) {
           clerkUserId: userId,
           plan,
         },
+        statement_descriptor_suffix: "PATTERNPAL",
       },
       metadata: {
         clerkUserId: userId,
