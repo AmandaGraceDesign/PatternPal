@@ -98,8 +98,8 @@ export default function QuickExportModal({
   };
 
   const sizes = [
-    { label: '12" × 12"', size: '12', dpi: 150, free: true },
-    { label: '24" × 24"', size: '24', dpi: 150, free: true },
+    { label: '6" × 6"', size: '6', dpi: 150, free: true },
+    { label: '10" × 10"', size: '10', dpi: 150, free: true },
     { label: '12" × 12"', size: '12', dpi: 300, free: false },
     { label: '42" × 42"', size: '42', dpi: 300, free: false },
   ];
@@ -217,7 +217,7 @@ export default function QuickExportModal({
               onClick={onUpgrade}
               className="text-sm text-[#fbbf24] hover:text-[#f59e0b] font-medium transition-colors"
             >
-              Need all 8 sizes + PNG? Upgrade to Pro →
+              Need more sizes + PNG & TIFF? Upgrade to Pro →
             </button>
           </div>
         </div>

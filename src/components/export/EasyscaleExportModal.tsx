@@ -45,6 +45,7 @@ export default function EasyscaleExportModal({
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentSize, setCurrentSize] = useState<{ width: number; height: number } | null>(null);
+  const [customSizeInput, setCustomSizeInput] = useState<string>('');
 
   // Calculate the maximum exportable size (in inches) without upscaling
   // Based on the image's actual pixel dimensions and the target DPI
@@ -271,6 +272,75 @@ export default function EasyscaleExportModal({
                   <p className="text-xs text-[#6b7280] mt-2 italic">
                     💡 Upgrade to Pro to export all sizes (2", 4", 6", 8", 10", 12", 18", 24")
                   </p>
+                )}
+
+                {/* Custom Size Input (Pro only) */}
+                {isPro && (
+                  <div className="mt-3">
+                    <p className="text-[10px] text-[#6b7280] mb-1.5">Custom size (max {maxExportSize.toFixed(1)}" at {selectedDPI} DPI without pixelation)</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max={Math.floor(maxExportSize * 2) / 2}
+                        step="0.5"
+                        value={customSizeInput}
+                        onChange={(e) => setCustomSizeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const val = parseFloat(customSizeInput);
+                            if (val > 0 && isSizeAllowed(val) && !selectedSizes.includes(val)) {
+                              setSelectedSizes(prev => [...prev, val]);
+                              setCustomSizeInput('');
+                            }
+                          }
+                        }}
+                        placeholder="Custom"
+                        className="w-20 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
+                        disabled={isExporting}
+                      />
+                      <span className="text-xs text-[#6b7280]">inches</span>
+                      <button
+                        onClick={() => {
+                          const val = parseFloat(customSizeInput);
+                          if (val > 0 && isSizeAllowed(val) && !selectedSizes.includes(val)) {
+                            setSelectedSizes(prev => [...prev, val]);
+                            setCustomSizeInput('');
+                          }
+                        }}
+                        disabled={isExporting || !customSizeInput || parseFloat(customSizeInput) <= 0 || !isSizeAllowed(parseFloat(customSizeInput || '0'))}
+                        className="px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#e0c26e', color: 'white' }}
+                      >
+                        + Add
+                      </button>
+                      {customSizeInput && parseFloat(customSizeInput) > 0 && !isSizeAllowed(parseFloat(customSizeInput)) && (
+                        <span className="text-[10px] text-red-500">Too large — max {maxExportSize.toFixed(1)}"</span>
+                      )}
+                    </div>
+
+                    {/* Show custom (non-preset) sizes as removable chips */}
+                    {selectedSizes.filter(s => !PRESET_SIZES.includes(s)).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {selectedSizes.filter(s => !PRESET_SIZES.includes(s)).map(size => (
+                          <span
+                            key={size}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-[#faf3e0] border border-[#e0c26e] text-[#294051]"
+                          >
+                            {size}"
+                            <button
+                              onClick={() => setSelectedSizes(prev => prev.filter(s => s !== size))}
+                              className="text-[#705046] hover:text-red-500 leading-none"
+                              disabled={isExporting}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
