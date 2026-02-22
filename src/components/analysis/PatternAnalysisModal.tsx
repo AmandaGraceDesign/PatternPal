@@ -62,6 +62,8 @@ export default function PatternAnalysisModal({
 }: PatternAnalysisModalProps) {
   const [editedColors, setEditedColors] = useState<Array<{ r: number; g: number; b: number }> | null>(null);
   const [isPickingColor, setIsPickingColor] = useState(false);
+  const [contrastLearnMore, setContrastLearnMore] = useState(false);
+  const [harmonyLearnMore, setHarmonyLearnMore] = useState(false);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +136,104 @@ export default function PatternAnalysisModal({
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
+
+  // Reset accordion state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setContrastLearnMore(false);
+      setHarmonyLearnMore(false);
+    }
+  }, [isOpen]);
+
+  // Learn More content — contrast
+  const contrastLearnMoreContent: Record<string, string[]> = {
+    high: [
+      'High contrast means strong separation between motifs and background — through value, color, or both. This is your friend for bold statement prints, children\'s fabric, graphic geometrics, and product thumbnails where you need to grab attention.',
+      'Keep in mind: on large-scale wallpaper or home dec (bedding, curtains), high contrast can feel visually intense. If your design is highly detailed, it can tip into "busy" territory — make sure the eye has a place to rest.',
+      'To soften slightly without losing impact: try muting one saturated color or adding a mid-tone element to bridge the gap between your lightest and darkest values.',
+    ],
+    moderate: [
+      'Moderate contrast is the Goldilocks zone for commercial surface design — enough separation to read clearly, but not so much that it feels harsh.',
+      'Why designers love this range: it\'s licensing-friendly (works across product types without modification), photographs well for listings, and pairs nicely with bolder prints in a collection. These are your workhorse patterns.',
+      'One thing to check: at very small scales (2"-4"), moderate contrast can soften further when printed. Preview at your smallest intended size to make sure details still read.',
+    ],
+    soft: [
+      'Soft contrast creates a tonal, understated look. This is gorgeous when intentional — think tone-on-tone damasks, dreamy nursery pastels, or blenders that support a hero print.',
+      'Be careful: printing softens contrast further. What looks subtly beautiful on screen could be nearly invisible on cotton or canvas. In Spoonflower or Etsy thumbnails, soft patterns can look like solids and shoppers may scroll past.',
+      'If intentional: preview at your smallest intended scale. Market these as "tone-on-tone" or "textured" patterns. If unintentional: increase value difference between motifs and background, boost saturation on motifs, or add a subtle outline to key elements.',
+    ],
+    very_low: [
+      'Very low contrast means minimal visual separation — from a distance or at small scale, this reads as a near-solid or faint texture.',
+      'When this is a win: textured solids and subtle blenders are a legitimate and very sellable category. If you\'re creating a linen-look, woven texture, or barely-there organic pattern — this reading makes sense. These are workhorses in collections.',
+      'When to take action: if you expect visible motifs, adjust before exporting. On most substrates these will be hard to see. The #1 fix is increasing value difference — darken your darkest elements or lighten your lightest. Even a 10-15% value shift can take you from "invisible" to "subtly beautiful."',
+    ],
+  };
+
+  // Learn More content — harmony (by band)
+  const harmonyLearnMoreContent: Record<string, string[]> = {
+    beautiful: [
+      'A harmonious palette means your colors have a natural relationship the eye reads as "on purpose." When colors feel right together, buyers respond to the pattern without being able to articulate why — it just works.',
+      'A strong color harmony also means your pattern holds up across substrates and printing methods. Colors that work together on screen tend to stay cohesive when printed on cotton, polyester, or wallpaper.',
+    ],
+    mostly: [
+      'Visual tension happens when color combinations compete in a way that draws the eye for the wrong reason — the viewer notices the colors instead of appreciating the pattern.',
+      'Common causes: an accent that doesn\'t quite fit the scheme, two colors too close in hue but different in saturation (an uneasy "almost matching" effect), or a warm color in an otherwise cool palette.',
+      'How to fix: identify the awkward pairing by covering colors one at a time. Try shifting the outlier 10-15% in hue, saturation, or value. Sometimes swapping one color for its neighbor on the wheel is all it takes.',
+      'Some tension is intentional and powerful! If you\'re deliberately using an unexpected color as a focal point, own it — the key is it should feel like a confident choice, not an accident.',
+    ],
+    fighting: [
+      'Clashing colors fight for dominance instead of working together, pulling focus away from your motifs. On printed products this effect is even more pronounced — what looks edgy on screen can feel jarring on a pillow or overwhelming on wallpaper.',
+      'Why this happens: colors close but not close enough on the wheel (like red and magenta) create an uneasy vibration. Multiple high-saturation colors at similar values compete — the eye doesn\'t know where to land.',
+      'Fastest fix: establish a color hierarchy — choose one dominant color, mute the others. You can also add a neutral (white, cream, charcoal) as a buffer between competing colors.',
+      'When clashing is intentional: make sure the whole palette feels deliberately rebellious, not just one accidental outlier. Half-clashing reads as a mistake; fully-clashing reads as a statement.',
+    ],
+    too_similar: [
+      'When colors are too similar in hue, saturation, and value, they lose individual identity — especially in print. What looks like three distinct colors on your bright screen can merge into one tone on fabric. Printing naturally compresses color differences.',
+      'The result: motifs disappear into each other. Buyers see a textured solid (at best) or a muddy print (at worst). This is one of the most common reasons patterns underperform on POD platforms.',
+      'Three levers to fix it: (1) Value contrast — make some colors significantly lighter or darker. (2) Saturation contrast — pair muted colors with one or two vibrant versions. (3) Hue shift — move colors further apart on the wheel.',
+      'Test after adjusting: preview on mockups and squint. If you can still distinguish key elements while squinting, you have enough separation.',
+    ],
+  };
+
+  // Learn More content — harmony scheme-specific (shown inside beautiful band)
+  const schemeLearnMoreContent: Record<string, string[]> = {
+    tonal: [
+      'Tonal palettes are incredibly versatile. Because your colors share similar saturation and intensity, they create visual calm — perfect for blenders, nursery designs, and home decor where the pattern needs to live in a room without overwhelming.',
+      'Tonal palettes photograph beautifully for product listings because they feel curated. Just make sure there\'s still enough value difference so motifs remain distinct (check your contrast score).',
+    ],
+    'warm-cool contrast': [
+      'The temperature difference creates a push-pull effect — warm tones come forward, cool tones recede — giving your pattern dimension even on a flat surface.',
+      'Especially effective on larger surfaces like wallpaper, bedding, and curtains where that depth keeps the pattern from feeling flat. Also great for collections, since warm and cool tones naturally create "hero" and "supporting" roles.',
+    ],
+    contrast: [
+      'Clear accent-to-background contrast means motifs are easy to read across products and scales. Especially important for POD thumbnails — buyers can actually see your design at a glance.',
+      'This palette structure gives you flexibility: you can adjust scale without losing readability, because the color relationships do the heavy lifting. Works well for bold patterns, children\'s fabric, and statement prints.',
+    ],
+    monochromatic: [
+      'Monochromatic palettes are a surface designer\'s secret weapon. Because all colors share the same hue family, the pattern feels instantly cohesive — incredibly versatile as a coordinate or blender.',
+      'These sell well in home decor (wallpaper, pillows, bedding) because customers can easily match with existing decor. Just ensure you have at least 3 distinct value steps so motifs don\'t flatten.',
+    ],
+    analogous: [
+      'Analogous palettes mimic how colors appear in nature — sunset gradients, forest greens, ocean blues. The eye moves smoothly without jarring transitions, making these feel soothing and organic.',
+      'Excellent for florals, botanicals, and nature-inspired patterns. Watch for enough value contrast between colors so motifs don\'t blend. If your analogous colors are similar in lightness, darken or lighten one or two for more definition.',
+    ],
+    complementary: [
+      'Complementary colors (opposites on the wheel) create maximum color contrast — energetic, dynamic, and unmissable. A classic relationship for statement prints and children\'s fabric.',
+      'The trade-off: at full saturation, complementary colors can feel intense on large applications. Consider muting one side slightly — let one color dominate while the other plays a supporting accent role.',
+    ],
+    'split-complementary': [
+      'Split-complementary gives you the energy of complementary colors but with more variety and less risk of feeling too intense. A sophisticated choice for complex patterns.',
+      'You have a natural "dominant" color and two accent colors that both contrast with it but also relate to each other. Each motif type can own a color while still feeling cohesive.',
+    ],
+    triadic: [
+      'Triadic palettes offer strong visual variety while maintaining balance. Fantastic for playful, energetic patterns — children\'s fabric, bold home decor, and graphic prints.',
+      'Key to making it work: let one color dominate (~60%), use the second as support (~30%), and save the third as an accent (~10%). If all three compete equally, the pattern can feel chaotic.',
+    ],
+    tetradic: [
+      'Tetradic palettes use two complementary pairs, giving the most color variety. When balanced well, they create stunning, layered patterns.',
+      'The challenge is hierarchy: choose one dominant, one secondary, and use the remaining two as accents. Make sure at least one or two colors are more muted. When done right, tetradic palettes feel lush and reward close inspection.',
+    ],
+  };
 
   if (!isOpen) return null;
 
@@ -278,6 +378,31 @@ export default function PatternAnalysisModal({
                   <p className="text-sm text-[#374151] leading-relaxed">
                     {contrastAnalysis.message}
                   </p>
+                  {/* Learn More accordion */}
+                  <button
+                    onClick={() => setContrastLearnMore(!contrastLearnMore)}
+                    className="mt-2 text-[11px] font-medium text-[#8b7d5e] hover:text-[#6b5d3e] flex items-center gap-1 transition-colors"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      className={`transition-transform ${contrastLearnMore ? 'rotate-90' : ''}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    {contrastLearnMore ? 'Show Less' : 'Learn More'}
+                  </button>
+                  {contrastLearnMore && contrastLearnMoreContent[contrastAnalysis.band] && (
+                    <div className="mt-2 space-y-2 text-xs text-[#6b7280] leading-relaxed bg-[#faf9f7] rounded-lg p-3 border border-[#f0ede8]">
+                      {contrastLearnMoreContent[contrastAnalysis.band].map((para, i) => (
+                        <p key={i}>{para}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -341,9 +466,44 @@ export default function PatternAnalysisModal({
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm text-[#374151] leading-relaxed mb-3">
+                  <p className="text-sm text-[#374151] leading-relaxed mb-2">
                     {effectiveAnalysis.message}
                   </p>
+                  {/* Learn More accordion */}
+                  <button
+                    onClick={() => setHarmonyLearnMore(!harmonyLearnMore)}
+                    className="mb-3 text-[11px] font-medium text-[#8b7d5e] hover:text-[#6b5d3e] flex items-center gap-1 transition-colors"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      className={`transition-transform ${harmonyLearnMore ? 'rotate-90' : ''}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    {harmonyLearnMore ? 'Show Less' : 'Learn More'}
+                  </button>
+                  {harmonyLearnMore && (
+                    <div className="mb-3 space-y-2 text-xs text-[#6b7280] leading-relaxed bg-[#faf9f7] rounded-lg p-3 border border-[#f0ede8]">
+                      {/* Band-level Learn More */}
+                      {harmonyLearnMoreContent[effectiveAnalysis.band]?.map((para, i) => (
+                        <p key={`band-${i}`}>{para}</p>
+                      ))}
+                      {/* Scheme-specific Learn More (only for beautiful band with a detected scheme) */}
+                      {effectiveAnalysis.band === 'beautiful' && effectiveAnalysis.detectedScheme && schemeLearnMoreContent[effectiveAnalysis.detectedScheme] && (
+                        <>
+                          <hr className="border-[#e8e4dc] my-1" />
+                          {schemeLearnMoreContent[effectiveAnalysis.detectedScheme].map((para, i) => (
+                            <p key={`scheme-${i}`}>{para}</p>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   {/* Swatches */}
                   {effectiveAnalysis.isNeutralDominant ? (

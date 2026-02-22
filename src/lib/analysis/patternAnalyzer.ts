@@ -354,23 +354,23 @@ export function analyzeContrast(
   if (band === 'high') {
     status = 'ok';
     severity = 'none';
-    message = 'Bold, dramatic patterns where motifs really pop.';
+    message = 'Strong visual impact — your motifs really stand out. This works great for most commercial patterns, especially small-scale prints and POD product listings where you need the design to catch the eye.';
     label = 'High Contrast';
   } else if (band === 'moderate') {
     status = 'ok';
     severity = 'info';
-    message = 'Balanced patterns that read clearly.';
+    message = 'Clear and versatile — this is the sweet spot for most sellable patterns. Your motifs read well without overpowering, and this contrast level works beautifully across fabric, wallpaper, and product applications.';
     label = 'Moderate Contrast';
   } else if (band === 'soft') {
     status = 'soft';
     severity = 'info';
-    message = 'Subtle, tonal patterns — check they don\'t look too flat.';
+    message = 'Subtle and tonal — this can be beautiful for blenders, coordinates, and sophisticated designs. Just double-check this is intentional, because soft contrast can lose detail at smaller scales and may look washed out in product photos.';
     label = 'Soft Contrast';
   } else {
     // very_low
     status = 'risky';
     severity = 'warning';
-    message = 'Warning! Motifs may disappear or look muddy on fabric.';
+    message = 'Heads up — your motifs are very close to the background and may be hard to see when printed. This works for intentional textured solids and subtle blenders, but if you\'re expecting visible motifs, you\'ll want to increase the contrast before exporting.';
     label = 'Very Low Contrast';
   }
   
@@ -1464,33 +1464,39 @@ export function evaluateColorHarmony(
   };
 
   const schemeMessages: Record<string, string> = {
-    tonal: 'These muted, earthy tones share a similar intensity — they naturally harmonize regardless of hue.',
-    'warm-cool contrast': 'Warm and cool tones play off each other — a timeless combination that creates depth and visual interest.',
-    contrast: 'Your accent colors each stand out clearly against the background — the palette reads as intentional and balanced.',
+    tonal: 'These muted, earthy tones share a similar intensity — they harmonize naturally and create a cohesive, sophisticated feel that\'s very on-trend for home dec and apparel.',
+    'warm-cool contrast': 'Warm and cool tones play off each other here — this creates natural depth and visual interest that keeps the eye moving across your pattern.',
+    contrast: 'Your accent colors stand out clearly against the background — the palette reads as intentional and gives each element its own space to shine.',
+    monochromatic: 'This is a monochromatic palette — different values and saturations of the same hue. It creates an elegant, cohesive look that\'s naturally harmonious.',
+    analogous: 'This is an analogous palette — neighboring colors on the color wheel. It creates a naturally flowing, harmonious feel that\'s pleasing to the eye.',
+    complementary: 'This is a complementary palette — opposite colors on the color wheel. It creates vibrant energy and strong visual contrast that makes motifs pop.',
+    'split-complementary': 'This is a split-complementary palette — it has the vibrancy of complementary colors but with more nuance and flexibility. Great eye for color!',
+    triadic: 'This is a triadic palette — three colors evenly spaced on the color wheel. It\'s vibrant and balanced, with a natural sense of variety.',
+    tetradic: 'This is a tetradic palette — four colors forming a rectangle on the color wheel. This is a rich, complex palette with lots of variety to work with.',
   };
 
   const bandCopy: Record<ColorHarmonyAnalysis['band'], { label: string; message: string; severity: ColorHarmonyAnalysis['severity'] }> = {
     beautiful: {
-      label: 'Colors work beautifully together',
+      label: 'Your colors work beautifully together',
       message: schemeMessages[effectiveScheme]
         ?? (isRecognizedScheme && schemeName[effectiveScheme]
-          ? `This is a ${schemeName[effectiveScheme]} palette — a classic color relationship that feels intentional and balanced.`
-          : 'Your palette has a natural balance that feels intentional.'),
+          ? schemeMessages[effectiveScheme] || `Your colors work beautifully together — this palette feels intentional and balanced. It'll translate well across fabric, wallpaper, and product applications.`
+          : 'Your colors work beautifully together — this palette feels intentional and balanced. It\'ll translate well across fabric, wallpaper, and product applications.'),
       severity: 'none',
     },
     mostly: {
-      label: 'Colors mostly work',
-      message: 'A few combinations might create visual tension — worth a second look.',
+      label: 'Your colors mostly work together',
+      message: 'Your colors mostly work together, but a few combinations create visual tension. This doesn\'t mean it\'s wrong — but take a second look to make sure it\'s intentional.',
       severity: 'info',
     },
     fighting: {
       label: 'Colors are fighting each other',
-      message: 'Some hues compete for attention in a way that feels unintentional.',
+      message: 'Some of your colors compete for attention in a way that may feel unintentional. This can distract from your motifs and make the pattern feel chaotic on products — especially at smaller scales.',
       severity: 'warning',
     },
     too_similar: {
       label: 'Too similar to read as separate colors',
-      message: 'Your palette may blend into a single muddy tone on fabric.',
+      message: 'Your colors are so close that they may blend into one muddy tone when printed on fabric or products. Motifs could lose definition and the pattern may look like a single washed-out color.',
       severity: 'warning',
     },
   };

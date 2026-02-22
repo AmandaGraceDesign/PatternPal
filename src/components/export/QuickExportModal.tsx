@@ -172,27 +172,6 @@ export default function QuickExportModal({
             </div>
           </div>
 
-          {/* Format Section */}
-          <div>
-            <h4 className="text-sm font-semibold text-[#294051] mb-3">Format</h4>
-            <div className="flex gap-3">
-              <div className="flex-1 p-3 rounded-lg border-2 border-[#4caf50] bg-[#4caf50]/5">
-                <div className="text-sm font-semibold text-[#294051]">JPG</div>
-                <div className="text-xs text-gray-500">Active</div>
-              </div>
-              <button
-                onClick={onUpgrade}
-                className="flex-1 p-3 rounded-lg border-2 border-gray-200 bg-gray-50 cursor-pointer hover:border-[#fbbf24] transition-colors relative"
-              >
-                <div className="text-sm font-semibold text-gray-400">PNG</div>
-                <div className="text-xs text-gray-400">Locked</div>
-                <span className="absolute top-2 right-2 text-[9px] font-bold bg-gradient-to-r from-[#fbbf24] to-[#f59e0b] text-white px-2 py-1 rounded">
-                  PRO
-                </span>
-              </button>
-            </div>
-          </div>
-
           {/* Export Button */}
           <button
             onClick={() => {
