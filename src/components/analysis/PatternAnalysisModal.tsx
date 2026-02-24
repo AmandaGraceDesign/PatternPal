@@ -83,6 +83,7 @@ export default function PatternAnalysisModal({
   }, [editedColors, colorHarmonyAnalysis]);
 
   const handleAddColor = useCallback(async () => {
+    if (getBaseColors().length >= 8) return;
     if ('EyeDropper' in window) {
       try {
         // Hide modal so eyedropper picks true colors, not darkened ones
@@ -107,6 +108,7 @@ export default function PatternAnalysisModal({
   }, [getBaseColors, onColorHarmonyUpdate]);
 
   const handleColorInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (getBaseColors().length >= 8) return;
     const hex = e.target.value;
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -544,17 +546,22 @@ export default function PatternAnalysisModal({
                           </div>
                         ))}
 
-                        {/* Add color button */}
-                        <button
-                          onClick={handleAddColor}
-                          className="w-8 h-8 rounded-full border-2 border-dashed border-[#e0c26e] hover:border-[#e8d28e] hover:bg-[#e0c26e]/10 flex items-center justify-center transition-colors"
-                          title={'EyeDropper' in window ? 'Pick a color from the pattern' : 'Add a color'}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0c26e" strokeWidth={2.5}>
-                            <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                          </svg>
-                        </button>
+                        {/* Add color button — hidden when 8 colors reached */}
+                        {effectiveAnalysis.chromaticColors.length < 8 && (
+                          <button
+                            onClick={handleAddColor}
+                            className="w-8 h-8 rounded-full border-2 border-dashed border-[#e0c26e] hover:border-[#e8d28e] hover:bg-[#e0c26e]/10 flex items-center justify-center transition-colors"
+                            title={'EyeDropper' in window ? 'Pick a color from the pattern' : 'Add a color'}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0c26e" strokeWidth={2.5}>
+                              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
+                      <p className="text-[10px] text-[#9ca3af] mt-1">
+                        Analyze up to 8 colors from your pattern
+                      </p>
 
                       {/* Clash / tense pair details */}
                       {(effectiveAnalysis.clashPairs.length > 0 || effectiveAnalysis.tensePairs.length > 0) && (
@@ -612,9 +619,9 @@ export default function PatternAnalysisModal({
                         </div>
                       )}
 
-                      {effectiveAnalysis.totalChromaticCount > 6 && (
+                      {effectiveAnalysis.totalChromaticCount > 8 && (
                         <p className="text-[10px] text-[#9ca3af] mt-2">
-                          Showing 6 of {effectiveAnalysis.totalChromaticCount} colors
+                          Showing 8 of {effectiveAnalysis.totalChromaticCount} colors
                         </p>
                       )}
 

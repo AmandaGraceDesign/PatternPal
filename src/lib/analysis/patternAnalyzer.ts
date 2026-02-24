@@ -16,7 +16,7 @@ export interface ContrastAnalysis {
 
 export interface CompositionAnalysis {
   balanceScore: number; // 0-1, higher = more balanced
-  distributionPattern: 'all-over' | 'focal-point' | 'directional' | 'structured' | 'organic' | 'dominant-motif';
+  distributionPattern: 'all-over' | 'focal-point' | 'directional' | 'structured' | 'organic' | 'dominant-motif' | 'striped';
   distributionConfidence: number; // 0-1
   rhythmStrength: number; // 0-1
   band: 'balanced' | 'dynamic' | 'asymmetric';
@@ -335,9 +335,9 @@ export function analyzeContrast(
   
   // Determine contrast band
   let band: 'high' | 'moderate' | 'soft' | 'very_low';
-  if (globalContrast >= 0.45) {
+  if (globalContrast >= 0.60) {
     band = 'high';
-  } else if (globalContrast >= 0.25) {
+  } else if (globalContrast >= 0.30) {
     band = 'moderate';
   } else if (globalContrast >= 0.12) {
     band = 'soft';
@@ -733,11 +733,76 @@ function calculateRhythmStrength(imageData: ImageData): number {
 /**
  * Classify distribution pattern
  */
+/**
+ * Detect stripes from pixel data by comparing row-by-row vs column-by-column
+ * luminance profiles. The 3x3 grid is too coarse for regular stripes — each
+ * cell contains the same mix of bands, so variance is low and they look "even."
+ * This function compares the standard deviation of row averages vs column averages:
+ * horizontal stripes have high row variance but low column variance, and vice versa.
+ */
+function detectStripePattern(imageData: ImageData): { isStriped: boolean; confidence: number } {
+  const { width, height, data } = imageData;
+
+  // Compute average luminance per row (normalized 0-1)
+  const rowAvgs: number[] = [];
+  for (let y = 0; y < height; y++) {
+    let sum = 0;
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      sum += data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+    }
+    rowAvgs.push(sum / width / 255);
+  }
+
+  // Compute average luminance per column (normalized 0-1)
+  const colAvgs: number[] = [];
+  for (let x = 0; x < width; x++) {
+    let sum = 0;
+    for (let y = 0; y < height; y++) {
+      const idx = (y * width + x) * 4;
+      sum += data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+    }
+    colAvgs.push(sum / height / 255);
+  }
+
+  // Standard deviation helper
+  const stdDev = (arr: number[]) => {
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    return Math.sqrt(arr.reduce((sum, v) => sum + (v - mean) ** 2, 0) / arr.length);
+  };
+
+  const rowSD = stdDev(rowAvgs);
+  const colSD = stdDev(colAvgs);
+
+  // Horizontal stripes: high row SD, low column SD (ratio > 3)
+  // Vertical stripes: high column SD, low row SD (ratio > 3)
+  const hRatio = rowSD / Math.max(colSD, 0.001);
+  const vRatio = colSD / Math.max(rowSD, 0.001);
+
+  const minSD = 0.02; // Need at least some variation to call it striped
+  if (hRatio > 3 && rowSD > minSD) {
+    return { isStriped: true, confidence: Math.min(1, hRatio / 10) };
+  }
+  if (vRatio > 3 && colSD > minSD) {
+    return { isStriped: true, confidence: Math.min(1, vRatio / 10) };
+  }
+
+  return { isStriped: false, confidence: 0 };
+}
+
 function classifyDistributionPattern(
   grid: number[][],
   metrics: ReturnType<typeof analyzeBalanceMetrics>,
-  motifScale?: { dominantMotif: boolean; blobCount: number; largestBlobRatio: number }
+  motifScale?: { dominantMotif: boolean; blobCount: number; largestBlobRatio: number },
+  stripeDetection?: { isStriped: boolean; confidence: number }
 ): { pattern: CompositionAnalysis['distributionPattern']; confidence: number } {
+
+  // Pixel-level stripe detection runs first — the 3x3 grid is too coarse to see
+  // regular stripes (each cell averages out to the same value). This check uses
+  // row vs column luminance profiles from the actual image data.
+  if (stripeDetection?.isStriped) {
+    return { pattern: 'striped', confidence: stripeDetection.confidence };
+  }
 
   // Dominant motif overrides grid classification — the 3x3 grid can't see
   // scale imbalance, so when blob analysis detects it, that signal takes priority.
@@ -768,8 +833,8 @@ function classifyDistributionPattern(
     return { pattern: 'directional', confidence: Math.min(1, maxGradient) };
   }
 
-  // Structured: High symmetry + medium variance
-  if (symmetryScore > 0.6 && metrics.variance > 0.08 && metrics.variance < 0.35) {
+  // Structured: High symmetry + medium variance (tightened threshold to reduce false positives)
+  if (symmetryScore > 0.75 && metrics.variance > 0.08 && metrics.variance < 0.35) {
     return { pattern: 'structured', confidence: symmetryScore };
   }
 
@@ -847,6 +912,11 @@ function generateCompositionFeedback(
         label = 'Structured Grid';
         message = 'Elements follow a geometric grid with good rhythm.';
         contextHint = 'Creates calm, predictable visual order.';
+        break;
+      case 'striped':
+        label = 'Striped / Linear';
+        message = 'Elements follow a striped or linear layout with consistent rhythm.';
+        contextHint = 'Stripes create strong visual direction — great for apparel and home dec.';
         break;
       case 'organic':
         label = 'Organic Distribution';
@@ -1148,8 +1218,11 @@ export function analyzeComposition(
   // Analyze motif scale (blob detection + river detection)
   const motifScale = analyzeMotifScale(imageData, bgLuminance, bgSaturation);
 
+  // Detect stripes from pixel data (3x3 grid is too coarse for regular stripes)
+  const stripeDetection = detectStripePattern(imageData);
+
   // Classify distribution pattern (motif scale can override grid classification)
-  const { pattern, confidence } = classifyDistributionPattern(weightGrid, metrics, motifScale);
+  const { pattern, confidence } = classifyDistributionPattern(weightGrid, metrics, motifScale, stripeDetection);
 
   // Calculate rhythm strength
   const rhythmStrength = calculateRhythmStrength(imageData);
@@ -1323,7 +1396,7 @@ export function evaluateColorHarmony(
   // All colors (including neutrals like white/black) for display as swatches.
   // Users can manually add any color — neutrals should still appear, just not
   // participate in clash detection.
-  const allTop = withHsl.slice(0, 6);
+  const allTop = withHsl.slice(0, 8);
 
   const totalChromaticCount = chromatic.length;
   const isNeutralDominant = totalChromaticCount < 2;
@@ -1344,7 +1417,7 @@ export function evaluateColorHarmony(
     };
   }
 
-  const top = chromatic.slice(0, 6);
+  const top = chromatic.slice(0, 8);
   const allHues = top.map(c => c.h);
 
   // Deduplicate hues: merge hues within 15° into one representative
@@ -1520,7 +1593,7 @@ export function evaluateColorHarmony(
         clashingWith: flagSwatches ? (clashingWithMap.get(i) ?? []) : [],
       })),
       // Neutral colors (white, black, grays) — always shown, never clashing
-      ...withHsl.filter(c => !isChromaticColor(c)).slice(0, 6 - top.length).map(c => ({
+      ...withHsl.filter(c => !isChromaticColor(c)).slice(0, 8 - top.length).map(c => ({
         r: c.r,
         g: c.g,
         b: c.b,
