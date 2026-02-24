@@ -224,11 +224,10 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           }
         />
 
-        {/* Mockups */}
+        {/* Mockups — always opens gallery (free users see upgrade overlay inside) */}
         <ToolButton
           onClick={() => setIsMockupGalleryOpen(true)}
           disabled={!image}
-          proOnly
           label="Mockups"
           description="Preview on products & download"
           icon={

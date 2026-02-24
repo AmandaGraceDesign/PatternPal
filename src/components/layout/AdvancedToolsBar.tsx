@@ -234,13 +234,13 @@ export default function AdvancedToolsBar({
             disabled={!image}
           />
 
-          {/* Card 5: Mockups (PRO) */}
+          {/* Card 5: Mockups — always opens gallery (free users see upgrade overlay inside) */}
           <ToolCard
             icon="🎨"
             title="Mockups"
             description="Preview on products & download"
             isPro={proAllowed}
-            onClick={() => handleProToolClick(() => setIsMockupsOpen(true))}
+            onClick={() => setIsMockupsOpen(true)}
             disabled={!image}
           />
         </div>
