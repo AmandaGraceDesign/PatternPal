@@ -168,10 +168,9 @@ export default function PatternPreviewCanvas({
     // Ensure high-quality rendering settings
     canvasCtx.imageSmoothingEnabled = true;
     canvasCtx.imageSmoothingQuality = 'high';
-    
-    // Clear canvas (using display coordinates since context is scaled)
-    canvasCtx.fillStyle = '#0f172a'; // slate-900
-    canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+    // NOTE: Canvas clear is deferred to inside the async onload callbacks below.
+    // Clearing here would flash the dark background while the new tile image loads.
 
     if (!image) {
       // Render placeholder pattern
@@ -220,8 +219,14 @@ export default function PatternPreviewCanvas({
           requestAnimationFrame(() => {
             const scaledImg = new Image();
             scaledImg.onload = () => {
+            // Clear canvas right before drawing so old pattern stays visible until now
+            canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+            canvasCtx.scale(currentDpr, currentDpr);
+            canvasCtx.fillStyle = '#0f172a';
+            canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
             tiler.render(scaledImg, repeatType);
-            
+
             // Draw tile outline for placeholder if enabled
             if (showTileOutline) {
               // Re-apply DPR scaling
@@ -317,14 +322,18 @@ export default function PatternPreviewCanvas({
         console.log('Scaled image loaded, rendering pattern...');
         // Store tile display size in callback to avoid setState in effect
         setTileDisplaySize({ width: displayWidth, height: displayHeight });
-        
+
         // Re-apply DPR scaling before rendering pattern (in case it was reset)
         const currentDpr = window.devicePixelRatio || 1;
         canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
         canvasCtx.scale(currentDpr, currentDpr);
         canvasCtx.imageSmoothingEnabled = true;
         canvasCtx.imageSmoothingQuality = 'high';
-        
+
+        // Clear canvas right before drawing so old pattern stays visible until now
+        canvasCtx.fillStyle = '#0f172a';
+        canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
         // Render the tiled pattern
         tiler.render(scaledImg, repeatType);
         
