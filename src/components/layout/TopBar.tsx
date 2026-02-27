@@ -5,6 +5,7 @@ import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useState } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionButton';
+import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
 
 export default function TopBar() {
   const { user, isSignedIn } = useUser();
@@ -41,6 +42,16 @@ export default function TopBar() {
           Help
         </button>
         <SignedIn>
+          {isPro && (
+            <a
+              href="https://patternpal-pro.getrewardful.com/signup"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+            >
+              Affiliate
+            </a>
+          )}
           {isPro ? (
             <ManageSubscriptionButton />
           ) : (
@@ -69,6 +80,8 @@ export default function TopBar() {
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
       />
+
+      {isPro && <AffiliateSlideOut />}
     </header>
   );
 }
