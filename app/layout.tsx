@@ -39,18 +39,12 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          {children}
           {/* Rewardful affiliate tracking */}
+          <Script src="https://r.wdfl.co/rw.js" data-rewardful="97736d" />
           <Script id="rewardful-queue" strategy="beforeInteractive">
             {`(function(w,r){w._rwq=r;w[r]=w[r]||function(){(w[r].q=w[r].q||[]).push(arguments)}})(window,'rewardful');`}
           </Script>
-          {process.env.NEXT_PUBLIC_REWARDFUL_API_KEY && (
-            <Script
-              src="https://r.wdfl.co/rw.js"
-              data-rewardful={process.env.NEXT_PUBLIC_REWARDFUL_API_KEY}
-              strategy="afterInteractive"
-            />
-          )}
-          {children}
         </body>
       </html>
     </ClerkProvider>
