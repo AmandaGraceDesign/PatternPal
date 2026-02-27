@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { plan } = (await req.json()) as { plan?: Plan };
+    const { plan, referral } = (await req.json()) as { plan?: Plan; referral?: string };
     if (plan !== "monthly" && plan !== "yearly") {
       return NextResponse.json(
         { error: "Invalid plan", code: "invalid_plan" },
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancel`,
       customer_email: email ?? undefined,
-      client_reference_id: userId,
+      client_reference_id: referral || userId,
       subscription_data: {
         metadata: {
           clerkUserId: userId,

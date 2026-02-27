@@ -18,6 +18,18 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
   const [interval, setInterval] = useState<BillingInterval>('month');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [referral, setReferral] = useState<string | null>(null);
+
+  // Capture Rewardful referral ID for affiliate attribution
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof window.rewardful === 'function') {
+      window.rewardful('ready', () => {
+        if (window.Rewardful?.referral) {
+          setReferral(window.Rewardful.referral);
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !initialPlan) return;
@@ -41,7 +53,10 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: interval === 'month' ? 'monthly' : 'yearly' }),
+        body: JSON.stringify({
+          plan: interval === 'month' ? 'monthly' : 'yearly',
+          referral: referral || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.url) {
