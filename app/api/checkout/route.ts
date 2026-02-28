@@ -13,6 +13,12 @@ function getPriceId(plan: Plan) {
   return process.env.STRIPE_PRICE_YEARLY;
 }
 
+// Hardcoded promo code configuration
+// Key: lowercase code, Value: trial config
+const PROMO_CODES: Record<string, { trialDays: number; description: string }> = {
+  affiliate20: { trialDays: 120, description: "Affiliate 4-month free trial" },
+};
+
 export async function POST(req: Request) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -33,7 +39,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const { plan, referral } = (await req.json()) as { plan?: Plan; referral?: string };
+    const { plan, referral, promoCode } = (await req.json()) as {
+      plan?: Plan;
+      referral?: string;
+      promoCode?: string;
+    };
     if (plan !== "monthly" && plan !== "yearly") {
       return NextResponse.json(
         { error: "Invalid plan", code: "invalid_plan" },
@@ -79,6 +89,23 @@ export async function POST(req: Request) {
 
     const origin = requestOrigin;
 
+    // Validate promo code if provided
+    let trialPeriodDays: number | undefined;
+    let promoDescription: string | undefined;
+
+    if (promoCode) {
+      const normalizedCode = promoCode.trim().toLowerCase();
+      const promoConfig = PROMO_CODES[normalizedCode];
+      if (!promoConfig) {
+        return NextResponse.json(
+          { error: "Invalid promo code", code: "invalid_promo_code" },
+          { status: 400 }
+        );
+      }
+      trialPeriodDays = promoConfig.trialDays;
+      promoDescription = promoConfig.description;
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       allow_promotion_codes: true,
@@ -91,8 +118,12 @@ export async function POST(req: Request) {
         metadata: {
           clerkUserId: userId,
           plan,
+          ...(promoCode ? { promoCode: promoCode.trim().toLowerCase() } : {}),
         },
-        description: "PatternPal Pro Subscription",
+        description: promoDescription
+          ? `PatternPal Pro Subscription (${promoDescription})`
+          : "PatternPal Pro Subscription",
+        ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
       },
       metadata: {
         clerkUserId: userId,

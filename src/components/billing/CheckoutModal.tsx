@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 
+// Client-side promo code validation for instant UX feedback
+// Server-side validation in /api/checkout is the security gate
+const VALID_PROMO_CODES: Record<string, string> = {
+  affiliate20: '4-month free trial applied!',
+};
+
 type BillingInterval = 'month' | 'year';
 
 interface CheckoutModalProps {
@@ -19,6 +25,10 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [referral, setReferral] = useState<string | null>(null);
+  const [showPromoInput, setShowPromoInput] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   // Capture Rewardful referral ID for affiliate attribution
   useEffect(() => {
@@ -35,6 +45,23 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
     if (!isOpen || !initialPlan) return;
     setInterval(initialPlan === 'yearly' ? 'year' : 'month');
   }, [isOpen, initialPlan]);
+
+  const handleApplyPromo = () => {
+    const normalized = promoCode.trim().toLowerCase();
+    if (!normalized) {
+      setPromoError('Please enter a promo code.');
+      setPromoApplied(false);
+      return;
+    }
+    const successMessage = VALID_PROMO_CODES[normalized];
+    if (successMessage) {
+      setPromoApplied(true);
+      setPromoError(null);
+    } else {
+      setPromoApplied(false);
+      setPromoError('Invalid promo code.');
+    }
+  };
 
   const handleStartCheckout = async () => {
     if (!userId) {
@@ -56,6 +83,7 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
         body: JSON.stringify({
           plan: interval === 'month' ? 'monthly' : 'yearly',
           referral: referral || undefined,
+          promoCode: promoApplied ? promoCode.trim() : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -119,6 +147,72 @@ export default function CheckoutModal({ isOpen, onClose, initialPlan }: Checkout
                 2 months free
               </div>
             </button>
+          </div>
+
+          {/* Promo code section */}
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPromoInput(!showPromoInput);
+                if (showPromoInput) {
+                  setPromoCode('');
+                  setPromoApplied(false);
+                  setPromoError(null);
+                }
+              }}
+              className="text-xs text-[#6b7280] hover:text-[#294051] underline transition-colors"
+            >
+              {showPromoInput ? 'Hide promo code' : 'Have a promo code?'}
+            </button>
+            {showPromoInput && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value);
+                    if (promoApplied) setPromoApplied(false);
+                    if (promoError) setPromoError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !promoApplied) handleApplyPromo();
+                  }}
+                  placeholder="Enter promo code"
+                  disabled={promoApplied}
+                  className="flex-1 border border-[#e5e7eb] rounded-md px-3 py-1.5 text-sm text-[#294051] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#e0c26e] disabled:bg-gray-50 disabled:text-[#6b7280]"
+                />
+                {!promoApplied ? (
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    className="px-3 py-1.5 text-sm font-medium rounded-md border border-[#e0c26e] text-[#294051] hover:bg-[#fff4f5] transition-colors"
+                  >
+                    Apply
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPromoCode('');
+                      setPromoApplied(false);
+                      setPromoError(null);
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium rounded-md border border-[#e5e7eb] text-[#6b7280] hover:text-[#294051] hover:border-[#294051] transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+            {promoApplied && (
+              <p className="mt-1 text-xs text-green-600 font-medium">
+                {VALID_PROMO_CODES[promoCode.trim().toLowerCase()]}
+              </p>
+            )}
+            {promoError && (
+              <p className="mt-1 text-xs text-red-600">{promoError}</p>
+            )}
           </div>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
