@@ -38,15 +38,17 @@ interface ToolCardProps {
   isPro?: boolean; // User's Pro status
   onClick: () => void;
   disabled?: boolean;
+  dataTour?: string;
 }
 
-function ToolCard({ icon, title, description, isFree = false, isPro = false, onClick, disabled = false }: ToolCardProps) {
+function ToolCard({ icon, title, description, isFree = false, isPro = false, onClick, disabled = false, dataTour }: ToolCardProps) {
   const showBadge = !isPro; // Hide badge if user is Pro
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      data-tour={dataTour}
       className={`group relative flex items-center gap-2 md:gap-3 min-w-[160px] md:min-w-[200px] px-3 md:px-5 py-3 md:py-4 rounded-lg border-2 transition-all duration-200 ${
         isFree
           ? 'border-[#4caf50] hover:shadow-[0_4px_16px_rgba(76,175,80,0.3)] hover:-translate-y-0.5'
@@ -212,6 +214,7 @@ export default function AdvancedToolsBar({
             isPro={proAllowed}
             onClick={() => handleProToolClick(() => setIsEasyscaleOpen(true))}
             disabled={!image}
+            dataTour="easyscale-export"
           />
 
           {/* Card 3: Pattern Analysis (PRO) */}
@@ -222,6 +225,7 @@ export default function AdvancedToolsBar({
             isPro={proAllowed}
             onClick={() => handleProToolClick(() => setIsAnalysisOpen(true))}
             disabled={!image}
+            dataTour="pattern-analysis"
           />
 
           {/* Card 4: Seam Analyzer (PRO) */}
@@ -232,6 +236,7 @@ export default function AdvancedToolsBar({
             isPro={proAllowed}
             onClick={() => handleProToolClick(() => setIsSeamOpen(true))}
             disabled={!image}
+            dataTour="seam-analyzer"
           />
 
           {/* Card 5: Mockups — always opens gallery (free users see upgrade overlay inside) */}
@@ -242,6 +247,7 @@ export default function AdvancedToolsBar({
             isPro={proAllowed}
             onClick={() => setIsMockupsOpen(true)}
             disabled={!image}
+            dataTour="mockups"
           />
         </div>
       </div>

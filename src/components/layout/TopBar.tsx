@@ -6,11 +6,13 @@ import { useState } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionButton';
 import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
+import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
 export default function TopBar() {
   const { user, isSignedIn } = useUser();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [tourKey, setTourKey] = useState(0);
 
   const handleHelp = () => {
     window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
@@ -34,6 +36,16 @@ export default function TopBar() {
 
       {/* Right: Help and Upgrade */}
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            try { localStorage.removeItem('welcomeTourDismissed'); } catch {}
+            setTourKey((k) => k + 1);
+          }}
+          className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+        >
+          Tour
+        </button>
         <button
           type="button"
           onClick={handleHelp}
@@ -82,6 +94,8 @@ export default function TopBar() {
       />
 
       {isPro && <AffiliateSlideOut />}
+
+      <WelcomeModal key={tourKey} />
     </header>
   );
 }

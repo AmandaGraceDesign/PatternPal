@@ -158,6 +158,7 @@ export default function PatternControlsTopBar({
         <div className="grid grid-cols-2 gap-4 lg:flex lg:flex-wrap lg:items-start lg:justify-center">
         {/* Upload Tile Section */}
         <div
+          data-tour="upload-pattern"
           className="min-w-0 col-span-2 lg:col-span-1 lg:min-w-[240px] space-y-2 rounded-lg transition-colors"
           style={{
             borderColor: isDragging ? '#e0c26e' : 'transparent',
@@ -201,7 +202,7 @@ export default function PatternControlsTopBar({
         </div>
 
         {/* Repeat Type Section */}
-        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[200px]">
+        <div data-tour="repeat-type" className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[200px]">
           <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Repeat Type
           </h2>
@@ -246,7 +247,7 @@ export default function PatternControlsTopBar({
         </div>
 
         {/* Scale Preview Section */}
-        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[260px]">
+        <div data-tour="scale-preview" className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[260px]">
           <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Scale Preview
           </h2>
@@ -298,7 +299,7 @@ export default function PatternControlsTopBar({
         </div>
 
         {/* Zoom Section */}
-        <div className="min-w-0 col-span-2 sm:col-span-1 border-l border-white/20 pl-4 lg:min-w-[240px]">
+        <div data-tour="zoom-slider" className="min-w-0 col-span-2 sm:col-span-1 border-l border-white/20 pl-4 lg:min-w-[240px]">
           <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Zoom: {Math.round(zoom)}%
           </h2>
@@ -338,7 +339,7 @@ export default function PatternControlsTopBar({
         </div>
 
         {/* Options Section */}
-        <div className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[160px]">
+        <div data-tour="tile-outline" className="min-w-0 border-l border-white/20 pl-4 lg:min-w-[160px]">
           <h2 className="text-xs font-semibold text-white mb-2 uppercase tracking-wide">
             Options
           </h2>
