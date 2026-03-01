@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
+import { useClerk, useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 
 // Client-side promo code validation for instant UX feedback
@@ -62,7 +61,7 @@ function FeatureCell({ value, isPro }: { value: FeatureValue; isPro: boolean }) 
 
 export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeModalProps) {
   const { user, isSignedIn } = useUser();
-  const router = useRouter();
+  const { openSignIn } = useClerk();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
 
   // Checkout state (absorbed from CheckoutModal)
@@ -111,12 +110,12 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
 
   const handleStartCheckout = async () => {
     if (!isSignedIn) {
-      // Redirect to sign-in with upgrade params
+      // Open Clerk sign-in modal; after sign-in, land back with upgrade params
       const params = new URLSearchParams(window.location.search);
       params.set('upgrade', '1');
       params.set('plan', interval === 'month' ? 'monthly' : 'yearly');
-      const returnUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-      router.push(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
+      const returnUrl = `${window.location.pathname}?${params.toString()}`;
+      openSignIn({ forceRedirectUrl: returnUrl });
       return;
     }
 
