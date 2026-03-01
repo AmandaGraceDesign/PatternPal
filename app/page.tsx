@@ -7,6 +7,7 @@ import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
 import { extractDpiFromFile, validateSvgSafety } from '@/lib/utils/imageUtils';
 import ResumeUpgradeFromQuery from './_components/ResumeUpgradeFromQuery';
+import ResumeSignupFromQuery from './_components/ResumeSignupFromQuery';
 
 export default function Home() {
   const { isSignedIn } = useUser();
@@ -344,6 +345,7 @@ export default function Home() {
       <TopBar />
       <Suspense fallback={null}>
         <ResumeUpgradeFromQuery />
+        <ResumeSignupFromQuery />
       </Suspense>
 
       {/* Pattern Controls Bar */}

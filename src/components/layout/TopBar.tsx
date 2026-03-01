@@ -2,7 +2,7 @@
 
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionButton';
 import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
@@ -12,7 +12,20 @@ export default function TopBar() {
   const { user, isSignedIn } = useUser();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly'>('monthly');
   const [tourKey, setTourKey] = useState(0);
+
+  // Listen for upgrade deep-link from ResumeUpgradeFromQuery
+  useEffect(() => {
+    const handler = (event: Event) => {
+      if (!isSignedIn) return;
+      const detail = (event as CustomEvent<{ plan?: 'monthly' | 'yearly' }>).detail;
+      setUpgradePlan(detail?.plan === 'yearly' ? 'yearly' : 'monthly');
+      setIsUpgradeModalOpen(true);
+    };
+    window.addEventListener('pp:resume-upgrade', handler as EventListener);
+    return () => window.removeEventListener('pp:resume-upgrade', handler as EventListener);
+  }, [isSignedIn]);
 
   const handleHelp = () => {
     window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
@@ -91,6 +104,7 @@ export default function TopBar() {
       <UpgradeModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
+        initialPlan={upgradePlan}
       />
 
       {isPro && <AffiliateSlideOut />}

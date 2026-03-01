@@ -3,14 +3,14 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     },
     {
       "name": "landing-page",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "docs/landing-page", "-l", "3001"],
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "3001", "-d", "docs/landing-page"],
       "port": 3001
     }
   ]
