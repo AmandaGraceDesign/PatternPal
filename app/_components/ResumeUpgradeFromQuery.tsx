@@ -16,7 +16,11 @@ export default function ResumeUpgradeFromQuery() {
 
     const planParam = searchParams.get('plan');
     const plan = planParam === 'yearly' ? 'yearly' : 'monthly';
-    window.dispatchEvent(new CustomEvent('pp:resume-upgrade', { detail: { plan } }));
+
+    // Defer dispatch so TopBar's event listener is registered first
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('pp:resume-upgrade', { detail: { plan } }));
+    }, 0);
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete('upgrade');
