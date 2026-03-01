@@ -1,6 +1,6 @@
 'use client';
 
-import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
+import { SignInButton, SignedIn, SignedOut, UserButton, useClerk, useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useState, useEffect } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
@@ -9,28 +9,34 @@ import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
 export default function TopBar() {
-  const { user, isSignedIn } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
+  const { openSignUp } = useClerk();
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly'>('monthly');
   const [tourKey, setTourKey] = useState(0);
 
-  // Open upgrade modal when ?upgrade=1 is in the URL (deep-link from landing page)
+  // Deep-link: ?upgrade=1 from landing page
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (!isLoaded) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') !== '1') return;
 
-    const plan = params.get('plan') === 'yearly' ? 'yearly' : 'monthly';
-    setUpgradePlan(plan);
-    setIsUpgradeModalOpen(true);
-
-    // Clean up URL
-    params.delete('upgrade');
-    params.delete('plan');
-    const query = params.toString();
-    window.history.replaceState({}, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
-  }, [isSignedIn]);
+    if (isSignedIn) {
+      // Signed in: open upgrade modal directly
+      const plan = params.get('plan') === 'yearly' ? 'yearly' : 'monthly';
+      setUpgradePlan(plan);
+      setIsUpgradeModalOpen(true);
+      // Clean up URL
+      params.delete('upgrade');
+      params.delete('plan');
+      const query = params.toString();
+      window.history.replaceState({}, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
+    } else {
+      // Not signed in: open sign-up modal, then redirect back with upgrade params
+      openSignUp?.({ forceRedirectUrl: window.location.href });
+    }
+  }, [isLoaded, isSignedIn, openSignUp]);
 
   const handleHelp = () => {
     window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
