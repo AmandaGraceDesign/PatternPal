@@ -1,0 +1,744 @@
+<!--
+  =============================================
+  PATTERNPAL PRO LANDING PAGE — FOR KAJABI
+  =============================================
+
+  HOW TO USE IN KAJABI:
+  1. Create a new page in Kajabi
+  2. Add a "Custom Code" section
+  3. Paste this ENTIRE file into the code editor
+  4. Copy the two <script type="application/ld+json"> blocks
+     into Page Settings > SEO Settings > Header Code
+  5. Copy the Google Fonts <link> tags into Header Code too
+  6. Update any placeholder text marked with [REPLACE]
+
+  =============================================
+-->
+
+<!-- Google Fonts — also paste into Kajabi Header Code -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=Karla:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- JSON-LD FAQ Schema — paste into Kajabi Header Code for AEO -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is a seamless pattern tester?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A seamless pattern tester is a tool that lets you preview how your pattern tile repeats at different layouts and sizes before uploading to a print-on-demand site like Spoonflower, Redbubble, or Society6."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I test if my pattern repeats correctly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload your pattern tile to PatternPal Pro, select a repeat type (full drop, half drop, or half brick), and use the zoom and tile outline tools to inspect your seams. The Seam Analyzer lets you zoom up to 400% on every intersection."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does PatternPal upload my files to a server?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Your files stay entirely in your browser. PatternPal Pro processes everything locally — nothing is ever sent to a server. Your designs remain completely private."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What repeat types does PatternPal support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "PatternPal Pro supports full drop, half drop, and half brick repeats — the three most common repeat layouts used in textile and surface pattern design."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I export my patterns for print-on-demand?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Pro users can batch export patterns at 8+ sizes in PNG, JPEG, or TIFF format at 150 or 300 DPI using EasyScale Export. Free users can export at 2 sizes in JPG."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What file formats does PatternPal export?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "PatternPal Pro exports in PNG, JPEG, and TIFF formats. Free users get JPG exports at 2 sizes. Pro users get all three formats at 8+ sizes with 150 or 300 DPI options."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much does PatternPal Pro cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "PatternPal Pro costs $7.99 per month or $79 per year (which saves you 2 months). There is also a completely free tier with unlimited pattern testing — no credit card required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need Photoshop to test seamless patterns?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. PatternPal Pro runs entirely in your web browser — no downloads, no Photoshop, no Illustrator required. Just upload your pattern tile and start testing immediately."
+      }
+    }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "PatternPal Pro",
+  "applicationCategory": "DesignApplication",
+  "operatingSystem": "Web Browser",
+  "offers": [
+    { "@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Free tier — 3 anonymous tests or unlimited with free account" },
+    { "@type": "Offer", "price": "7.99", "priceCurrency": "USD", "description": "Pro monthly subscription" }
+  ],
+  "description": "Browser-based seamless pattern testing tool for surface pattern designers. Test repeats, inspect seams, analyze colors, preview on products, and export print-ready files.",
+  "url": "https://pattern-tester.amandagracedesign.com"
+}
+</script>
+
+<style>
+  /* ============ RESET & VARIABLES ============ */
+  .pp-lp *, .pp-lp *::before, .pp-lp *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .pp-lp {
+    /* Brand colors — matched to amandagracedesign.com */
+    --gold: #eeac55;
+    --gold-light: #f4c06e;
+    --gold-dark: #d99a3e;
+    --gold-glow: rgba(238,172,85,0.10);
+    --pink: #f1737c;
+    --pink-light: #f4959c;
+    --pink-soft: rgba(241,115,124,0.12);
+    --pink-vivid: rgba(241,115,124,0.18);
+    --coral: #e85c66;
+    --navy: #204568;
+    --navy-deep: #1a3a58;
+    --navy-light: #2a5580;
+    --blush: #f7ede6;
+    --blush-soft: #fdf6f1;
+    --cream: #faf9f5;
+    --white: #ffffff;
+    --text-dark: #333333;
+    --text-body: #595959;
+    --text-muted: #888888;
+    --text-light: #aaaaaa;
+    --border-subtle: rgba(51,51,51,0.08);
+    --border-light: rgba(51,51,51,0.12);
+    --font-display: 'Spectral', Georgia, serif;
+    --font-body: 'Karla', -apple-system, BlinkMacSystemFont, sans-serif;
+    --max-w: 1120px;
+
+    font-family: var(--font-body);
+    font-weight: 400;
+    color: var(--text-dark);
+    background: var(--cream);
+    line-height: 1.7;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .pp-lp img { max-width: 100%; display: block; }
+  .pp-lp a { color: inherit; text-decoration: none; }
+  .pp-lp h1, .pp-lp h2, .pp-lp h3 { font-family: var(--font-display); font-weight: 700; line-height: 1.15; }
+  .pp-lp ul { list-style: none; }
+  .pp-lp strong { font-weight: 600; color: var(--text-dark); }
+
+  .pp-container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+
+  .pp-label {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 2.5px; text-transform: uppercase;
+    color: var(--gold-dark); margin-bottom: 16px;
+  }
+  .pp-heading { font-size: clamp(30px, 5vw, 48px); color: var(--text-dark); margin-bottom: 20px; }
+  .pp-sub { font-size: 17px; color: var(--text-body); max-width: 560px; margin: 0 auto 48px; line-height: 1.7; }
+  .pp-divider { width: 60px; height: 2px; background: linear-gradient(90deg, var(--gold), transparent); margin: 0 auto 48px; }
+
+  /* Navy section helpers */
+  .pp-on-navy { color: #ffffff; }
+  .pp-on-navy .pp-label { color: var(--gold-light); }
+  .pp-on-navy .pp-heading { color: #ffffff; }
+  .pp-on-navy .pp-sub { color: rgba(255,255,255,0.75); }
+  .pp-on-navy .pp-divider { background: linear-gradient(90deg, var(--gold-light), transparent); }
+
+  /* ============ SCROLL REVEAL ============ */
+  .pp-reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1); }
+  .pp-reveal.pp-visible { opacity: 1; transform: translateY(0); }
+  .pp-d1 { transition-delay: 0.1s; } .pp-d2 { transition-delay: 0.2s; } .pp-d3 { transition-delay: 0.3s; }
+  .pp-d4 { transition-delay: 0.35s; } .pp-d5 { transition-delay: 0.4s; } .pp-d6 { transition-delay: 0.45s; }
+
+  /* ============ BUTTONS — matches amandagracedesign.com ============ */
+  .pp-btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-body); font-size: 14px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: #ffffff; background: var(--gold); border: none; border-radius: 0;
+    padding: 16px 36px; cursor: pointer; transition: all 0.25s ease; text-decoration: none;
+  }
+  .pp-btn-primary:hover { background: var(--gold-dark); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(238,172,85,0.3); }
+
+  .pp-btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-body); font-size: 14px; font-weight: 500;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--text-dark); background: transparent; border: 2px solid var(--text-dark);
+    border-radius: 0; padding: 14px 32px; cursor: pointer; transition: all 0.25s ease; text-decoration: none;
+  }
+  .pp-btn-secondary:hover { border-color: var(--gold); color: var(--gold-dark); background: var(--gold-glow); }
+
+  /* On navy backgrounds */
+  .pp-on-navy .pp-btn-secondary { color: #ffffff; border-color: rgba(255,255,255,0.4); }
+  .pp-on-navy .pp-btn-secondary:hover { border-color: var(--gold-light); color: var(--gold-light); }
+
+  /* ============ HERO ============ */
+  .pp-hero {
+    position: relative; min-height: 92vh;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 120px 24px 80px; overflow: hidden;
+    background: var(--blush);
+  }
+  .pp-hero::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 15%, rgba(238,172,85,0.1) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 75%, rgba(238,172,85,0.08) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .pp-hero-inner { position: relative; z-index: 2; max-width: 720px; }
+
+  .pp-hero-badge {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark);
+    border: 1.5px solid var(--gold); border-radius: 100px;
+    padding: 6px 20px; margin-bottom: 32px; background: var(--gold-glow);
+  }
+  .pp-hero h1 { font-size: clamp(34px, 6vw, 58px); color: var(--text-dark); margin-bottom: 24px; letter-spacing: -0.5px; }
+  .pp-hero h1 em { font-style: italic; color: var(--gold-dark); }
+  .pp-hero-sub { font-size: 18px; color: var(--text-body); max-width: 540px; margin: 0 auto 40px; line-height: 1.75; }
+  .pp-hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+  .pp-hero-trust { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .pp-hero-trust svg { flex-shrink: 0; }
+
+  .pp-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 2; animation: ppBounce 2s ease-in-out infinite; }
+  .pp-scroll-hint svg { opacity: 0.25; }
+  @keyframes ppBounce { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(8px); } }
+
+  /* ============ HOW IT WORKS ============ */
+  .pp-how { background: var(--white); padding: 100px 24px; text-align: center; }
+
+  .pp-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; max-width: 900px; margin: 0 auto; position: relative; }
+
+  .pp-step { position: relative; text-align: center; }
+  .pp-step-num {
+    font-family: var(--font-display); font-size: 72px; font-weight: 700;
+    color: var(--gold); opacity: 0.12; line-height: 1;
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 0;
+  }
+  .pp-step-icon {
+    position: relative; z-index: 1; width: 64px; height: 64px; border-radius: 16px;
+    background: var(--gold);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+    box-shadow: 0 4px 16px rgba(238,172,85,0.3);
+  }
+  .pp-step-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text-dark); margin-bottom: 8px; }
+  .pp-step-desc { font-size: 14px; color: var(--text-body); line-height: 1.6; max-width: 240px; margin: 0 auto; }
+
+  /* ============ VIDEO — navy accent section ============ */
+  .pp-video { background: var(--navy); padding: 100px 24px; text-align: center; }
+  .pp-video-wrap {
+    position: relative; width: 100%; max-width: 800px; margin: 0 auto;
+    border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.3); aspect-ratio: 16 / 9;
+  }
+  .pp-video-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+
+  /* ============ FEATURES ============ */
+  .pp-features { background: var(--blush); padding: 100px 24px; text-align: center; }
+  .pp-feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 960px; margin: 0 auto; }
+
+  .pp-feat-card {
+    position: relative; background: var(--white); border: 1px solid var(--border-subtle);
+    border-radius: 6px; padding: 32px 24px 28px; text-align: left; transition: all 0.3s ease;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .pp-feat-card:hover { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+
+  .pp-feat-icon {
+    width: 44px; height: 44px; border-radius: 10px; background: var(--gold);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 22px;
+    box-shadow: 0 3px 12px rgba(238,172,85,0.3);
+  }
+  .pp-feat-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--text-dark); margin-bottom: 6px; }
+  .pp-feat-desc { font-size: 13px; color: var(--text-body); line-height: 1.6; }
+
+  .pp-badge-pro {
+    position: absolute; top: 14px; right: 14px;
+    font-family: var(--font-body); font-size: 10px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; color: #ffffff;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark)); border-radius: 6px; padding: 4px 10px;
+  }
+  .pp-badge-free {
+    position: absolute; top: 14px; right: 14px;
+    font-family: var(--font-body); font-size: 10px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; color: #fff;
+    background: #4caf50; border-radius: 6px; padding: 4px 10px;
+  }
+
+  /* ============ PRICING ============ */
+  .pp-pricing { background: var(--white); padding: 100px 24px; text-align: center; }
+  .pp-price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 920px; margin: 0 auto; align-items: start; }
+
+  .pp-price-card {
+    background: var(--white); border: 1px solid var(--border-light);
+    border-radius: 6px; padding: 36px 28px 32px; text-align: center; transition: all 0.3s ease;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .pp-price-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+
+  .pp-price-card.pp-featured {
+    border-color: var(--gold); box-shadow: 0 4px 24px rgba(238,172,85,0.15);
+    position: relative; z-index: 1; transform: scale(1.04);
+  }
+  .pp-price-card.pp-featured:hover { transform: scale(1.04) translateY(-3px); }
+
+  .pp-popular {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: #ffffff; background: var(--gold); border-radius: 100px; padding: 5px 18px; white-space: nowrap;
+  }
+  .pp-price-name { font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--text-dark); margin-bottom: 8px; }
+  .pp-price-amount { font-family: var(--font-display); font-size: 40px; font-weight: 700; color: var(--gold-dark); margin-bottom: 4px; }
+  .pp-price-amount span { font-size: 16px; font-weight: 400; color: var(--text-muted); }
+  .pp-price-note { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; min-height: 20px; }
+
+  .pp-price-list { text-align: left; margin-bottom: 28px; }
+  .pp-price-list li {
+    font-size: 14px; color: var(--text-dark); padding: 8px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pp-price-list li:last-child { border-bottom: none; }
+
+  .pp-check {
+    width: 18px; height: 18px; border-radius: 50%; background: rgba(76,175,80,0.12);
+    color: #4caf50; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0;
+  }
+  .pp-cross {
+    width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,0.03);
+    color: var(--text-light); display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; flex-shrink: 0;
+  }
+
+  .pp-price-cta {
+    display: block; width: 100%; font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 14px 24px; border-radius: 0; text-align: center; transition: all 0.25s ease;
+    cursor: pointer; text-decoration: none;
+  }
+  .pp-price-cta-gold { color: #ffffff; background: var(--gold); border: none; }
+  .pp-price-cta-gold:hover { background: var(--gold-dark); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(238,172,85,0.3); }
+  .pp-price-cta-outline { color: var(--text-dark); background: transparent; border: 1.5px solid var(--border-light); }
+  .pp-price-cta-outline:hover { border-color: var(--gold); color: var(--gold-dark); background: var(--gold-glow); }
+
+  /* ============ FAQ ============ */
+  .pp-faq { background: var(--cream); padding: 100px 24px; text-align: center; }
+  .pp-faq-list { max-width: 700px; margin: 0 auto; text-align: left; }
+  .pp-faq-item { border-bottom: 1px solid var(--border-light); }
+
+  .pp-faq-q {
+    width: 100%; background: none; border: none;
+    font-family: var(--font-body); font-size: 16px; font-weight: 500; color: var(--text-dark);
+    padding: 22px 40px 22px 0; cursor: pointer; text-align: left;
+    position: relative; transition: color 0.2s ease; line-height: 1.5;
+  }
+  .pp-faq-q:hover { color: var(--gold-dark); }
+  .pp-faq-q::after {
+    content: '+'; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    font-size: 22px; font-weight: 300; color: var(--gold); transition: transform 0.3s ease;
+  }
+  .pp-faq-item.pp-open .pp-faq-q::after { content: '\2212'; }
+
+  .pp-faq-a { max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.22,1,0.36,1), padding 0.35s ease; }
+  .pp-faq-item.pp-open .pp-faq-a { max-height: 300px; padding-bottom: 20px; }
+  .pp-faq-a p {
+    font-size: 14px; color: var(--text-body); line-height: 1.7;
+    border-left: 2px solid var(--gold); padding-left: 16px; margin-left: 2px;
+  }
+
+  /* ============ FINAL CTA — navy accent section ============ */
+  .pp-final {
+    background: var(--navy); padding: 100px 24px; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .pp-final::before {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 600px; height: 350px; background: radial-gradient(ellipse, rgba(238,172,85,0.1) 0%, transparent 70%); pointer-events: none;
+  }
+  .pp-final .pp-container { position: relative; z-index: 1; }
+  .pp-final h2 { font-size: clamp(28px, 4.5vw, 44px); color: #ffffff; margin-bottom: 12px; }
+  .pp-final > .pp-container > p { font-size: 17px; color: rgba(255,255,255,0.7); margin-bottom: 36px; }
+  .pp-final-trust { margin-top: 24px; font-size: 13px; color: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+  /* ============ FOOTER ============ */
+  .pp-footer { background: var(--cream); border-top: 1px solid var(--border-subtle); padding: 32px 24px; text-align: center; }
+  .pp-footer p { font-size: 13px; color: var(--text-muted); }
+  .pp-footer a { color: var(--text-body); transition: color 0.2s; }
+  .pp-footer a:hover { color: var(--gold-dark); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 768px) {
+    .pp-steps { grid-template-columns: 1fr; gap: 48px; }
+    .pp-feat-grid { grid-template-columns: 1fr; gap: 16px; }
+    .pp-price-grid { grid-template-columns: 1fr; gap: 16px; max-width: 400px; }
+    .pp-price-card.pp-featured { transform: none; order: -1; }
+    .pp-price-card.pp-featured:hover { transform: translateY(-3px); }
+    .pp-hero { min-height: auto; padding: 100px 20px 60px; }
+    .pp-hero h1 { font-size: 32px; }
+    .pp-hero-sub { font-size: 16px; }
+    .pp-btn-primary, .pp-btn-secondary { padding: 14px 28px; font-size: 13px; width: 100%; justify-content: center; }
+    .pp-hero-ctas { flex-direction: column; align-items: center; }
+    .pp-how, .pp-video, .pp-features, .pp-pricing, .pp-faq, .pp-final { padding: 64px 24px; }
+  }
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .pp-feat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+
+
+<!-- ============================= HERO ============================= -->
+<div class="pp-lp">
+<section class="pp-hero">
+  <div class="pp-hero-inner">
+    <div class="pp-hero-badge pp-reveal">Free to Try &mdash; No Sign-Up Required</div>
+    <h1 class="pp-reveal pp-d1">Test Your Seamless Patterns <em>Before</em> You Upload</h1>
+    <p class="pp-hero-sub pp-reveal pp-d2">
+      Check repeats, inspect seams, preview on real products, and export
+      print-ready files &mdash; right in your browser. No downloads, no Photoshop.
+    </p>
+    <div class="pp-hero-ctas pp-reveal pp-d3">
+      <a href="https://pattern-tester.amandagracedesign.com" class="pp-btn-primary">
+        Test Your Patterns Free &rarr;
+      </a>
+      <a href="#pp-video" class="pp-btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><polygon points="6.5,5 11,8 6.5,11" fill="currentColor"/></svg>
+        Watch How It Works
+      </a>
+    </div>
+    <div class="pp-hero-trust pp-reveal pp-d3">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="10" height="7" rx="1.5"/><path d="M4 6V4a3 3 0 016 0v2"/></svg>
+      Your files never leave your browser &mdash; nothing is sent to a server.
+    </div>
+  </div>
+  <div class="pp-scroll-hint">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+</section>
+
+
+<!-- ============================= HOW IT WORKS ============================= -->
+<section class="pp-how">
+  <div class="pp-container">
+    <div class="pp-label pp-reveal">How It Works</div>
+    <h2 class="pp-heading pp-reveal">Three steps to pattern confidence</h2>
+    <div class="pp-divider pp-reveal"></div>
+    <div class="pp-steps">
+      <div class="pp-step pp-reveal pp-d1">
+        <div class="pp-step-num">01</div>
+        <div class="pp-step-icon">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 26V10"/><path d="M13 17l7-7 7 7"/><path d="M6 30v-6a2 2 0 012-2h4"/><path d="M34 30v-6a2 2 0 00-2-2h-4"/></svg>
+        </div>
+        <div class="pp-step-title">Upload</div>
+        <div class="pp-step-desc">Drop in your pattern tile. Any file size, any DPI. Drag, drop, paste, or click.</div>
+      </div>
+      <div class="pp-step pp-reveal pp-d2">
+        <div class="pp-step-num">02</div>
+        <div class="pp-step-icon">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5"><circle cx="18" cy="18" r="11"/><path d="M26 26l8 8" stroke-width="3" stroke-linecap="round"/><path d="M14 18h8" stroke-linecap="round"/><path d="M18 14v8" stroke-linecap="round"/></svg>
+        </div>
+        <div class="pp-step-title">Test</div>
+        <div class="pp-step-desc">Check repeats, inspect seams, analyze colors, and preview on real products.</div>
+      </div>
+      <div class="pp-step pp-reveal pp-d3">
+        <div class="pp-step-num">03</div>
+        <div class="pp-step-icon">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6v20"/><path d="M13 19l7 7 7-7"/><path d="M6 28v4a2 2 0 002 2h24a2 2 0 002-2v-4"/></svg>
+        </div>
+        <div class="pp-step-title">Export</div>
+        <div class="pp-step-desc">Download print-ready files at 8+ sizes in under 60 seconds.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================= VIDEO — navy accent ============================= -->
+<section class="pp-video pp-on-navy" id="pp-video">
+  <div class="pp-container">
+    <div class="pp-label pp-reveal">See It In Action</div>
+    <h2 class="pp-heading pp-reveal">Watch the full walkthrough</h2>
+    <div class="pp-divider pp-reveal"></div>
+    <div class="pp-video-wrap pp-reveal">
+      <iframe
+        src="https://www.youtube-nocookie.com/embed/c1kzoeCnnXc"
+        title="PatternPal Pro Walkthrough"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen loading="lazy"></iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================= FEATURES ============================= -->
+<section class="pp-features">
+  <div class="pp-container">
+    <div class="pp-label pp-reveal">Features</div>
+    <h2 class="pp-heading pp-reveal">Everything you need to test with confidence</h2>
+    <div class="pp-divider pp-reveal"></div>
+    <div class="pp-feat-grid">
+
+      <div class="pp-feat-card pp-reveal pp-d1">
+        <span class="pp-badge-free">Free</span>
+        <div class="pp-feat-icon">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2"><rect x="4" y="4" width="14" height="14" rx="2"/><rect x="22" y="4" width="14" height="14" rx="2"/><rect x="4" y="22" width="14" height="14" rx="2"/><rect x="22" y="22" width="14" height="14" rx="2"/></svg>
+        </div>
+        <div class="pp-feat-title">Repeat Types</div>
+        <div class="pp-feat-desc">Preview full drop, half drop, and half brick &mdash; the three layouts you actually use.</div>
+      </div>
+
+      <div class="pp-feat-card pp-reveal pp-d2">
+        <span class="pp-badge-free">Free</span>
+        <div class="pp-feat-icon">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5"><circle cx="18" cy="18" r="11"/><path d="M26 26l8 8" stroke-width="3" stroke-linecap="round"/></svg>
+        </div>
+        <div class="pp-feat-title">Zoom &amp; Tile Outline</div>
+        <div class="pp-feat-desc">Zoom up to 200% to inspect details. Toggle tile outlines to see where tiles meet.</div>
+      </div>
+
+      <div class="pp-feat-card pp-reveal pp-d3">
+        <span class="pp-badge-free">Free</span>
+        <div class="pp-feat-icon">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h6M8 8v6M8 8l8 8"/><path d="M32 32h-6M32 32v-6M32 32l-8-8"/></svg>
+        </div>
+        <div class="pp-feat-title">Scale Preview</div>
+        <div class="pp-feat-desc">Enter a real-world size to see how motifs look when printed on fabric or product.</div>
+      </div>
+
+      <div class="pp-feat-card pp-reveal pp-d4">
+        <span class="pp-badge-pro">Pro</span>
+        <div class="pp-feat-icon">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2"><rect x="6" y="22" width="6" height="12" rx="1" fill="rgba(255,255,255,0.4)"/><rect x="17" y="14" width="6" height="20" rx="1" fill="rgba(255,255,255,0.6)"/><rect x="28" y="6" width="6" height="28" rx="1" fill="rgba(255,255,255,0.8)"/></svg>
+        </div>
+        <div class="pp-feat-title">Pattern Analysis</div>
+        <div class="pp-feat-desc">Automatic contrast, composition, and color harmony checks in one click.</div>
+      </div>
+
+      <div class="pp-feat-card pp-reveal pp-d5">
+        <span class="pp-badge-pro">Pro</span>
+        <div class="pp-feat-icon">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5"><circle cx="20" cy="20" r="12"/><circle cx="20" cy="20" r="5" fill="rgba(255,255,255,0.4)" stroke="none"/><path d="M20 8v4M20 28v4M8 20h4M28 20h4"/></svg>
+        </div>
+        <div class="pp-feat-title">Seam Analyzer</div>
+        <div class="pp-feat-desc">Zoom up to 400% on every seam intersection. Catch misaligned edges instantly.</div>
+      </div>
+
+      <div class="pp-feat-card pp-reveal pp-d6">
+        <span class="pp-badge-pro">Pro</span>
+        <div class="pp-feat-icon">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none" stroke="#ffffff" stroke-width="2.5"><rect x="8" y="4" width="24" height="32" rx="3"/><rect x="12" y="9" width="16" height="12" rx="1"/></svg>
+        </div>
+        <div class="pp-feat-title">Product Mockups</div>
+        <div class="pp-feat-desc">Preview on onesie, fabric, wallpaper, pillow, gift wrap, and journal. Download as PNG.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================= PRICING ============================= -->
+<section class="pp-pricing">
+  <div class="pp-container">
+    <div class="pp-label pp-reveal">Pricing</div>
+    <h2 class="pp-heading pp-reveal">Simple, transparent pricing</h2>
+    <p class="pp-sub pp-reveal">Start free. Upgrade when you need more power.</p>
+    <div class="pp-price-grid">
+
+      <!-- Anonymous Free -->
+      <div class="pp-price-card pp-reveal pp-d1">
+        <div class="pp-price-name">Try It Free</div>
+        <div class="pp-price-amount">$0</div>
+        <div class="pp-price-note">No sign-up needed</div>
+        <ul class="pp-price-list">
+          <li><span class="pp-check">&#10003;</span> 3 pattern tests</li>
+          <li><span class="pp-check">&#10003;</span> All repeat types</li>
+          <li><span class="pp-check">&#10003;</span> Zoom &amp; tile outline</li>
+          <li><span class="pp-check">&#10003;</span> Basic export (2 sizes, JPG)</li>
+          <li><span class="pp-cross">&mdash;</span> <span style="color:var(--text-light)">Pattern analysis</span></li>
+          <li><span class="pp-cross">&mdash;</span> <span style="color:var(--text-light)">Seam analyzer</span></li>
+          <li><span class="pp-cross">&mdash;</span> <span style="color:var(--text-light)">Product mockups</span></li>
+        </ul>
+        <a href="https://pattern-tester.amandagracedesign.com" class="pp-price-cta pp-price-cta-outline">Test Free &rarr;</a>
+      </div>
+
+      <!-- Free Account -->
+      <div class="pp-price-card pp-reveal pp-d2">
+        <div class="pp-price-name">Free Account</div>
+        <div class="pp-price-amount">$0</div>
+        <div class="pp-price-note">Just create a free account</div>
+        <ul class="pp-price-list">
+          <li><span class="pp-check">&#10003;</span> <strong>Unlimited</strong> pattern tests</li>
+          <li><span class="pp-check">&#10003;</span> All repeat types</li>
+          <li><span class="pp-check">&#10003;</span> Zoom &amp; tile outline</li>
+          <li><span class="pp-check">&#10003;</span> Scale preview</li>
+          <li><span class="pp-check">&#10003;</span> Basic export (2 sizes, JPG)</li>
+          <li><span class="pp-cross">&mdash;</span> <span style="color:var(--text-light)">Pattern analysis</span></li>
+          <li><span class="pp-cross">&mdash;</span> <span style="color:var(--text-light)">Seam analyzer</span></li>
+        </ul>
+        <a href="https://pattern-tester.amandagracedesign.com?signup=true" class="pp-price-cta pp-price-cta-outline">Sign Up Free &rarr;</a>
+      </div>
+
+      <!-- Pro -->
+      <div class="pp-price-card pp-featured pp-reveal pp-d3">
+        <div class="pp-popular">Most Popular</div>
+        <div class="pp-price-name">Pro</div>
+        <div class="pp-price-amount">$7.99 <span>/mo</span></div>
+        <div class="pp-price-note">or $79/yr &mdash; save 2 months</div>
+        <ul class="pp-price-list">
+          <li><span class="pp-check">&#10003;</span> <strong>Unlimited</strong> pattern tests</li>
+          <li><span class="pp-check">&#10003;</span> All repeat types &amp; tools</li>
+          <li><span class="pp-check">&#10003;</span> Scale preview</li>
+          <li><span class="pp-check">&#10003;</span> Pattern analysis</li>
+          <li><span class="pp-check">&#10003;</span> Seam analyzer (400% zoom)</li>
+          <li><span class="pp-check">&#10003;</span> 6 product mockups + download</li>
+          <li><span class="pp-check">&#10003;</span> EasyScale: 8+ sizes, PNG/JPEG/TIFF</li>
+        </ul>
+        <a href="https://pattern-tester.amandagracedesign.com?plan=pro" class="pp-price-cta pp-price-cta-gold">Get Pro &rarr;</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================= FAQ ============================= -->
+<section class="pp-faq">
+  <div class="pp-container">
+    <div class="pp-label pp-reveal">FAQ</div>
+    <h2 class="pp-heading pp-reveal">Frequently asked questions</h2>
+    <div class="pp-divider pp-reveal"></div>
+    <div class="pp-faq-list">
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">What is a seamless pattern tester?</button>
+        <div class="pp-faq-a"><p>A seamless pattern tester is a tool that lets you preview how your pattern tile repeats at different layouts and sizes before uploading to a print-on-demand site like Spoonflower, Redbubble, or Society6.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">How do I test if my pattern repeats correctly?</button>
+        <div class="pp-faq-a"><p>Upload your pattern tile to PatternPal Pro, select a repeat type (full drop, half drop, or half brick), and use the zoom and tile outline tools to inspect your seams. The Seam Analyzer lets you zoom up to 400% on every intersection.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">Does PatternPal upload my files to a server?</button>
+        <div class="pp-faq-a"><p>No. Your files stay entirely in your browser. PatternPal Pro processes everything locally &mdash; nothing is ever sent to a server. Your designs remain completely private.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">What repeat types does PatternPal support?</button>
+        <div class="pp-faq-a"><p>Full drop, half drop, and half brick &mdash; the three most common repeat layouts used in textile and surface pattern design.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">Can I export my patterns for print-on-demand?</button>
+        <div class="pp-faq-a"><p>Yes. Pro users can batch export patterns at 8+ sizes in PNG, JPEG, or TIFF format at 150 or 300 DPI using EasyScale Export. Free users can export at 2 sizes in JPG.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">What file formats does PatternPal export?</button>
+        <div class="pp-faq-a"><p>PNG, JPEG, and TIFF. Free users get JPG exports at 2 sizes. Pro users get all three formats at 8+ sizes with 150 or 300 DPI options.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">How much does PatternPal Pro cost?</button>
+        <div class="pp-faq-a"><p>$7.99 per month or $79 per year (saves you 2 months). There is also a completely free tier with unlimited pattern testing &mdash; no credit card required.</p></div>
+      </div>
+
+      <div class="pp-faq-item pp-reveal">
+        <button class="pp-faq-q" aria-expanded="false">Do I need Photoshop to test seamless patterns?</button>
+        <div class="pp-faq-a"><p>No. PatternPal Pro runs entirely in your web browser &mdash; no downloads, no Photoshop, no Illustrator required. Just upload your pattern tile and start testing.</p></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================= FINAL CTA — navy accent ============================= -->
+<section class="pp-final">
+  <div class="pp-container">
+    <h2 class="pp-reveal">Ready to test your patterns?</h2>
+    <p class="pp-reveal pp-d1">Join thousands of pattern designers who test before they upload.</p>
+    <div class="pp-reveal pp-d2">
+      <a href="https://pattern-tester.amandagracedesign.com" class="pp-btn-primary">Test Your Patterns Free &rarr;</a>
+    </div>
+    <div class="pp-final-trust pp-reveal pp-d3">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="10" height="7" rx="1.5"/><path d="M4 6V4a3 3 0 016 0v2"/></svg>
+      100% browser-based. Your files stay private.
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================= FOOTER ============================= -->
+<footer class="pp-footer">
+  <p>
+    <a href="https://pattern-tester.amandagracedesign.com">PatternPal Pro</a>
+    &nbsp;&middot;&nbsp;
+    Built by <a href="https://www.amandagracedesign.com" target="_blank" rel="noopener noreferrer">Amanda Grace Design</a>
+  </p>
+</footer>
+
+</div><!-- end .pp-lp -->
+
+
+<!-- ============================= SCRIPTS ============================= -->
+<script>
+  /* Scroll Reveal */
+  (function(){
+    var o=new IntersectionObserver(function(e){
+      e.forEach(function(entry){
+        if(entry.isIntersecting){entry.target.classList.add('pp-visible');o.unobserve(entry.target);}
+      });
+    },{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
+    document.querySelectorAll('.pp-reveal').forEach(function(el){o.observe(el);});
+  })();
+
+  /* FAQ Accordion */
+  document.querySelectorAll('.pp-faq-q').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var item=this.parentElement, wasOpen=item.classList.contains('pp-open');
+      document.querySelectorAll('.pp-faq-item.pp-open').forEach(function(i){
+        i.classList.remove('pp-open');i.querySelector('.pp-faq-q').setAttribute('aria-expanded','false');
+      });
+      if(!wasOpen){item.classList.add('pp-open');this.setAttribute('aria-expanded','true');}
+    });
+  });
+</script>
