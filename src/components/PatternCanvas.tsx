@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import SeamAnalyzer from '@/components/analysis/SeamAnalyzer';
 import ScaleExportModal from '@/components/export/ScaleExportModal';
+import UpgradeModal from '@/components/export/UpgradeModal';
 import type { RepeatType } from '@/lib/analysis/seamAnalyzer';
 
 interface PatternCanvasProps {
@@ -16,6 +17,7 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
   const [tileSize, setTileSize] = useState(300); // pixels
   const [dpi, setDpi] = useState(150);
   const [showScaleModal, setShowScaleModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -228,6 +230,7 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
           image={uploadedImage}
           repeatType={repeatType}
           isPro={isPro}
+          onUpgrade={() => setShowUpgradeModal(true)}
         />
         
         {/* Scale & Export */}
@@ -242,7 +245,10 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
               Export Multiple Sizes
             </button>
           ) : (
-            <button className="w-full px-4 py-2 bg-gray-300 text-gray-500 rounded cursor-not-allowed">
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="w-full px-4 py-2 bg-[#e0c26e] text-white rounded hover:bg-[#c9a94e] transition-colors text-sm font-semibold"
+            >
               🔒 Upgrade to Pro
             </button>
           )}
@@ -281,6 +287,12 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
           onClose={() => setShowScaleModal(false)}
         />
       )}
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 }

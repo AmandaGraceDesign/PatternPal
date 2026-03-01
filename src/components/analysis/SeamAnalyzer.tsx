@@ -10,9 +10,10 @@ interface SeamAnalyzerProps {
   repeatType: RepeatType;
   isPro: boolean;
   seamLineColor?: string;
+  onUpgrade?: () => void;
 }
 
-export default function SeamAnalyzer({ canvas, image, repeatType, isPro, seamLineColor = '#38bdf8' }: SeamAnalyzerProps) {
+export default function SeamAnalyzer({ canvas, image, repeatType, isPro, seamLineColor = '#38bdf8', onUpgrade }: SeamAnalyzerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleInspect = () => {
@@ -51,7 +52,10 @@ export default function SeamAnalyzer({ canvas, image, repeatType, isPro, seamLin
         <p className="text-xs text-[#6b7280] mb-3">
           Detect seamless pattern errors before upload
         </p>
-        <button className="w-full px-4 py-2 bg-[#e0c26e] text-white rounded cursor-not-allowed flex items-center justify-center gap-2 text-sm font-semibold hover:bg-[#e8d28e] transition-colors disabled:opacity-50">
+        <button
+          onClick={onUpgrade}
+          className="w-full px-4 py-2 bg-[#e0c26e] text-white rounded flex items-center justify-center gap-2 text-sm font-semibold hover:bg-[#c9a94e] transition-colors"
+        >
           Upgrade to Pro
         </button>
       </div>

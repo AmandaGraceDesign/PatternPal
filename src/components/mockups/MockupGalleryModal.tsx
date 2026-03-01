@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import MockupRenderer from './MockupRenderer';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
-import CheckoutModal from '@/components/billing/CheckoutModal';
+import UpgradeModal from '@/components/export/UpgradeModal';
 
 const MOCKUP_TYPES = ['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const;
 
@@ -38,7 +38,7 @@ export default function MockupGalleryModal({
   isPro,
   onUpgrade,
 }: MockupGalleryModalProps) {
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function MockupGalleryModal({
                   See your pattern on real products — pillows, wallpaper, onesies & more. Upgrade to preview and download.
                 </p>
                 <button
-                  onClick={() => setIsCheckoutOpen(true)}
+                  onClick={() => setIsUpgradeOpen(true)}
                   className="w-full px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition-colors"
                   style={{ backgroundColor: '#e0c26e' }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#c9a94e'; }}
@@ -148,11 +148,11 @@ export default function MockupGalleryModal({
       </div>
     </div>
 
-    {/* Checkout modal — opens directly from upgrade overlay */}
-    <CheckoutModal
-      isOpen={isCheckoutOpen}
+    {/* Upgrade modal — opens directly from upgrade overlay */}
+    <UpgradeModal
+      isOpen={isUpgradeOpen}
       onClose={() => {
-        setIsCheckoutOpen(false);
+        setIsUpgradeOpen(false);
       }}
     />
   </>
