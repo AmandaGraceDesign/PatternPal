@@ -6,7 +6,6 @@ import TopBar from '@/components/layout/TopBar';
 import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
 import { extractDpiFromFile, validateSvgSafety } from '@/lib/utils/imageUtils';
-import ResumeUpgradeFromQuery from './_components/ResumeUpgradeFromQuery';
 import ResumeSignupFromQuery from './_components/ResumeSignupFromQuery';
 
 export default function Home() {
@@ -344,7 +343,6 @@ export default function Home() {
       {/* Top Bar */}
       <TopBar />
       <Suspense fallback={null}>
-        <ResumeUpgradeFromQuery />
         <ResumeSignupFromQuery />
       </Suspense>
 

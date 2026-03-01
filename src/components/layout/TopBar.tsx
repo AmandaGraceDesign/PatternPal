@@ -15,16 +15,21 @@ export default function TopBar() {
   const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly'>('monthly');
   const [tourKey, setTourKey] = useState(0);
 
-  // Listen for upgrade deep-link from ResumeUpgradeFromQuery
+  // Open upgrade modal when ?upgrade=1 is in the URL (deep-link from landing page)
   useEffect(() => {
-    const handler = (event: Event) => {
-      if (!isSignedIn) return;
-      const detail = (event as CustomEvent<{ plan?: 'monthly' | 'yearly' }>).detail;
-      setUpgradePlan(detail?.plan === 'yearly' ? 'yearly' : 'monthly');
-      setIsUpgradeModalOpen(true);
-    };
-    window.addEventListener('pp:resume-upgrade', handler as EventListener);
-    return () => window.removeEventListener('pp:resume-upgrade', handler as EventListener);
+    if (!isSignedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgrade') !== '1') return;
+
+    const plan = params.get('plan') === 'yearly' ? 'yearly' : 'monthly';
+    setUpgradePlan(plan);
+    setIsUpgradeModalOpen(true);
+
+    // Clean up URL
+    params.delete('upgrade');
+    params.delete('plan');
+    const query = params.toString();
+    window.history.replaceState({}, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
   }, [isSignedIn]);
 
   const handleHelp = () => {
