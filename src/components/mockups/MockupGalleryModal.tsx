@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import MockupRenderer from './MockupRenderer';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import UpgradeModal from '@/components/export/UpgradeModal';
@@ -38,8 +38,6 @@ export default function MockupGalleryModal({
   isPro,
   onUpgrade,
 }: MockupGalleryModalProps) {
-  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
-
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -113,48 +111,16 @@ export default function MockupGalleryModal({
             })}
           </div>
 
-          {/* Upgrade overlay for free users — thumbnails visible behind */}
+          {/* Upgrade overlay for free users — show UpgradeModal directly */}
           {!isPro && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-b-xl">
-              <div className="bg-white rounded-xl shadow-xl p-6 max-w-xs w-full mx-4 text-center">
-                <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-[#e0c26e]/15 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[#e0c26e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <h4 className="text-sm font-bold text-[#294051] mb-1">Unlock Mockups</h4>
-                <p className="text-xs text-gray-500 mb-4">
-                  See your pattern on real products — pillows, wallpaper, onesies & more. Upgrade to preview and download.
-                </p>
-                <button
-                  onClick={() => setIsUpgradeOpen(true)}
-                  className="w-full px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition-colors"
-                  style={{ backgroundColor: '#e0c26e' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#c9a94e'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#e0c26e'; }}
-                >
-                  Upgrade to Pro
-                </button>
-                <button
-                  onClick={onClose}
-                  className="mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  Maybe Later
-                </button>
-              </div>
+              <UpgradeModal isOpen onClose={onClose} />
             </div>
           )}
         </div>
       </div>
     </div>
 
-    {/* Upgrade modal — opens directly from upgrade overlay */}
-    <UpgradeModal
-      isOpen={isUpgradeOpen}
-      onClose={() => {
-        setIsUpgradeOpen(false);
-      }}
-    />
   </>
   );
 }
