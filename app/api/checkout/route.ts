@@ -135,7 +135,7 @@ export async function POST(req: Request) {
     const err = error as Error;
     console.error("[checkout]", err?.message, err?.stack);
     return NextResponse.json(
-      { error: err?.message || "Server error", code: "server_error" },
+      { error: "Server error", code: "server_error" },
       { status: 500 }
     );
   }

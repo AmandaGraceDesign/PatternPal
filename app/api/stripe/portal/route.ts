@@ -15,6 +15,13 @@ export async function POST(req: Request) {
 
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
+
+    // Only Pro users can access the billing portal
+    const metadata = user.publicMetadata as Record<string, unknown>;
+    if (metadata?.pro !== true) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const stripeCustomerId = user.privateMetadata?.stripeCustomerId as
       | string
       | undefined;
