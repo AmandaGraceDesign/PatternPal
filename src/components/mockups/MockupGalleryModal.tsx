@@ -50,8 +50,12 @@ export default function MockupGalleryModal({
 
   if (!isOpen) return null;
 
+  // Free users get the UpgradeModal directly — no gallery wrapper
+  if (!isPro) {
+    return <UpgradeModal isOpen onClose={onClose} />;
+  }
+
   return (
-  <>
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
       onClick={onClose}
@@ -74,7 +78,7 @@ export default function MockupGalleryModal({
         </div>
 
         {/* Content */}
-        <div className="relative overflow-y-auto p-4" style={{ maxHeight: 'calc(85vh - 52px)' }}>
+        <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(85vh - 52px)' }}>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {MOCKUP_TYPES.map((mockupType) => {
               const template = getMockupTemplate(mockupType);
@@ -90,11 +94,7 @@ export default function MockupGalleryModal({
                     zoom={zoom}
                     scaleFactor={scaleFactor}
                     scalePreviewActive={scalePreviewActive}
-                    onClick={() => {
-                      if (isPro) {
-                        onSelectMockup(mockupType);
-                      }
-                    }}
+                    onClick={() => onSelectMockup(mockupType)}
                   />
                   <div className="mt-1 text-center">
                     <span className="text-xs font-medium text-[#294051]">
@@ -110,17 +110,8 @@ export default function MockupGalleryModal({
               );
             })}
           </div>
-
-          {/* Upgrade overlay for free users — show UpgradeModal directly */}
-          {!isPro && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-b-xl">
-              <UpgradeModal isOpen onClose={onClose} />
-            </div>
-          )}
         </div>
       </div>
     </div>
-
-  </>
   );
 }
