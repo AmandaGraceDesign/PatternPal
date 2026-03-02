@@ -18,9 +18,9 @@ export function detectOriginalDPI(image: HTMLImageElement): number {
  */
 export function calculateOriginalSize(image: HTMLImageElement, dpi: number) {
   return {
-    width: image.width / dpi,
-    height: image.height / dpi,
-    longest: Math.max(image.width, image.height) / dpi
+    width: image.naturalWidth / dpi,
+    height: image.naturalHeight / dpi,
+    longest: Math.max(image.naturalWidth, image.naturalHeight) / dpi
   };
 }
 
@@ -57,11 +57,11 @@ export async function scaleImage(
   const scaleFactor = targetPixels / originalPixels;
   
   // Apply scale factor to actual image dimensions
-  const targetWidth = Math.round(image.width * scaleFactor);
-  const targetHeight = Math.round(image.height * scaleFactor);
-  
+  const targetWidth = Math.round(image.naturalWidth * scaleFactor);
+  const targetHeight = Math.round(image.naturalHeight * scaleFactor);
+
   console.log('Scaling:', {
-    original: `${image.width}x${image.height} (${originalSizeInches}" at ${originalDPI}dpi)`,
+    original: `${image.naturalWidth}x${image.naturalHeight} (${originalSizeInches}" at ${originalDPI}dpi)`,
     target: `${targetWidth}x${targetHeight} (${targetSizeInches}" at ${targetDPI}dpi)`,
     scaleFactor: scaleFactor.toFixed(2)
   });

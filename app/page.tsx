@@ -151,8 +151,8 @@ export default function Home() {
           img.onload = () => {
             URL.revokeObjectURL(objectUrl);
             const finalDpi = detectedDpi || 96;
-            const detectedWidth = img.width / finalDpi;
-            const detectedHeight = img.height / finalDpi;
+            const detectedWidth = img.naturalWidth / finalDpi;
+            const detectedHeight = img.naturalHeight / finalDpi;
             setTileWidth(detectedWidth);
             setTileHeight(detectedHeight);
             setImage(img);
@@ -274,7 +274,7 @@ export default function Home() {
     const objectUrl = URL.createObjectURL(localBlob);
     img.onload = () => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Image loaded:', img.width, 'x', img.height);
+        console.log('Image loaded:', img.naturalWidth, 'x', img.naturalHeight);
       }
 
       const finalDpi = detectedDpi;
@@ -283,8 +283,8 @@ export default function Home() {
       }
 
       // Calculate physical dimensions: pixels / DPI = inches
-      const detectedWidth = img.width / finalDpi;
-      const detectedHeight = img.height / finalDpi;
+      const detectedWidth = img.naturalWidth / finalDpi;
+      const detectedHeight = img.naturalHeight / finalDpi;
 
       if (process.env.NODE_ENV === 'development') {
         console.log('Detected dimensions:', detectedWidth, 'x', detectedHeight, 'inches');

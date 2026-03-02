@@ -80,8 +80,8 @@ export async function extractDpiFromFile(file: File | Blob): Promise<number | nu
               );
               
               if (identifier.startsWith('JFIF')) {
-                const densityUnits = view.getUint8(offset + 9);
-                const xDensity = view.getUint16(offset + 10);
+                const densityUnits = view.getUint8(offset + 11);
+                const xDensity = view.getUint16(offset + 12);
                 
                 if (densityUnits === 1 && xDensity > 0) {
                   resolve(xDensity);

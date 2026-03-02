@@ -49,8 +49,8 @@ export async function generateScaledExport(config: ScaledExportConfig) {
   // Add original tile
   if (config.includeOriginal) {
     const canvas = document.createElement('canvas');
-    canvas.width = config.image.width;
-    canvas.height = config.image.height;
+    canvas.width = config.image.naturalWidth;
+    canvas.height = config.image.naturalHeight;
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(config.image, 0, 0);
     
