@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { injectJpegDpi } from '@/lib/utils/dpiMetadata';
 
 interface QuickExportModalProps {
   isOpen: boolean;
@@ -48,41 +49,37 @@ export default function QuickExportModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Calculate dimensions based on size and DPI
-      const inches = parseInt(size);
-      const pixels = inches * dpi;
+      // Calculate dimensions preserving aspect ratio
+      // "size" is the longest side in inches
+      const targetLongest = parseInt(size);
+      const tileW = image.naturalWidth;
+      const tileH = image.naturalHeight;
+      const longest = Math.max(tileW, tileH);
+      const scale = (targetLongest * dpi) / longest;
+      const canvasW = Math.round(tileW * scale);
+      const canvasH = Math.round(tileH * scale);
 
-      canvas.width = pixels;
-      canvas.height = pixels;
+      canvas.width = canvasW;
+      canvas.height = canvasH;
 
-      // Draw the pattern (tiled)
-      const cols = Math.ceil(pixels / image.naturalWidth) + 1;
-      const rows = Math.ceil(pixels / image.naturalHeight) + 1;
+      // Scale the tile to fill the target canvas
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(image, 0, 0, canvasW, canvasH);
 
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          let x = col * image.naturalWidth;
-          let y = row * image.naturalHeight;
+      // Convert to blob, inject DPI metadata, and download
+      const wInches = (canvasW / dpi).toFixed(1);
+      const hInches = (canvasH / dpi).toFixed(1);
+      canvas.toBlob(async (rawBlob) => {
+        if (!rawBlob) return;
 
-          // Apply repeat type offset
-          if (repeatType === 'half-drop' && col % 2 === 1) {
-            y -= image.naturalHeight / 2;
-          } else if (repeatType === 'half-brick' && row % 2 === 1) {
-            x -= image.naturalWidth / 2;
-          }
-
-          ctx.drawImage(image, x, y, image.naturalWidth, image.naturalHeight);
-        }
-      }
-
-      // Convert to blob and download
-      canvas.toBlob((blob) => {
-        if (!blob) return;
+        // Inject correct DPI into the JPEG metadata
+        const blob = await injectJpegDpi(rawBlob, dpi);
 
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const baseName = originalFilename?.replace(/\.[^/.]+$/, '') || 'pattern';
-        link.download = `${baseName}_${size}x${size}_${dpi}dpi.jpg`;
+        link.download = `${baseName}_${wInches}x${hInches}_${dpi}dpi.jpg`;
         link.href = url;
         document.body.appendChild(link);
         link.click();
@@ -98,10 +95,10 @@ export default function QuickExportModal({
   };
 
   const sizes = [
-    { label: '6" × 6"', size: '6', dpi: 150, free: true },
-    { label: '10" × 10"', size: '10', dpi: 150, free: true },
-    { label: '12" × 12"', size: '12', dpi: 300, free: false },
-    { label: '42" × 42"', size: '42', dpi: 300, free: false },
+    { label: '6" longest side', size: '6', dpi: 150, free: true },
+    { label: '10" longest side', size: '10', dpi: 150, free: true },
+    { label: '12" longest side', size: '12', dpi: 300, free: false },
+    { label: '42" longest side', size: '42', dpi: 300, free: false },
   ];
 
   // Calculate which sizes are actually allowed based on image metadata
