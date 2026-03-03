@@ -156,15 +156,20 @@ export default function PatternPreviewCanvas({
     const canvas = canvasRef.current;
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx) return;
-    
+
+    // Cancellation flag — prevents stale RAF / onload callbacks from rendering
+    // after the effect re-runs (fixes intermittent blank canvas on upload).
+    let cancelled = false;
+    let rafId: number | undefined;
+
     // Re-apply DPR scaling (in case context was reset)
     // Get current DPR
     const currentDpr = window.devicePixelRatio || 1;
-    
+
     // Reset transform and apply DPR scale
     canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
     canvasCtx.scale(currentDpr, currentDpr);
-    
+
     // Ensure high-quality rendering settings
     canvasCtx.imageSmoothingEnabled = true;
     canvasCtx.imageSmoothingQuality = 'high';
@@ -176,6 +181,7 @@ export default function PatternPreviewCanvas({
       // Render placeholder pattern
       const placeholderImg = new Image();
       placeholderImg.onload = () => {
+        if (cancelled) return;
         const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
 
         // Use actual placeholder image dimensions (800x800px seamless JPG)
@@ -191,16 +197,16 @@ export default function PatternPreviewCanvas({
         // Target size is 18 inches at 150 DPI = 2700px, then scale for zoom
         const targetSize = defaultTileWidth * defaultDpi; // 2700px
         const displayScale = (targetSize / placeholderWidth) * (96 / defaultDpi) * viewZoom * 0.5; // Scale 800px to target, then apply zoom
-        
+
         const displayWidth = Math.round(placeholderWidth * displayScale);
         const displayHeight = Math.round(placeholderHeight * displayScale);
         setTileDisplaySize({ width: displayWidth, height: displayHeight });
-        
+
         // Create scaled placeholder - scale by DPR for better quality
         const scaledCanvas = document.createElement('canvas');
         scaledCanvas.width = displayWidth * dpr;
         scaledCanvas.height = displayHeight * dpr;
-        
+
         const scaledCtx = scaledCanvas.getContext('2d');
         if (scaledCtx) {
           // Fill with white background first to prevent transparent/black artifacts
@@ -216,9 +222,11 @@ export default function PatternPreviewCanvas({
 
           // Force canvas to finish rendering before converting to data URL
           // This prevents black/transparent artifacts
-          requestAnimationFrame(() => {
+          rafId = requestAnimationFrame(() => {
+            if (cancelled) return;
             const scaledImg = new Image();
             scaledImg.onload = () => {
+            if (cancelled) return;
             // Clear canvas right before drawing so old pattern stays visible until now
             canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
             canvasCtx.scale(currentDpr, currentDpr);
@@ -233,7 +241,7 @@ export default function PatternPreviewCanvas({
               const currentDpr = window.devicePixelRatio || 1;
               canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
               canvasCtx.scale(currentDpr, currentDpr);
-              
+
               canvasCtx.imageSmoothingEnabled = true;
               canvasCtx.imageSmoothingQuality = 'high';
 
@@ -254,7 +262,7 @@ export default function PatternPreviewCanvas({
         }
       };
       placeholderImg.src = '/place_design_here.jpg';
-      return;
+      return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
     }
 
     // Render actual pattern
@@ -312,13 +320,13 @@ export default function PatternPreviewCanvas({
 
       // Force canvas to finish rendering before converting to data URL
       // This prevents black/transparent artifacts during rapid scaling
-      requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
+        if (cancelled) return;
         // Create image from canvas - use PNG for lossless quality
         const scaledImg = new Image();
         scaledImg.onload = () => {
-        // #region agent log
-        // #endregion
-        
+        if (cancelled) return;
+
         console.log('Scaled image loaded, rendering pattern...');
         // Store tile display size in callback to avoid setState in effect
         setTileDisplaySize({ width: displayWidth, height: displayHeight });
@@ -336,19 +344,10 @@ export default function PatternPreviewCanvas({
 
         // Render the tiled pattern
         tiler.render(scaledImg, repeatType);
-        
-        // #region agent log
-        // #endregion
-        
-        // #region agent log
-        // #endregion
-        
+
         // Draw tile outline if enabled (after pattern is rendered)
         // Draw synchronously to ensure it happens every render and uses current values
         if (showTileOutline) {
-          // #region agent log
-          // #endregion
-          
           // Re-apply DPR scaling to ensure it's correct after PatternTiler.render()
           // PatternTiler might have modified the context, so we need to ensure our transform is correct
           const currentDpr = window.devicePixelRatio || 1;
@@ -356,26 +355,17 @@ export default function PatternPreviewCanvas({
           canvasCtx.scale(currentDpr, currentDpr);
           canvasCtx.imageSmoothingEnabled = true;
           canvasCtx.imageSmoothingQuality = 'high';
-          
+
           // Tile outline always starts at (0, 0) and shows the actual tile size
           // regardless of repeat type
           const outlineX = 0;
           const outlineY = 0;
-          
-          // #region agent log
-          // #endregion
-          
-          // #region agent log
-          // #endregion
-          
+
           // Draw hot pink outline
           canvasCtx.strokeStyle = tileOutlineColor;
           canvasCtx.lineWidth = 6;
           canvasCtx.setLineDash([]);
           canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
-          
-          // #region agent log
-          // #endregion
         }
         };
 
@@ -387,6 +377,8 @@ export default function PatternPreviewCanvas({
         scaledImg.src = scaledCanvas.toDataURL('image/png');
       });
     }
+
+    return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
   }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr]);
 
   // Calculate pixels per unit for ruler

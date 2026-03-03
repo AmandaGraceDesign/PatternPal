@@ -171,28 +171,36 @@ export default function PatternControlsTopBar({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <label className="block">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <span
-              className="inline-flex w-full max-w-[220px] justify-center px-5 py-2.5 text-sm font-semibold text-white rounded-lg cursor-pointer transition-all duration-200"
-              style={{ backgroundColor: '#e0c26e' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#e8d28e';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#e0c26e';
-              }}
+          <div className="flex gap-2 max-w-[220px]">
+            <label className="block flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <span
+                className="inline-flex w-full justify-center px-4 py-2.5 text-sm font-semibold text-white rounded-lg cursor-pointer transition-all duration-200"
+                style={{ backgroundColor: '#e0c26e' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#e8d28e';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#e0c26e';
+                }}
+              >
+                Upload
+              </span>
+            </label>
+            <button
+              onClick={onPaste}
+              className="flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition-all duration-200 border border-white/30 hover:bg-white/10"
             >
-              Upload Pattern
-            </span>
-          </label>
+              Paste
+            </button>
+          </div>
           <p className="text-[11px] text-white text-left max-w-[220px] leading-snug">
-            Or paste with Cmd+V, or drag and drop your image onto the canvas.
+            Or paste with Cmd+V / Ctrl+V, or drag and drop your image.
           </p>
           {!isSignedIn && (
             <p className="text-[11px] text-[#e0c26e] text-left font-medium">

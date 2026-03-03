@@ -312,6 +312,106 @@ export default function Home() {
     img.src = objectUrl;
   };
 
+  // Clipboard API paste — works on mobile where the global paste event doesn't fire
+  const handleClipboardPaste = async () => {
+    if (!canRunFreeTest()) return;
+
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        alert('Clipboard access is not available. Please use the "Upload Pattern" button instead.');
+        return;
+      }
+
+      const clipboardItems = await navigator.clipboard.read();
+
+      for (const item of clipboardItems) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (!imageType) continue;
+
+        const blob = await item.getType(imageType);
+
+        // Validate SVG safety
+        if (imageType === 'image/svg+xml') {
+          try {
+            await validateSvgSafety(blob);
+          } catch (error) {
+            alert(error instanceof Error ? error.message : 'SVG validation failed');
+            return;
+          }
+        }
+
+        const softLimitBytes = 15 * 1024 * 1024;
+        if (blob.size > softLimitBytes) {
+          const mb = (blob.size / (1024 * 1024)).toFixed(1);
+          const proceed = window.confirm(
+            `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
+          );
+          if (!proceed) return;
+        }
+
+        setIsLoading(true);
+
+        // DPI detection (same logic as paste handler)
+        let detectedDpi = dpi;
+        try {
+          const extractedDpi = await extractDpiFromFile(blob);
+          const isCommonPrintDpi = extractedDpi && (
+            extractedDpi === 150 || extractedDpi === 200 ||
+            extractedDpi === 300 || extractedDpi === 600
+          );
+
+          if (isCommonPrintDpi) {
+            detectedDpi = extractedDpi;
+            setDpi(extractedDpi);
+          } else if (extractedDpi === 72 || extractedDpi === 96) {
+            detectedDpi = 150;
+            setDpi(150);
+          } else {
+            detectedDpi = 150;
+            setDpi(150);
+          }
+        } catch {
+          detectedDpi = 150;
+          setDpi(150);
+        }
+
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(blob);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const finalDpi = detectedDpi || 96;
+          const detectedWidth = img.naturalWidth / finalDpi;
+          const detectedHeight = img.naturalHeight / finalDpi;
+          setTileWidth(detectedWidth);
+          setTileHeight(detectedHeight);
+          setImage(img);
+          setOriginalFilename(null);
+          setIsLoading(false);
+          incrementFreeTests();
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          setIsLoading(false);
+          console.error('Failed to load clipboard image');
+        };
+        img.src = objectUrl;
+        return; // Process first image only
+      }
+
+      // No image found in clipboard
+      alert('No image found in your clipboard. Copy an image first, then try again.');
+    } catch (err: unknown) {
+      // Permission denied or no clipboard access
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('denied') || msg.includes('permission')) {
+        alert('Clipboard permission was denied. Please use the "Upload Pattern" button instead.');
+      } else {
+        alert('Could not read from clipboard. Please use the "Upload Pattern" button instead.');
+      }
+      console.error('Clipboard paste error:', err);
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
@@ -361,7 +461,7 @@ export default function Home() {
         onShowTileOutlineChange={setShowTileOutline}
         onTileOutlineColorChange={setTileOutlineColor}
         onFileUpload={handleFileUpload}
-        onPaste={() => {}}
+        onPaste={handleClipboardPaste}
         scalePreviewSize={scalePreviewSize}
         onScalePreviewChange={setScalePreviewSize}
         isScalePreviewActive={isScalePreviewActive}
