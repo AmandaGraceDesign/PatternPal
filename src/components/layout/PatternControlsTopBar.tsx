@@ -171,8 +171,8 @@ export default function PatternControlsTopBar({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div className="flex gap-2 max-w-[220px]">
-            <label className="block flex-1">
+          <div className="flex gap-2 max-w-[260px]">
+            <label className="block flex-[3]">
               <input
                 type="file"
                 accept="image/*"
@@ -194,12 +194,19 @@ export default function PatternControlsTopBar({
             </label>
             <button
               onClick={onPaste}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition-all duration-200 border border-white/30 hover:bg-white/10"
+              className="flex-[2] px-3 py-2.5 text-sm font-semibold text-white rounded-lg cursor-pointer transition-all duration-200"
+              style={{ backgroundColor: '#e0c26e' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#e8d28e';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#e0c26e';
+              }}
             >
               Paste
             </button>
           </div>
-          <p className="text-[11px] text-white text-left max-w-[220px] leading-snug">
+          <p className="text-[11px] text-white text-left max-w-[260px] leading-snug">
             Or paste with Cmd+V / Ctrl+V, or drag and drop your image.
           </p>
           {!isSignedIn && (
