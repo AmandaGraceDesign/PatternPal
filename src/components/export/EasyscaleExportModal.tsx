@@ -46,9 +46,13 @@ export default function EasyscaleExportModal({
   const [error, setError] = useState<string | null>(null);
   const [currentSize, setCurrentSize] = useState<{ width: number; height: number } | null>(null);
   const [customSizeInput, setCustomSizeInput] = useState<string>('');
+  const [convertToFD, setConvertToFD] = useState(false);
+
+  const showConvertToggle = repeatType !== 'full-drop';
 
   // Calculate the maximum exportable size (in inches) without upscaling
-  // Based on the image's actual pixel dimensions and the target DPI
+  // When converting to full-drop, the user's selected size refers to the
+  // original tile (unchanged side), so max size is always based on original dims.
   const getMaxExportSize = (targetDPI: number): number => {
     if (!image) return 0;
     const longestPixelSide = Math.max(image.naturalWidth, image.naturalHeight);
@@ -77,12 +81,12 @@ export default function EasyscaleExportModal({
     }
   }, [image, currentDPI]);
 
-  // Auto-deselect sizes that become invalid when DPI changes
+  // Auto-deselect sizes that become invalid when DPI or convert toggle changes
   useEffect(() => {
     if (!image) return;
     const maxSize = getMaxExportSize(selectedDPI);
     setSelectedSizes(prev => prev.filter(size => size <= maxSize));
-  }, [selectedDPI, image]);
+  }, [selectedDPI, image, convertToFD]);
 
   // Close on Escape key
   useEffect(() => {
@@ -148,6 +152,7 @@ export default function EasyscaleExportModal({
         includeOriginal,
         originalDPI: currentDPI,
         originalFilename,
+        convertToFullDrop: convertToFD,
       };
 
       await generateScaledExport(config);
@@ -461,6 +466,28 @@ export default function EasyscaleExportModal({
                   </p>
                 )}
               </div>
+
+              {/* Convert to Full Drop */}
+              {showConvertToggle && (
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={convertToFD}
+                      onChange={(e) => setConvertToFD(e.target.checked)}
+                      className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
+                      style={{ accentColor: '#e0c26e' }}
+                      disabled={isExporting}
+                    />
+                    <span className="text-sm text-[#374151]">
+                      Convert to Full Drop
+                    </span>
+                  </label>
+                  <p className="text-xs text-[#6b7280] mt-1 ml-6">
+                    Tiles your {repeatType === 'half-drop' ? 'half-drop' : 'half-brick'} pattern into a full-drop tile for POD sites that only accept full-drop repeats.
+                  </p>
+                </div>
+              )}
 
               {/* Include Original */}
               <div>
