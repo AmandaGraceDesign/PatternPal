@@ -69,12 +69,12 @@ export async function injectPngDpi(blob: Blob, dpi: number): Promise<Blob> {
     fullChunk.set(chunkData, 8); // Data
     chunkView.setUint32(17, crc, false); // CRC
     
-    // Find insertion point (after IHDR, before IEND)
+    // Find insertion point (after IHDR, before first IDAT per PNG spec)
     let offset = 8; // After PNG signature
     let foundPhys = false;
     let physOffset = -1;
-    let iendOffset = -1;
-    
+    let firstIdatOffset = -1;
+
     while (offset < view.byteLength - 12) {
       const chunkLength = view.getUint32(offset, false);
       const chunkType = String.fromCharCode(
@@ -83,17 +83,20 @@ export async function injectPngDpi(blob: Blob, dpi: number): Promise<Blob> {
         view.getUint8(offset + 6),
         view.getUint8(offset + 7)
       );
-      
+
       if (chunkType === 'pHYs') {
         foundPhys = true;
         physOffset = offset;
       }
-      
+
+      if (chunkType === 'IDAT' && firstIdatOffset === -1) {
+        firstIdatOffset = offset;
+      }
+
       if (chunkType === 'IEND') {
-        iendOffset = offset;
         break;
       }
-      
+
       offset += chunkLength + 12; // length + type + data + CRC
     }
     
@@ -121,31 +124,26 @@ export async function injectPngDpi(blob: Blob, dpi: number): Promise<Blob> {
       );
       
       return new Blob([newFile], { type: 'image/png' });
-    } else if (iendOffset !== -1) {
-      // Insert pHYs before IEND
-      // Build new file with 21 additional bytes
+    } else if (firstIdatOffset !== -1) {
+      // Insert pHYs before first IDAT (PNG spec requires pHYs before IDAT)
       const newFile = new Uint8Array(arrayBuffer.byteLength + 21);
-      // Insert pHYs before IEND
-      // Copy everything before IEND
-      newFile.set(new Uint8Array(arrayBuffer, 0, iendOffset), 0);
-      
+
+      // Copy everything before first IDAT
+      newFile.set(new Uint8Array(arrayBuffer, 0, firstIdatOffset), 0);
+
       // Insert pHYs chunk
-      newFile.set(fullChunk, iendOffset);
-      
-      // Copy IEND and everything after
+      newFile.set(fullChunk, firstIdatOffset);
+
+      // Copy IDAT and everything after
       newFile.set(
-        new Uint8Array(arrayBuffer, iendOffset),
-        iendOffset + 21
+        new Uint8Array(arrayBuffer, firstIdatOffset),
+        firstIdatOffset + 21
       );
-      
+
       return new Blob([newFile], { type: 'image/png' });
     } else {
-      // Fallback: append before end (shouldn't happen in valid PNG)
-      console.warn('Could not find IEND chunk, appending pHYs at end');
-      const newFile = new Uint8Array(arrayBuffer.byteLength + 21);
-      newFile.set(new Uint8Array(arrayBuffer), 0);
-      newFile.set(fullChunk, arrayBuffer.byteLength - 12); // Before IEND
-      return new Blob([newFile], { type: 'image/png' });
+      console.warn('Could not find IDAT chunk in PNG, returning original');
+      return blob;
     }
   } catch (error) {
     console.error('Error injecting PNG DPI:', error);
