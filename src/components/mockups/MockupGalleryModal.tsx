@@ -9,6 +9,16 @@ import UpgradeModal from '@/components/export/UpgradeModal';
 
 const MOCKUP_TYPES = ['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const;
 
+// Map V1 classic mockups into their respective categories
+const V1_CATEGORY_MAP: Record<string, string> = {
+  'onesie': 'apparel',
+  'fabric-swatch': 'fabric',
+  'wallpaper': 'wallpaper',
+  'throw-pillow': 'home-goods',
+  'wrapping-paper': 'gifting',
+  'journal': 'stationery',
+};
+
 interface MockupGalleryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -52,22 +62,25 @@ export default function MockupGalleryModal({
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const v2Templates = getAllV2Templates();
-  const categories = ['all', 'apparel', 'home-goods', 'stationery', 'accessories', 'classic'];
+  const categories = ['all', 'apparel', 'home-goods', 'fabric', 'wallpaper', 'gifting', 'stationery', 'accessories'];
   const categoryLabels: Record<string, string> = {
     'all': 'All',
     'apparel': 'Apparel',
     'home-goods': 'Home Goods',
+    'fabric': 'Fabric',
+    'wallpaper': 'Wallpaper',
+    'gifting': 'Gifting',
     'stationery': 'Stationery',
     'accessories': 'Accessories',
-    'classic': 'Classic',
   };
 
   if (!isOpen) return null;
 
   // Free users get the UpgradeModal directly — no gallery wrapper
-  if (!isPro) {
-    return <UpgradeModal isOpen onClose={onClose} />;
-  }
+  // TODO: Re-enable pro gate after testing
+  // if (!isPro) {
+  //   return <UpgradeModal isOpen onClose={onClose} />;
+  // }
 
   return (
     <div
@@ -97,10 +110,10 @@ export default function MockupGalleryModal({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded text-[10px] font-bold whitespace-nowrap transition-all ${
                 activeCategory === cat
-                  ? 'bg-[#e94560] text-white'
-                  : 'bg-[#0f3460] text-[#a0a0c0] hover:text-white'
+                  ? 'bg-[#d97706] text-white shadow-[0_2px_8px_rgba(251,191,36,0.4)]'
+                  : 'bg-[#fbbf24] text-white hover:bg-[#f59e0b]'
               }`}
             >
               {categoryLabels[cat]}
@@ -111,9 +124,10 @@ export default function MockupGalleryModal({
         {/* Content */}
         <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(85vh - 96px)' }}>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {/* V1 Classic Mockups */}
-            {(activeCategory === 'all' || activeCategory === 'classic') &&
-              MOCKUP_TYPES.map((mockupType) => {
+            {/* V1 Mockups (filtered by category) */}
+            {MOCKUP_TYPES
+              .filter((mockupType) => activeCategory === 'all' || V1_CATEGORY_MAP[mockupType] === activeCategory)
+              .map((mockupType) => {
                 const template = getMockupTemplate(mockupType);
                 return (
                   <div key={mockupType} className="relative">

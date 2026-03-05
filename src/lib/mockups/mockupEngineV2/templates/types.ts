@@ -26,7 +26,10 @@ export type MockupV2Category =
   | 'apparel'
   | 'home-goods'
   | 'stationery'
-  | 'accessories';
+  | 'accessories'
+  | 'gifting'
+  | 'wallpaper'
+  | 'fabric';
 
 export interface MockupV2Template {
   id: string;

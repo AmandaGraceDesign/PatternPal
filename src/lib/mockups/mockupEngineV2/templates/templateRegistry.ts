@@ -78,7 +78,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     id: 'nursery-wall',
     name: 'Nursery Wall',
     description: 'Nursery room scene with wallpaper applied to wall',
-    category: 'home-goods',
+    category: 'wallpaper',
     canvasSize: { width: 1000, height: 800 },
     patternArea: { x: 50, y: 30, width: 900, height: 550 },
     perspective: { topSqueeze: 0, bottomSqueeze: 0 },
@@ -89,12 +89,12 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     productBase: { type: 'procedural', brightness: 240, shape: 'flat-surface' },
   },
 
-  // ─── Stationery ───
+  // ─── Gifting ───
   'gift-bag': {
     id: 'gift-bag',
     name: 'Gift Bag',
     description: 'Paper gift bag with pattern',
-    category: 'stationery',
+    category: 'gifting',
     canvasSize: { width: 700, height: 900 },
     patternArea: { x: 100, y: 100, width: 500, height: 650 },
     perspective: { topSqueeze: 25, bottomSqueeze: 0 },
@@ -104,11 +104,27 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     physicalSize: { width: 10, height: 13, unit: 'in' },
     productBase: { type: 'procedural', brightness: 230, shape: 'flat-surface' },
   },
+  'wrapping-paper-v2': {
+    id: 'wrapping-paper-v2',
+    name: 'Wrapping Paper',
+    description: 'Wrapping paper sheet with gentle folds',
+    category: 'gifting',
+    canvasSize: { width: 900, height: 800 },
+    patternArea: { x: 50, y: 50, width: 800, height: 700 },
+    perspective: { topSqueeze: 12, bottomSqueeze: 0 },
+    displacement: { intensity: 8, wrinkleFreq: 5, type: 'fabric-drape' },
+    blend: { mode: 'multiply', opacity: 0.90 },
+    lighting: { enabled: true, intensity: 0.2 },
+    physicalSize: { width: 30, height: 20, unit: 'in' },
+    productBase: { type: 'procedural', brightness: 240, shape: 'fabric-drape' },
+  },
+
+  // ─── Wallpaper ───
   'wallpaper-roll': {
     id: 'wallpaper-roll',
     name: 'Wallpaper Roll',
     description: 'Wallpaper roll partially unrolled',
-    category: 'stationery',
+    category: 'wallpaper',
     canvasSize: { width: 700, height: 900 },
     patternArea: { x: 100, y: 50, width: 500, height: 800 },
     perspective: { topSqueeze: 15, bottomSqueeze: 5 },
