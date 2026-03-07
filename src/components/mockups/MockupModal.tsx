@@ -93,13 +93,13 @@ export default function MockupModal({ isOpen, onClose, children, title, subtitle
         )}
 
         {/* Content */}
-        <div 
-          className="p-6 overflow-auto max-h-[calc(90vh-60px)] flex items-center justify-center select-none"
+        <div
+          className="p-6 overflow-auto max-h-[calc(90vh-60px)] flex items-start justify-center select-none"
           onContextMenu={handleContextMenu}
           onDragStart={handleDragStart}
           style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         >
-          <div className="max-w-4xl w-full">
+          <div className="max-w-4xl w-full my-auto">
             {children}
           </div>
         </div>
