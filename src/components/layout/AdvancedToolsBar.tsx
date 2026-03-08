@@ -50,7 +50,7 @@ function ToolCard({ icon, title, description, isFree = false, isPro = false, onC
       onClick={onClick}
       disabled={disabled}
       data-tour={dataTour}
-      className={`group relative flex items-center gap-2 md:gap-3 basis-[calc(50%-6px)] sm:basis-[calc(33.333%-8px)] lg:basis-0 lg:flex-1 min-w-0 px-3 md:px-5 py-3 md:py-4 rounded-lg border-2 transition-all duration-200 ${
+      className={`group relative flex items-center gap-2 md:gap-3 min-w-[160px] md:min-w-[200px] flex-1 px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 transition-all duration-200 ${
         isFree
           ? 'border-[#4caf50] hover:shadow-[0_4px_16px_rgba(76,175,80,0.3)] hover:-translate-y-0.5'
           : 'border-[#3a3a3a] hover:border-[#fbbf24] hover:shadow-[0_4px_16px_rgba(251,191,36,0.2)] hover:-translate-y-0.5'
@@ -58,7 +58,7 @@ function ToolCard({ icon, title, description, isFree = false, isPro = false, onC
     >
       {/* Icon Circle */}
       <div
-        className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center text-lg md:text-xl ${
+        className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-md flex items-center justify-center text-sm md:text-base ${
           isFree ? 'bg-[#4caf50]' : 'bg-[#fbbf24]'
         }`}
       >
