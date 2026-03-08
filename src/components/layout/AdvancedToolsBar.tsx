@@ -50,7 +50,7 @@ function ToolCard({ icon, title, description, isFree = false, isPro = false, onC
       onClick={onClick}
       disabled={disabled}
       data-tour={dataTour}
-      className={`group relative flex items-center gap-2 md:gap-3 min-w-[160px] md:min-w-[200px] px-3 md:px-5 py-3 md:py-4 rounded-lg border-2 transition-all duration-200 ${
+      className={`group relative flex items-center gap-2 md:gap-3 basis-[calc(50%-6px)] sm:basis-[calc(33.333%-8px)] lg:basis-0 lg:flex-1 min-w-0 px-3 md:px-5 py-3 md:py-4 rounded-lg border-2 transition-all duration-200 ${
         isFree
           ? 'border-[#4caf50] hover:shadow-[0_4px_16px_rgba(76,175,80,0.3)] hover:-translate-y-0.5'
           : 'border-[#3a3a3a] hover:border-[#fbbf24] hover:shadow-[0_4px_16px_rgba(251,191,36,0.2)] hover:-translate-y-0.5'
@@ -188,13 +188,8 @@ export default function AdvancedToolsBar({
   return (
     <>
       {/* Horizontal Tool Cards Bar */}
-      <div className="w-full bg-[#1a1a1a] px-4 py-4 border-b border-black/50 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        <style jsx>{`
-          .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
-        <div className="flex gap-3 md:gap-4 justify-center items-center min-w-max mx-auto">
+      <div className="w-full bg-[#1a1a1a] px-4 py-4 border-b border-black/50">
+        <div className="flex flex-wrap gap-3 md:gap-4 justify-center items-stretch mx-auto max-w-6xl">
           {/* Card 1: Quick Export (FREE) - Only show for non-Pro users */}
           {!proAllowed && (
             <ToolCard
@@ -212,7 +207,7 @@ export default function AdvancedToolsBar({
           <ToolCard
             icon="📦"
             title="Easyscale Export"
-            description="8 sizes in one click"
+            description="Print-ready files for POD & Spoonflower"
             isPro={proAllowed}
             onClick={() => handleProToolClick(() => setIsEasyscaleOpen(true))}
             disabled={!image}
@@ -223,7 +218,7 @@ export default function AdvancedToolsBar({
           <ToolCard
             icon="🖼️"
             title="Pattern Fill Export"
-            description="Tiled repeat for Silhouette & Cricut"
+            description="Digital papers for Cricut & Silhouette"
             isPro={proAllowed}
             onClick={() => handleProToolClick(() => setIsRepeatExportOpen(true))}
             disabled={!image}

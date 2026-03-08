@@ -26,10 +26,7 @@ interface SizePreset {
 }
 
 const SIZE_PRESETS: SizePreset[] = [
-  { label: '8\u00d78"', w: 8, h: 8 },
   { label: '12\u00d712"', w: 12, h: 12 },
-  { label: '16\u00d716"', w: 16, h: 16 },
-  { label: '12\u00d724"', w: 12, h: 24 },
 ];
 
 const PREVIEW_WIDTH = 250;
@@ -172,14 +169,17 @@ export default function RepeatExportModal({
       mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
 
     const aspect = calc.outputPxW / calc.outputPxH;
+    const dpr = window.devicePixelRatio || 1;
     const pW = PREVIEW_WIDTH;
     const pH = Math.round(pW / aspect);
 
-    canvas.width = pW;
-    canvas.height = pH;
+    canvas.width = pW * dpr;
+    canvas.height = pH * dpr;
+    canvas.style.height = `${pH}px`;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    ctx.scale(dpr, dpr);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.fillStyle = '#ffffff';
@@ -326,9 +326,13 @@ export default function RepeatExportModal({
               {/* Info Banner */}
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  <span className="font-semibold">For Silhouette & Cricut users:</span>{' '}
-                  This bakes your tile into a large fill image with multiple
-                  repeats — ready to upload as a pattern fill.
+                  <span className="font-semibold">Digital Paper Export</span> —
+                  Creates a ready-to-use pattern fill image for Cricut Design
+                  Space and Silhouette Studio. This bakes multiple repeats of
+                  your tile into one flat image, which eliminates the white
+                  grid line bug in Silhouette. 12&times;12&quot; at 300 DPI is
+                  the standard for selling digital papers on Etsy and Creative
+                  Fabrica.
                 </p>
               </div>
 
@@ -362,26 +366,24 @@ export default function RepeatExportModal({
                 <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
                   Target Size
                 </h4>
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {SIZE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      onClick={() => handlePresetClick(preset)}
-                      className={`px-3 py-2 rounded-md border text-xs font-medium transition-colors ${
-                        isPresetActive(preset)
-                          ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
-                          : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
-                      }`}
-                      disabled={isExporting}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-3 mb-3">
+                  <button
+                    onClick={() => handlePresetClick(SIZE_PRESETS[0])}
+                    className={`px-4 py-2 rounded-md border text-xs font-semibold transition-colors ${
+                      isPresetActive(SIZE_PRESETS[0])
+                        ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
+                        : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
+                    }`}
+                    disabled={isExporting}
+                  >
+                    12&times;12&quot; Standard
+                  </button>
+                  <span className="text-[10px] text-[#9ca3af]">Recommended</span>
                 </div>
 
                 {/* Custom size inputs */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[#6b7280]">Custom:</span>
+                  <span className="text-[10px] text-[#6b7280]">Custom size:</span>
                   <input
                     type="number"
                     min="1"
@@ -429,43 +431,32 @@ export default function RepeatExportModal({
                 </div>
               </div>
 
-              {/* DPI Toggle */}
+              {/* DPI */}
               <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
                   Target DPI
                 </h4>
-                <div className="flex gap-3">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="fill-dpi"
-                      value="150"
-                      checked={selectedDPI === 150}
-                      onChange={() => setSelectedDPI(150)}
-                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      150 DPI
-                    </span>
-                  </label>
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="fill-dpi"
-                      value="300"
-                      checked={selectedDPI === 300}
-                      onChange={() => setSelectedDPI(300)}
-                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      300 DPI (Recommended)
-                    </span>
-                  </label>
-                </div>
+                <p className="text-sm text-[#374151] font-medium">
+                  300 DPI{' '}
+                  <span className="text-[10px] text-[#9ca3af] font-normal ml-1">
+                    Print-quality standard
+                  </span>
+                </p>
+                <label className="flex items-center cursor-pointer mt-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedDPI === 150}
+                    onChange={() =>
+                      setSelectedDPI(selectedDPI === 150 ? 300 : 150)
+                    }
+                    className="mr-2 w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
+                    style={{ accentColor: '#e0c26e' }}
+                    disabled={isExporting}
+                  />
+                  <span className="text-[11px] text-[#9ca3af]">
+                    Use 150 DPI instead (smaller file)
+                  </span>
+                </label>
                 {calc?.isUpscaled && (
                   <p className="text-xs text-orange-600 mt-2">
                     Your tile is {effectiveDPI} DPI — each repeat will be
@@ -583,6 +574,34 @@ export default function RepeatExportModal({
                       )}
                     </div>
                   </div>
+
+                  {/* Commercial-ready indicator */}
+                  {(() => {
+                    const is12x12 =
+                      Math.abs(calc.outputWidthInches - 12) < 0.05 &&
+                      Math.abs(calc.outputHeightInches - 12) < 0.05;
+                    return is12x12 ? (
+                      <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md">
+                        <p className="text-xs text-emerald-800 leading-relaxed">
+                          <span className="font-semibold">Perfect 12 &times; 12</span> —
+                          this is a commercial-quality digital paper, ready to
+                          sell on Etsy, Creative Fabrica, or any marketplace.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-md">
+                        <p className="text-xs text-red-800 leading-relaxed">
+                          This export is{' '}
+                          {calc.outputWidthInches.toFixed(1)}&quot; &times;{' '}
+                          {calc.outputHeightInches.toFixed(1)}&quot; — it works
+                          great as a pattern fill in Cricut and Silhouette, but
+                          doesn&apos;t meet the 12 &times; 12 standard for
+                          selling digital papers. Try adjusting the scale with
+                          +/&minus; to find a repeat count that hits 12 &times; 12.
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

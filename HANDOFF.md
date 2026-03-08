@@ -1,6 +1,6 @@
 # PatternPal Pro - Engineering Handoff
 
-**Last updated:** March 7, 2026
+**Last updated:** March 8, 2026
 
 ---
 
@@ -115,6 +115,10 @@ public/
 - Output always uses whole-number repeats so the image itself is a valid full-drop tile
 - Caps at 10,000px per side and ~67M total pixels (browser canvas safety)
 - DPI metadata injected same as EasyScale exports
+- **In-modal scale control:** +/- buttons jump to next/previous repeat count that changes output. Scale is isolated from main canvas (resets to 1.0 on modal open)
+- **Live preview canvas:** Shows tiled output in real-time, redraws on every calc change
+- **Tiling algorithm:** Width exact to target, aspect ratio preserved (no distortion), height adjusted to fit whole repeats. `repeatsX = round(targetW / convertedW)`, `tilePxH = tilePxW / tileAspect`, `repeatsY = round(targetPxH / tilePxH)`
+- **Seam-free rendering:** Canvas tiles drawn at integer pixel boundaries with +1px overlap to prevent sub-pixel anti-aliasing gaps (both preview and export)
 
 ### Quick Export (Free)
 - 2 sizes (8" and 12"), JPG only, 150 DPI only
@@ -210,6 +214,9 @@ NEXT_PUBLIC_REWARDFUL_API_KEY=97736d
 ## Recent Commit History
 
 ```
+2cd383c feat: add Pattern Fill Export with in-modal scale control
+4158b14 fix: mockup color picker hidden on iPad landscape
+3431edb docs: add engineering handoff document
 a240a79 feat: add Convert to Full Drop option in EasyScale export
 42fb5bc fix: insert PNG pHYs chunk before IDAT per spec (fixes Spoonflower upload)
 62aa13c style: make Upload button larger and Paste button gold
@@ -217,13 +224,6 @@ eab596d fix: mobile paste, Seam Inspector crash, and intermittent blank canvas
 2ee3e51 fix: correct JFIF byte offsets so 300 DPI JPEGs import at true DPI
 a002f37 fix: QuickExport preserves aspect ratio, scales correctly, injects DPI metadata
 82ee790 fix: show sign-up modal for unauthenticated upgrade deep-links
-cc72cc9 feat: add deep-link CTAs for landing page pricing buttons
-f5be1f6 fix: harden API routes — remove error leakage, add Pro authorization
-b3b42df feat: redesign UpgradeModal with feature comparison table
-92598bb docs: add Kajabi landing page for PatternPal Pro
-0ea2217 feat: add 10-step welcome modal with spotlight tour
-669affa feat: add Affiliate20 promo code with 4-month free trial
-57750ca feat: add affiliate program link and slide-out banner for Pro users
 ```
 
 ---
@@ -236,3 +236,33 @@ From `SECURITY_FIXES.md`:
 
 From git status:
 - Three mockup images deleted but not committed: `fabric_swatch.png`, `onesie.png`, `wallpaper.png`
+
+---
+
+## Session Context (March 8, 2026)
+
+### What was done this session
+- **Pattern Fill Export feature** built end-to-end: modal, tiling algorithm, live preview, +/- scale buttons, seam-free rendering
+- Explored multiple tiling algorithms (GCD smallest-square, independent rounding, hybrid width-exact/aspect-preserved) — settled on hybrid approach
+- Replaced initial slider control with discrete +/- buttons that jump to next meaningful repeat count
+- Fixed sub-pixel seam lines in both preview canvas and export canvas
+
+### Key files modified
+- `src/components/export/RepeatExportModal.tsx` — new modal with preview + scale buttons
+- `src/lib/utils/repeatFillExport.ts` — tiling calculation + export generation
+- `src/components/layout/AdvancedToolsBar.tsx` — integration of new tool card
+- `src/components/export/UpgradeModal.tsx` — added feature to Pro comparison table
+
+### User preferences (for next session)
+- **Do not test for user** — user said: "from here on out i don't want you to test for me, it is using too much context too quickly. I simply want you to start the dev server and have me test, if there are issue i will tell you."
+- `preview_start` tool has persistent `EPERM: operation not permitted, uv_cwd` error — dev server must be started manually or is already running on port 3000
+- User mentioned "two ui/ux changes" earlier but only described the first (replacing slider with +/- buttons). The second change was never specified.
+- Unused `gcd()` function still exists in `repeatFillExport.ts` — can be cleaned up
+
+### Unpushed commits
+Branch `main` is ahead of origin by 3 commits:
+```
+2cd383c feat: add Pattern Fill Export with in-modal scale control
+4158b14 fix: mockup color picker hidden on iPad landscape
+3431edb docs: add engineering handoff document
+```

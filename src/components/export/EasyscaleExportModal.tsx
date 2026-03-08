@@ -215,6 +215,17 @@ export default function EasyscaleExportModal({
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Info Banner */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <span className="font-semibold">Print-Ready Export</span> —
+                  Resize your pattern tile to print-ready scales and download
+                  them all in one click. Use this for uploading to Spoonflower,
+                  Redbubble, Society6, or any print-on-demand site — or for
+                  delivering scaled files for pattern licensing.
+                </p>
+              </div>
+
               {/* Current Pattern Info */}
               <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
                 <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
