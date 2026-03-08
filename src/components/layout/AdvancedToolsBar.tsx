@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import QuickExportModal from '@/components/export/QuickExportModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
+import RepeatExportModal from '@/components/export/RepeatExportModal';
 import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
 import SeamInspector from '@/components/analysis/SeamInspector';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
@@ -107,6 +108,7 @@ export default function AdvancedToolsBar({
   const { user, isSignedIn } = useUser();
   const [isQuickExportOpen, setIsQuickExportOpen] = useState(false);
   const [isEasyscaleOpen, setIsEasyscaleOpen] = useState(false);
+  const [isRepeatExportOpen, setIsRepeatExportOpen] = useState(false);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isSeamOpen, setIsSeamOpen] = useState(false);
   const [isMockupsOpen, setIsMockupsOpen] = useState(false);
@@ -217,7 +219,18 @@ export default function AdvancedToolsBar({
             dataTour="easyscale-export"
           />
 
-          {/* Card 3: Pattern Analysis (PRO) */}
+          {/* Card 3: Pattern Fill Export (PRO) */}
+          <ToolCard
+            icon="🖼️"
+            title="Pattern Fill Export"
+            description="Tiled repeat for Silhouette & Cricut"
+            isPro={proAllowed}
+            onClick={() => handleProToolClick(() => setIsRepeatExportOpen(true))}
+            disabled={!image}
+            dataTour="pattern-fill-export"
+          />
+
+          {/* Card 4: Pattern Analysis (PRO) */}
           <ToolCard
             icon="📊"
             title="Pattern Analysis"
@@ -271,6 +284,17 @@ export default function AdvancedToolsBar({
         repeatType={repeatType}
         originalFilename={originalFilename}
         isPro={proAllowed}
+      />
+
+      <RepeatExportModal
+        isOpen={isRepeatExportOpen}
+        onClose={() => setIsRepeatExportOpen(false)}
+        image={image}
+        currentDPI={dpi}
+        tileWidth={tileWidth}
+        tileHeight={tileHeight}
+        repeatType={repeatType}
+        originalFilename={originalFilename}
       />
 
       <PatternAnalysisModal

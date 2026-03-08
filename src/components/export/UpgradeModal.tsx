@@ -38,6 +38,7 @@ const FEATURES: Feature[] = [
   { label: 'Seam analyzer (400%)', free: false, pro: true },
   { label: 'Product mockups', free: false, pro: true },
   { label: 'Mockup download', free: false, pro: true },
+  { label: 'Pattern fill export', free: false, pro: true },
   { label: 'Pro tools panel', free: false, pro: true },
 ];
 

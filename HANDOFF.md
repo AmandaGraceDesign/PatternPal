@@ -55,6 +55,7 @@ src/
       PatternPreviewCanvas.tsx      # Main tiled pattern preview
     export/
       EasyscaleExportModal.tsx      # Pro: multi-size zip export
+      RepeatExportModal.tsx         # Pro: tiled fill image for Silhouette/Cricut
       QuickExportModal.tsx          # Free: limited export
       UpgradeModal.tsx              # Upgrade CTA with Stripe checkout
     analysis/
@@ -79,6 +80,7 @@ src/
       convertToFullDrop.ts          # HD/HB tile -> full-drop canvas conversion
       dpiMetadata.ts                # Inject PNG pHYs / JPEG JFIF DPI metadata
       exportScaled.ts               # generateScaledExport() - zip pipeline
+      repeatFillExport.ts           # Pattern fill tiling export for Silhouette/Cricut
       imageScaler.ts                # scaleImage(), calculateOriginalSize()
       imageUtils.ts                 # extractDpiFromFile(), validateSvgSafety()
       sanitizeFilename.ts           # Filename sanitizer
@@ -104,6 +106,15 @@ public/
 - "Convert to Full Drop" option for HD/HB tiles (for POD sites that only accept full-drop)
 - When converting, user's selected size refers to the original tile dimensions; the doubled side scales to 2x automatically
 - Server-side Pro verification before export generation
+
+### Pattern Fill Export (Pro)
+- Bakes multiple repeats of a tile into a single large fill image for Silhouette Design Store and Cricut Design Space
+- Preset target sizes (8x8", 12x12", 16x16", 12x24") plus custom W×H
+- DPI: 150 or 300, format: PNG or JPG
+- HD/HB tiles auto-converted to full-drop before tiling
+- Output always uses whole-number repeats so the image itself is a valid full-drop tile
+- Caps at 10,000px per side and ~67M total pixels (browser canvas safety)
+- DPI metadata injected same as EasyScale exports
 
 ### Quick Export (Free)
 - 2 sizes (8" and 12"), JPG only, 150 DPI only
