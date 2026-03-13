@@ -46,6 +46,7 @@ export default function EasyscaleExportModal({
   const [error, setError] = useState<string | null>(null);
   const [currentSize, setCurrentSize] = useState<{ width: number; height: number } | null>(null);
   const [customSizeInput, setCustomSizeInput] = useState<string>('');
+  const [selectedUnit, setSelectedUnit] = useState<'in' | 'cm' | 'px'>('in');
   const [convertToFD, setConvertToFD] = useState(false);
 
   const showConvertToggle = repeatType !== 'full-drop';
@@ -61,7 +62,25 @@ export default function EasyscaleExportModal({
 
   const maxExportSize = getMaxExportSize(selectedDPI);
 
-  // Check if a size would cause upscaling/pixelation
+  const sizeInchesFromUnitValue = (value: number, unit: 'in' | 'cm' | 'px', dpiValue: number): number => {
+    if (unit === 'in') return value;
+    if (unit === 'cm') return value / 2.54;
+    return value / dpiValue;
+  };
+
+  const sizeValueFromInches = (inches: number, unit: 'in' | 'cm' | 'px', dpiValue: number): number => {
+    if (unit === 'in') return inches;
+    if (unit === 'cm') return inches * 2.54;
+    return inches * dpiValue;
+  };
+
+  const formatUnitValue = (inches: number) => {
+    if (selectedUnit === 'in') return `${inches.toFixed(2)}"`;
+    if (selectedUnit === 'cm') return `${(inches * 2.54).toFixed(1)}cm`;
+    return `${Math.round(inches * selectedDPI)}px`;
+  };
+
+  // Check if a size in inches would cause upscaling/pixelation
   const isSizeAllowed = (size: number): boolean => {
     return size <= maxExportSize;
   };
@@ -102,25 +121,23 @@ export default function EasyscaleExportModal({
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  const handleSizeToggle = (size: number) => {
+  const handleSizeToggle = (sizeInInches: number) => {
     // Block sizes that would cause upscaling
-    if (!isSizeAllowed(size)) return;
+    if (!isSizeAllowed(sizeInInches)) return;
 
     if (!isPro) {
-      // Free users can select up to 2 sizes (8" and 12" only)
       setSelectedSizes((prev) => {
-        if (prev.includes(size)) {
-          return prev.filter((s) => s !== size);
+        if (prev.includes(sizeInInches)) {
+          return prev.filter((s) => s !== sizeInInches);
         } else if (prev.length < 2) {
-          return [...prev, size];
+          return [...prev, sizeInInches];
         } else {
-          // If already 2 selected, replace the first one
-          return [prev[1], size];
+          return [prev[1], sizeInInches];
         }
       });
     } else {
       setSelectedSizes((prev) =>
-        prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+        prev.includes(sizeInInches) ? prev.filter((s) => s !== sizeInInches) : [...prev, sizeInInches]
       );
     }
   };
@@ -152,6 +169,7 @@ export default function EasyscaleExportModal({
         includeOriginal,
         originalDPI: currentDPI,
         originalFilename,
+        exportUnit: selectedUnit,
         convertToFullDrop: convertToFD,
       };
 
@@ -254,29 +272,45 @@ export default function EasyscaleExportModal({
                     <span className="text-[10px] text-[#6b7280] italic">Free: 8" & 12" only</span>
                   )}
                 </div>
+                <div className="flex items-center gap-2 text-xs mb-2">
+                  <span className="font-medium text-slate-700">Unit:</span>
+                  {['in', 'cm', 'px'].map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => setSelectedUnit(unit as 'in' | 'cm' | 'px')}
+                      className={`px-2 py-1 rounded border ${selectedUnit === unit ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                  <span className="text-slate-500">(changes size labels)</span>
+                </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {(isPro ? PRESET_SIZES : FREE_USER_SIZES).map((size) => {
-                    const allowed = isSizeAllowed(size);
+                  {(isPro ? PRESET_SIZES : FREE_USER_SIZES).map((sizeInInches) => {
+                    const sizeValue = sizeValueFromInches(sizeInInches, selectedUnit, selectedDPI);
+                    const allowed = isSizeAllowed(sizeInInches);
+                    const selected = selectedSizes.includes(sizeInInches);
                     return (
                       <label
-                        key={size}
+                        key={`${sizeInInches}-${selectedUnit}`}
                         className={`flex flex-col items-center justify-center px-3 py-2 rounded-md border transition-colors ${
                           !allowed
                             ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                            : selectedSizes.includes(size)
+                            : selected
                               ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051] cursor-pointer'
                               : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5] cursor-pointer'
                         }`}
-                        title={!allowed ? `Cannot export at ${size}" — would require upscaling (max ${maxExportSize.toFixed(1)}" at ${selectedDPI} DPI)` : undefined}
+                        title={!allowed ? `Cannot export at ${formatUnitValue(sizeInInches)} — would require upscaling (max ${maxExportSize.toFixed(1)}" at ${selectedDPI} DPI)` : undefined}
                       >
                         <input
                           type="checkbox"
-                          checked={selectedSizes.includes(size)}
-                          onChange={() => handleSizeToggle(size)}
+                          checked={selected}
+                          onChange={() => handleSizeToggle(sizeInInches)}
                           className="sr-only"
                           disabled={isExporting || !allowed}
                         />
-                        <span className="text-xs font-medium">{size}"</span>
+                        <span className="text-xs font-medium">{formatUnitValue(sizeInInches)}</span>
                         {!allowed && (
                           <span className="text-[9px] text-gray-400 leading-tight">too large</span>
                         )}
@@ -293,12 +327,12 @@ export default function EasyscaleExportModal({
                 {/* Custom Size Input (Pro only) */}
                 {isPro && (
                   <div className="mt-3">
-                    <p className="text-[10px] text-[#6b7280] mb-1.5">Custom size (max {maxExportSize.toFixed(1)}" at {selectedDPI} DPI without pixelation)</p>
+                    <p className="text-[10px] text-[#6b7280] mb-1.5">Custom size (max {formatUnitValue(maxExportSize)} at {selectedDPI} DPI without pixelation)</p>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
                         min="1"
-                        max={Math.floor(maxExportSize * 2) / 2}
+                        max={Math.floor(sizeValueFromInches(maxExportSize, selectedUnit, selectedDPI) * 10) / 10}
                         step="0.5"
                         value={customSizeInput}
                         onChange={(e) => setCustomSizeInput(e.target.value)}
@@ -306,8 +340,9 @@ export default function EasyscaleExportModal({
                           if (e.key === 'Enter') {
                             e.preventDefault();
                             const val = parseFloat(customSizeInput);
-                            if (val > 0 && isSizeAllowed(val) && !selectedSizes.includes(val)) {
-                              setSelectedSizes(prev => [...prev, val]);
+                            const inches = sizeInchesFromUnitValue(val, selectedUnit, selectedDPI);
+                            if (val > 0 && isSizeAllowed(inches) && !selectedSizes.includes(inches)) {
+                              setSelectedSizes(prev => [...prev, inches]);
                               setCustomSizeInput('');
                             }
                           }
@@ -316,35 +351,36 @@ export default function EasyscaleExportModal({
                         className="w-20 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
                         disabled={isExporting}
                       />
-                      <span className="text-xs text-[#6b7280]">inches</span>
+                      <span className="text-xs text-[#6b7280]">{selectedUnit === 'in' ? 'in' : selectedUnit === 'cm' ? 'cm' : 'px'}</span>
                       <button
                         onClick={() => {
                           const val = parseFloat(customSizeInput);
-                          if (val > 0 && isSizeAllowed(val) && !selectedSizes.includes(val)) {
-                            setSelectedSizes(prev => [...prev, val]);
+                          const inches = sizeInchesFromUnitValue(val, selectedUnit, selectedDPI);
+                          if (val > 0 && isSizeAllowed(inches) && !selectedSizes.includes(inches)) {
+                            setSelectedSizes(prev => [...prev, inches]);
                             setCustomSizeInput('');
                           }
                         }}
-                        disabled={isExporting || !customSizeInput || parseFloat(customSizeInput) <= 0 || !isSizeAllowed(parseFloat(customSizeInput || '0'))}
+                        disabled={isExporting || !customSizeInput || parseFloat(customSizeInput) <= 0 || !isSizeAllowed(sizeInchesFromUnitValue(parseFloat(customSizeInput || '0'), selectedUnit, selectedDPI))}
                         className="px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         style={{ backgroundColor: '#e0c26e', color: 'white' }}
                       >
                         + Add
                       </button>
-                      {customSizeInput && parseFloat(customSizeInput) > 0 && !isSizeAllowed(parseFloat(customSizeInput)) && (
-                        <span className="text-[10px] text-red-500">Too large — max {maxExportSize.toFixed(1)}"</span>
+                      {customSizeInput && parseFloat(customSizeInput) > 0 && !isSizeAllowed(sizeInchesFromUnitValue(parseFloat(customSizeInput || '0'), selectedUnit, selectedDPI)) && (
+                        <span className="text-[10px] text-red-500">Too large — max {formatUnitValue(maxExportSize)}</span>
                       )}
                     </div>
 
                     {/* Show custom (non-preset) sizes as removable chips */}
-                    {selectedSizes.filter(s => !PRESET_SIZES.includes(s)).length > 0 && (
+                    {selectedSizes.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {selectedSizes.filter(s => !PRESET_SIZES.includes(s)).map(size => (
+                        {selectedSizes.map(size => (
                           <span
-                            key={size}
+                            key={`${size}-${selectedUnit}`}
                             className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-[#faf3e0] border border-[#e0c26e] text-[#294051]"
                           >
-                            {size}"
+                            {formatUnitValue(size)}
                             <button
                               onClick={() => setSelectedSizes(prev => prev.filter(s => s !== size))}
                               className="text-[#705046] hover:text-red-500 leading-none"

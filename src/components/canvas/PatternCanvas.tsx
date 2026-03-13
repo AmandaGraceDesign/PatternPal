@@ -299,6 +299,7 @@ export default function PatternCanvas() {
   
   // Show tile outline state
   const [showTileOutline, setShowTileOutline] = useState(false);
+  const [rulerUnit, setRulerUnit] = useState<'in' | 'cm' | 'px'>('in');
   
   // Panning state
   const [isPanning, setIsPanning] = useState(false);
@@ -327,6 +328,24 @@ export default function PatternCanvas() {
     } else {
       return 100 + ((actualValue - 0.15) / 4.85) * 100;
     }
+  };
+
+  const getRulerPixelsPerUnit = (orientation: 'horizontal' | 'vertical'): number => {
+    if (!image) return 1;
+
+    if (rulerUnit === 'px') {
+      // 1 pixel in pattern corresponds to this many display pixels at current zoom
+      return viewZoom;
+    }
+
+    const tileSideInches = orientation === 'horizontal' ? image.width / dpi : image.height / dpi;
+    const tileSideInSelectedUnit = rulerUnit === 'cm' ? tileSideInches * 2.54 : tileSideInches;
+
+    const displaySidePixels = orientation === 'horizontal'
+      ? image.width * viewZoom
+      : image.height * viewZoom;
+
+    return displaySidePixels / Math.max(0.001, tileSideInSelectedUnit);
   };
 
   // Set canvas size - large enough for zooming and panning
@@ -710,8 +729,19 @@ export default function PatternCanvas() {
             </div>
             <p className="text-xs text-gray-500 mt-1">
               Tile size: {(image.width / dpi).toFixed(2)}&quot; × {(image.height / dpi).toFixed(2)}&quot;
-            </p>
-          </div>
+            </p>            <div className="flex items-center gap-2 mt-2 text-xs">
+              <span className="text-gray-500">Ruler unit:</span>
+              {['in', 'cm', 'px'].map((unit) => (
+                <button
+                  key={unit}
+                  type="button"
+                  onClick={() => setRulerUnit(unit as 'in' | 'cm' | 'px')}
+                  className={`px-2 py-1 rounded border text-gray-700 ${rulerUnit === unit ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 hover:bg-gray-100'}`}
+                >
+                  {unit}
+                </button>
+              ))}
+            </div>          </div>
         )}
 
         {/* Export Section */}
@@ -765,7 +795,22 @@ export default function PatternCanvas() {
           </div>
         )}
         
-        {/* Top ruler */}
+        {/* Top ruler and units (visible) */}
+        <div className="sticky top-0 z-20 bg-slate-100 border-b border-slate-200 text-xs p-2 flex items-center justify-between gap-3">
+          <div className="font-medium text-slate-600">Ruler units</div>
+          <div className="flex items-center gap-2">
+            {['in', 'cm', 'px'].map((unit) => (
+              <button
+                key={unit}
+                type="button"
+                onClick={() => setRulerUnit(unit as 'in' | 'cm' | 'px')}
+                className={`px-2 py-1 rounded border text-xs font-medium ${rulerUnit === unit ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-200'}`}
+              >
+                {unit}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex">
           <div className="w-[30px] h-[30px] bg-gray-200 border-b border-r border-gray-300" />
           <div className="flex-1 overflow-hidden">
@@ -774,21 +819,8 @@ export default function PatternCanvas() {
                 orientation="horizontal"
                 length={canvasSize.width}
                 scale={1}
-                unit="in"
-                pixelsPerUnit={(() => {
-                  const tileWidthInches = image.width / dpi;
-                  const displayWidthPixels = image.width * viewZoom;
-                  const ppu = displayWidthPixels / tileWidthInches;
-                  console.log('🔢 RULER PPU CALC:', {
-                    imageWidth: image.width,
-                    dpi,
-                    viewZoom,
-                    tileWidthInches,
-                    displayWidthPixels,
-                    pixelsPerUnit: ppu
-                  });
-                  return ppu;
-                })()}
+                unit={rulerUnit}
+                pixelsPerUnit={getRulerPixelsPerUnit('horizontal')}
               />
             ) : (
               <div className="h-[30px] bg-gray-200" />
@@ -804,12 +836,8 @@ export default function PatternCanvas() {
                 orientation="vertical"
                 length={canvasSize.height}
                 scale={1}
-                unit="in"
-                pixelsPerUnit={(() => {
-                  const tileHeightInches = image.height / dpi;
-                  const displayHeightPixels = image.height * viewZoom;
-                  return displayHeightPixels / tileHeightInches;
-                })()}
+                unit={rulerUnit}
+                pixelsPerUnit={getRulerPixelsPerUnit('vertical')}
               />
             ) : (
               <div className="w-[30px] bg-gray-200" />

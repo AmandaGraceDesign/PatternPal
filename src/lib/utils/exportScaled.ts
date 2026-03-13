@@ -32,6 +32,7 @@ export interface ScaledExportConfig {
   includeOriginal: boolean;
   originalDPI: number;           // Current DPI of the image from app state
   originalFilename: string | null; // Original filename without extension
+  exportUnit?: 'in' | 'cm' | 'px';
   convertToFullDrop?: boolean;   // Convert HD/HB tile to full-drop before scaling
 }
 
@@ -117,7 +118,9 @@ export async function generateScaledExport(config: ScaledExportConfig) {
     );
 
     const suffix = needsConversion ? '-fulldrop' : '';
-    const filename = `${baseFilename}-${size}in-${config.selectedDPI}dpi${suffix}.${fileExtension}`;
+    const exportUnit = config.exportUnit || 'in';
+    const sizeLabel = exportUnit === 'in' ? `${size}in` : exportUnit === 'cm' ? `${(size * 2.54).toFixed(1)}cm` : `${Math.round(size * config.selectedDPI)}px`;
+    const filename = `${baseFilename}-${sizeLabel}-${config.selectedDPI}dpi${suffix}.${fileExtension}`;
     zip.file(filename, scaledBlob);
   }
   

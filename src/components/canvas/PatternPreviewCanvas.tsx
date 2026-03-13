@@ -34,6 +34,7 @@ export default function PatternPreviewCanvas({
   const [tileDisplaySize, setTileDisplaySize] = useState({ width: 0, height: 0 });
   const [dpr, setDpr] = useState(1);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [rulerUnit, setRulerUnit] = useState<'in' | 'cm' | 'px'>('in');
 
   // Helper to get distance between two touch points
   const getTouchDistance = useCallback((touches: React.TouchList): number => {
@@ -438,12 +439,31 @@ export default function PatternPreviewCanvas({
   // Then multiply by viewZoom to get the actual pixels per inch at current zoom
   const viewZoom = displayZoomToActualZoom(zoom);
   const pixelsPerInch = 96 * viewZoom;
+  const pixelsPerPixel = (96 / dpi) * viewZoom;
 
-  const horizontalPixelsPerUnit = image ? pixelsPerInch : 96;
-  const verticalPixelsPerUnit = image ? pixelsPerInch : 96;
+  const getPixelsPerUnit = (unit: 'in' | 'cm' | 'px') => {
+    if (unit === 'in') return pixelsPerInch;
+    if (unit === 'cm') return pixelsPerInch / 2.54;
+    return pixelsPerPixel;
+  };
+
+  const horizontalUnitValue = getPixelsPerUnit(rulerUnit);
+  const verticalUnitValue = getPixelsPerUnit(rulerUnit);
 
   return (
     <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
+      <div className="flex items-center justify-end gap-2 p-2 text-xs bg-[#111827] border-b border-[#2d3340] text-white">
+        <span className="text-slate-300">Ruler unit:</span>
+        {['in', 'cm', 'px'].map((unit) => (
+          <button
+            key={unit}
+            onClick={() => setRulerUnit(unit as 'in' | 'cm' | 'px')}
+            className={`rounded border px-2 py-1 ${rulerUnit === unit ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
+          >
+            {unit}
+          </button>
+        ))}
+      </div>
         {/* Top ruler */}
         <div className="flex border-b border-[#3a3d44]">
           <div className="w-[30px] h-[30px] bg-[#3a3d44] border-r border-[#3a3d44]" />
@@ -453,8 +473,8 @@ export default function PatternPreviewCanvas({
                 orientation="horizontal"
                 length={canvasSize.width}
                 scale={1}
-                unit="in"
-                pixelsPerUnit={horizontalPixelsPerUnit}
+                unit={rulerUnit}
+                pixelsPerUnit={horizontalUnitValue}
               />
             ) : (
               <div className="h-[30px] bg-[#3a3d44]" />
@@ -470,8 +490,8 @@ export default function PatternPreviewCanvas({
                 orientation="vertical"
                 length={canvasSize.height}
                 scale={1}
-                unit="in"
-                pixelsPerUnit={verticalPixelsPerUnit}
+                unit={rulerUnit}
+                pixelsPerUnit={verticalUnitValue}
               />
             ) : (
               <div className="w-[30px] bg-[#3a3d44]" />

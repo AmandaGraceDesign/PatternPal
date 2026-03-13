@@ -139,28 +139,29 @@ function getTickSpacing(pixelsPerUnit: number): number {
 
 function formatLabel(value: number, unit: string, pixelsPerUnit: number): string {
   if (unit === 'px') {
-    return value.toString();
+    return `${Math.round(value)}px`;
   }
-  const inches = value / pixelsPerUnit;
-  
-  // Format based on value
-  if (inches >= 10) {
-    // Whole numbers for large values
-    return Math.round(inches) + unit;
-  } else if (inches >= 1) {
-    // One decimal for medium values
-    return inches.toFixed(1) + unit;
+
+  const numeric = value / pixelsPerUnit;
+  const measure = unit === 'cm' ? numeric * 2.54 : numeric;
+  const unitLabel = unit === 'cm' ? 'cm' : 'in';
+
+  if (measure >= 10) {
+    return `${Math.round(measure)}${unitLabel}`;
+  } else if (measure >= 1) {
+    return `${measure.toFixed(1)}${unitLabel}`;
   } else {
-    // Two decimals or fractions for small values
-    const fraction = inches;
-    if (Math.abs(fraction - 0.125) < 0.01) return '⅛' + unit;
-    if (Math.abs(fraction - 0.25) < 0.01) return '¼' + unit;
-    if (Math.abs(fraction - 0.375) < 0.01) return '⅜' + unit;
-    if (Math.abs(fraction - 0.5) < 0.01) return '½' + unit;
-    if (Math.abs(fraction - 0.625) < 0.01) return '⅝' + unit;
-    if (Math.abs(fraction - 0.75) < 0.01) return '¾' + unit;
-    if (Math.abs(fraction - 0.875) < 0.01) return '⅞' + unit;
-    return inches.toFixed(2) + unit;
+    // show fractions for inches under 1 only
+    if (unit === 'in') {
+      if (Math.abs(measure - 0.125) < 0.01) return `⅛${unitLabel}`;
+      if (Math.abs(measure - 0.25) < 0.01) return `¼${unitLabel}`;
+      if (Math.abs(measure - 0.375) < 0.01) return `⅜${unitLabel}`;
+      if (Math.abs(measure - 0.5) < 0.01) return `½${unitLabel}`;
+      if (Math.abs(measure - 0.625) < 0.01) return `⅝${unitLabel}`;
+      if (Math.abs(measure - 0.75) < 0.01) return `¾${unitLabel}`;
+      if (Math.abs(measure - 0.875) < 0.01) return `⅞${unitLabel}`;
+    }
+    return `${measure.toFixed(2)}${unitLabel}`;
   }
 }
 
