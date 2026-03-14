@@ -18,42 +18,36 @@ export default function SeamInspectorPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!window.opener) {
+    // Read data from sessionStorage (copied from opener) or localStorage (fallback)
+    const stored =
+      sessionStorage.getItem('__seam_inspector_data') ||
+      localStorage.getItem('__seam_inspector_data');
+
+    if (!stored) {
       setError('No pattern data available. Please open the Seam Inspector from the main editor.');
       return;
     }
 
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type !== 'init') return;
+    // Clean up both storage locations
+    sessionStorage.removeItem('__seam_inspector_data');
+    localStorage.removeItem('__seam_inspector_data');
 
-      const { imageUrl, repeatType, dpi, filename, outlineColor } = event.data;
+    const { imageUrl, repeatType, dpi, filename, outlineColor } = JSON.parse(stored);
 
-      // Copy image data into our own HTMLImageElement
-      const img = new Image();
-      img.onload = () => {
-        setData({
-          image: img,
-          repeatType,
-          dpi,
-          filename,
-          outlineColor,
-        });
-      };
-      img.onerror = () => {
-        setError('Failed to load pattern image.');
-      };
-      img.src = imageUrl;
-
-      window.removeEventListener('message', handleMessage);
+    const img = new Image();
+    img.onload = () => {
+      setData({
+        image: img,
+        repeatType,
+        dpi,
+        filename,
+        outlineColor,
+      });
     };
-
-    window.addEventListener('message', handleMessage);
-
-    // Signal ready to parent
-    window.opener.postMessage({ type: 'ready' }, window.location.origin);
-
-    return () => window.removeEventListener('message', handleMessage);
+    img.onerror = () => {
+      setError('Failed to load pattern image.');
+    };
+    img.src = imageUrl;
   }, []);
 
   // ESC to close

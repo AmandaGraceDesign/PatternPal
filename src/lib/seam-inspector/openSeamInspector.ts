@@ -24,34 +24,22 @@ export function openSeamInspector({
   ctx.drawImage(image, 0, 0);
   const imageDataUrl = canvas.toDataURL('image/png');
 
-  const inspectorWindow = window.open('/seam-inspector', '_blank');
-  if (!inspectorWindow) return;
+  // Store data in sessionStorage — the new tab opened via window.open()
+  // receives a copy of the opener's sessionStorage
+  const payload = JSON.stringify({
+    imageUrl: imageDataUrl,
+    repeatType,
+    dpi,
+    filename: filename || 'pattern',
+    outlineColor,
+  });
 
-  const handleMessage = (event: MessageEvent) => {
-    if (event.origin !== window.location.origin) return;
-    if (event.data?.type === 'ready') {
-      inspectorWindow.postMessage(
-        {
-          type: 'init',
-          imageUrl: imageDataUrl,
-          repeatType,
-          dpi,
-          filename: filename || 'pattern',
-          outlineColor,
-        },
-        window.location.origin
-      );
-      window.removeEventListener('message', handleMessage);
-    }
-  };
+  try {
+    sessionStorage.setItem('__seam_inspector_data', payload);
+  } catch {
+    // sessionStorage full — fall back to localStorage with cleanup
+    localStorage.setItem('__seam_inspector_data', payload);
+  }
 
-  window.addEventListener('message', handleMessage);
-
-  // Clean up listener if window closes before ready
-  const checkClosed = setInterval(() => {
-    if (inspectorWindow.closed) {
-      clearInterval(checkClosed);
-      window.removeEventListener('message', handleMessage);
-    }
-  }, 1000);
+  window.open('/seam-inspector', '_blank');
 }
