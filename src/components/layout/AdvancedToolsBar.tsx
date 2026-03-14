@@ -5,7 +5,7 @@ import QuickExportModal from '@/components/export/QuickExportModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
 import RepeatExportModal from '@/components/export/RepeatExportModal';
 import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
-import SeamInspector from '@/components/analysis/SeamInspector';
+import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
@@ -110,7 +110,6 @@ export default function AdvancedToolsBar({
   const [isEasyscaleOpen, setIsEasyscaleOpen] = useState(false);
   const [isRepeatExportOpen, setIsRepeatExportOpen] = useState(false);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
-  const [isSeamOpen, setIsSeamOpen] = useState(false);
   const [isMockupsOpen, setIsMockupsOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
@@ -242,7 +241,13 @@ export default function AdvancedToolsBar({
             title="Seam Analyzer"
             description="Inspect pattern seam alignment"
             isPro={proAllowed}
-            onClick={() => handleProToolClick(() => setIsSeamOpen(true))}
+            onClick={() => handleProToolClick(() => openSeamInspector({
+              image: image!,
+              repeatType,
+              dpi,
+              filename: originalFilename,
+              outlineColor: tileOutlineColor,
+            }))}
             disabled={!image}
             dataTour="seam-analyzer"
           />
@@ -303,15 +308,6 @@ export default function AdvancedToolsBar({
         isAnalyzing={isAnalyzing}
         isPro={proAllowed}
         onUpgrade={() => setIsUpgradeModalOpen(true)}
-      />
-
-      <SeamInspector
-        image={image}
-        isOpen={isSeamOpen}
-        onClose={() => setIsSeamOpen(false)}
-        repeatType={repeatType}
-        dpi={dpi}
-        seamLineColor={tileOutlineColor}
       />
 
       <MockupGalleryModal
