@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import type { RepeatType } from '@/lib/analysis/seamAnalyzer';
-import SeamInspector from './SeamInspector';
+import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 
 interface SeamAnalyzerProps {
   canvas: HTMLCanvasElement | null;
@@ -15,11 +14,18 @@ interface SeamAnalyzerProps {
 }
 
 export default function SeamAnalyzer({ canvas, image, repeatType, isPro, dpi = 150, seamLineColor = '#38bdf8', onUpgrade }: SeamAnalyzerProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   const handleInspect = () => {
     if (!image) return;
-    setIsModalOpen(true);
+    openSeamInspector({
+      image,
+      repeatType:
+        repeatType === 'fulldrop' ? 'full-drop' :
+        repeatType === 'halfdrop' ? 'half-drop' :
+        'half-brick',
+      dpi,
+      filename: null,
+      outlineColor: seamLineColor,
+    });
   };
 
   const getRepeatLabel = (type: RepeatType) => {
@@ -107,19 +113,6 @@ export default function SeamAnalyzer({ canvas, image, repeatType, isPro, dpi = 1
         </>
       )}
 
-      {/* Modal */}
-      <SeamInspector
-        image={image}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        repeatType={
-          repeatType === 'fulldrop' ? 'full-drop' :
-          repeatType === 'halfdrop' ? 'half-drop' :
-          'half-brick'
-        }
-        dpi={dpi}
-        seamLineColor={seamLineColor}
-      />
     </div>
   );
 }
