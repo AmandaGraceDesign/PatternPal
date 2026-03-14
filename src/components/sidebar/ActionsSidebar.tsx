@@ -9,7 +9,7 @@ import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
 import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
 import UpgradeModal from '@/components/export/UpgradeModal';
-import SeamInspector from '@/components/analysis/SeamInspector';
+import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
@@ -37,7 +37,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
-  const [isSeamInspectorOpen, setIsSeamInspectorOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly' | undefined>(undefined);
@@ -212,7 +211,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
         {/* Seam Analyzer */}
         <ToolButton
-          onClick={() => setIsSeamInspectorOpen(true)}
+          onClick={() => openSeamInspector({
+            image: image!,
+            repeatType,
+            dpi,
+            filename: originalFilename,
+            outlineColor: tileOutlineColor,
+          })}
           disabled={!image}
           proOnly
           label="Seam Analyzer"
@@ -263,16 +268,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         isAnalyzing={isAnalyzing}
         isPro={proAllowed}
         onUpgrade={() => setIsUpgradeModalOpen(true)}
-      />
-
-      {/* Seam Inspector Modal */}
-      <SeamInspector
-        image={image}
-        isOpen={isSeamInspectorOpen}
-        onClose={() => setIsSeamInspectorOpen(false)}
-        repeatType={repeatType}
-        dpi={dpi}
-        seamLineColor={tileOutlineColor}
       />
 
       {/* Mockup Gallery Modal */}
