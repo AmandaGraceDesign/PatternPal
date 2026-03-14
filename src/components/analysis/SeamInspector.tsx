@@ -136,7 +136,8 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType, dpi 
       canvas.style.height = `${canvasHeight}px`;
 
       ctx.setTransform(safeDpr, 0, 0, safeDpr, 0, 0);
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
       const srcW = image.naturalWidth;
