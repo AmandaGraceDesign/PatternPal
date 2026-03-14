@@ -7,13 +7,14 @@ interface SeamInspectorProps {
   isOpen: boolean;
   onClose: () => void;
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
+  dpi?: number;
   seamLineColor?: string;
 }
 
 type SeamType = 'horizontal' | 'vertical' | 'intersection';
 type SeamSection = 'start' | 'middle' | 'end';
 
-export default function SeamInspector({ image, isOpen, onClose, repeatType, seamLineColor = '#38bdf8' }: SeamInspectorProps) {
+export default function SeamInspector({ image, isOpen, onClose, repeatType, dpi = 150, seamLineColor = '#38bdf8' }: SeamInspectorProps) {
   const [seamType, setSeamType] = useState<SeamType>('intersection');
   const [zoomLevel, setZoomLevel] = useState<number>(200);
   const [seamSection, setSeamSection] = useState<SeamSection>('middle');
@@ -120,9 +121,10 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType, seam
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const dpr = window.devicePixelRatio || 1;
-      const safeDpr = Math.min(dpr, 2);
-      const zoomFactor = zoomLevel / 100;
+      const deviceDpr = window.devicePixelRatio || 1;
+      const safeDpr = Math.min(deviceDpr, 2);
+      // DPI-aware zoom: at 100%, 1 pattern inch = 96 screen pixels
+      const zoomFactor = (zoomLevel / 100) * (96 / dpi);
 
       const padding = 48;
       const canvasWidth = Math.max(0, containerSize.width - padding);
@@ -269,7 +271,7 @@ export default function SeamInspector({ image, isOpen, onClose, repeatType, seam
       console.error('Seam Inspector render error:', err);
       setRenderError('Unable to render seam view. Try reducing the zoom level or using a smaller image.');
     }
-  }, [image, seamType, zoomLevel, seamSection, showPinkLines, repeatType, isOpen, containerSize, panOffset, seamLineColor]);
+  }, [image, seamType, zoomLevel, seamSection, showPinkLines, repeatType, isOpen, containerSize, panOffset, seamLineColor, dpi]);
 
   if (!isOpen || !image) return null;
 

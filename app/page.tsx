@@ -522,7 +522,7 @@ export default function Home() {
       />
 
       {/* Main Content Area: Full-width Canvas */}
-      <div className="flex-1 relative min-h-0">
+      <div className="relative">
         <div
           className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 rounded-b-2xl"
           style={{ minHeight: '100%' }}

@@ -310,6 +310,7 @@ export default function AdvancedToolsBar({
         isOpen={isSeamOpen}
         onClose={() => setIsSeamOpen(false)}
         repeatType={repeatType}
+        dpi={dpi}
         seamLineColor={tileOutlineColor}
       />
 

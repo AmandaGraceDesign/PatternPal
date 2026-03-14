@@ -271,6 +271,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         isOpen={isSeamInspectorOpen}
         onClose={() => setIsSeamInspectorOpen(false)}
         repeatType={repeatType}
+        dpi={dpi}
         seamLineColor={tileOutlineColor}
       />
 

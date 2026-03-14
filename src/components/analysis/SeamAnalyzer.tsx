@@ -9,11 +9,12 @@ interface SeamAnalyzerProps {
   image: HTMLImageElement | null;
   repeatType: RepeatType;
   isPro: boolean;
+  dpi?: number;
   seamLineColor?: string;
   onUpgrade?: () => void;
 }
 
-export default function SeamAnalyzer({ canvas, image, repeatType, isPro, seamLineColor = '#38bdf8', onUpgrade }: SeamAnalyzerProps) {
+export default function SeamAnalyzer({ canvas, image, repeatType, isPro, dpi = 150, seamLineColor = '#38bdf8', onUpgrade }: SeamAnalyzerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleInspect = () => {
@@ -116,6 +117,7 @@ export default function SeamAnalyzer({ canvas, image, repeatType, isPro, seamLin
           repeatType === 'halfdrop' ? 'half-drop' :
           'half-brick'
         }
+        dpi={dpi}
         seamLineColor={seamLineColor}
       />
     </div>

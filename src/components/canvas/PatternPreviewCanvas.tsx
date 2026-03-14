@@ -81,7 +81,6 @@ export default function PatternPreviewCanvas({
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
       e.stopPropagation();
-
       const delta = -e.deltaY * 0.5;
       const newZoom = Math.max(10, Math.min(800, zoom + delta));
       onZoomChange(newZoom);
@@ -97,19 +96,22 @@ export default function PatternPreviewCanvas({
     const updateCanvasSize = () => {
       setDpr(currentDpr);
       if (canvasRef.current) {
-        // Width: measure the scroll container (respects flex layout)
         const container = scrollContainerRef.current;
         const displayWidth = container
           ? Math.round(container.clientWidth)
           : Math.round(window.innerWidth);
 
-        // Height: use the container if it has real height, otherwise
-        // compute from viewport. The flex-1 container may not have
-        // height yet on first render, so fall back to viewport calc.
-        const containerH = container ? container.clientHeight : 0;
-        const displayHeight = containerH > 100
-          ? Math.round(containerH)
-          : Math.round(window.innerHeight * 0.7);
+        // Height: based on tile dimensions to show several rows, so
+        // the page scrolls to reveal more pattern
+        let displayHeight: number;
+        if (image) {
+          const sf = (zoom / 100) * (96 / dpi);
+          const scaledTileH = image.naturalHeight * sf;
+          const minRows = Math.max(3, Math.ceil(window.innerHeight * 0.8 / scaledTileH) + 2);
+          displayHeight = Math.round(Math.max(window.innerHeight * 0.6, scaledTileH * minRows));
+        } else {
+          displayHeight = Math.round(window.innerHeight * 0.6);
+        }
 
         const ctx = canvasRef.current.getContext('2d');
 
@@ -129,12 +131,11 @@ export default function PatternPreviewCanvas({
       }
     };
 
-    // Delay initial sizing to let flex layout settle
     requestAnimationFrame(updateCanvasSize);
 
     window.addEventListener('resize', updateCanvasSize);
     return () => window.removeEventListener('resize', updateCanvasSize);
-  }, []);
+  }, [image, zoom, dpi]);
 
   // Render pattern
   useEffect(() => {
@@ -231,7 +232,7 @@ export default function PatternPreviewCanvas({
     const tiler = new PatternTiler(canvasCtx, canvasSize.width, canvasSize.height);
     tiler.render(image, repeatType, scaleFactor, panX, panY);
 
-    // Draw tile outlines
+    // Draw a single tile outline
     if (showTileOutline) {
       const outlineW = image.naturalWidth * scaleFactor;
       const outlineH = image.naturalHeight * scaleFactor;
@@ -240,27 +241,20 @@ export default function PatternPreviewCanvas({
       canvasCtx.lineWidth = 6;
       canvasCtx.setLineDash([]);
 
-      const startCol = Math.floor(-panX / outlineW) - 1;
-      const endCol = Math.ceil((canvasSize.width - panX) / outlineW);
-      const startRow = Math.floor(-panY / outlineH) - 1;
-      const endRow = Math.ceil((canvasSize.height - panY) / outlineH);
+      // Find the first visible tile position (top-left-most tile in viewport)
+      const col = Math.floor(-panX / outlineW);
+      const row = Math.floor(-panY / outlineH);
 
-      for (let col = startCol; col <= endCol; col++) {
-        for (let row = startRow; row <= endRow; row++) {
-          let ox = col * outlineW + panX;
-          let oy = row * outlineH + panY;
+      let ox = col * outlineW + panX;
+      let oy = row * outlineH + panY;
 
-          if (repeatType === 'half-drop') {
-            oy += (((col % 2) + 2) % 2 !== 0) ? outlineH / 2 : 0;
-          } else if (repeatType === 'half-brick') {
-            ox += (((row % 2) + 2) % 2 !== 0) ? outlineW / 2 : 0;
-          }
-
-          if (ox + outlineW <= 0 || oy + outlineH <= 0 || ox >= canvasSize.width || oy >= canvasSize.height) continue;
-
-          canvasCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
-        }
+      if (repeatType === 'half-drop') {
+        oy += (((col % 2) + 2) % 2 !== 0) ? outlineH / 2 : 0;
+      } else if (repeatType === 'half-brick') {
+        ox += (((row % 2) + 2) % 2 !== 0) ? outlineW / 2 : 0;
       }
+
+      canvasCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
     }
 
     return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
@@ -282,7 +276,7 @@ export default function PatternPreviewCanvas({
   const verticalUnitValue = getPixelsPerUnit(rulerUnit);
 
   return (
-    <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]" style={{ height: '70vh' }}>
+    <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
       <div className="flex items-center justify-end gap-2 p-2 text-xs bg-[#111827] border-b border-[#2d3340] text-white">
         <span className="text-slate-300">Ruler unit:</span>
         {['in', 'cm', 'px'].map((unit) => (
@@ -314,7 +308,7 @@ export default function PatternPreviewCanvas({
         </div>
 
         {/* Canvas with left ruler */}
-        <div className="flex flex-1">
+        <div className="flex">
           <div className="w-[30px] overflow-hidden border-r border-[#3a3d44]">
             {image ? (
               <Ruler
