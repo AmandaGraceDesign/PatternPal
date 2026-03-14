@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import SeamInspectorCanvas from '@/components/analysis/SeamInspectorCanvas';
 
 type RepeatType = 'full-drop' | 'half-drop' | 'half-brick';
 
@@ -89,12 +90,13 @@ export default function SeamInspectorPage() {
     );
   }
 
-  // Temporary: render placeholder until SeamInspectorCanvas is built
   return (
-    <div className="min-h-screen bg-[#294051] flex items-center justify-center">
-      <p className="text-[#94a3b8] text-sm">
-        Loaded: {data.filename} ({data.image.naturalWidth}x{data.image.naturalHeight}) — {data.repeatType}
-      </p>
-    </div>
+    <SeamInspectorCanvas
+      image={data.image}
+      repeatType={data.repeatType}
+      dpi={data.dpi}
+      filename={data.filename}
+      outlineColor={data.outlineColor}
+    />
   );
 }
