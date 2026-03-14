@@ -76,16 +76,15 @@ export default function Ruler({
     ctx.textAlign = isHorizontal ? 'center' : 'center';
     ctx.textBaseline = isHorizontal ? 'top' : 'middle';
 
-    const tickSpacing = getTickSpacing(pixelsPerUnit);
+    const { minorSpacing, majorEvery } = getTickSpacing(pixelsPerUnit, unit);
     const start = 0;
     const end = length;
 
     let tickCount = 0;
-    for (let pos = start; pos <= end; pos += tickSpacing) {
+    for (let pos = start; pos <= end; pos += minorSpacing) {
       if (pos > length) break;
 
-      // Every 4th tick is major (labeled)
-      const isMajorTick = tickCount % 4 === 0;
+      const isMajorTick = tickCount % majorEvery === 0;
       const tickLength = isMajorTick ? 15 : 8;
 
       if (isHorizontal) {
@@ -113,7 +112,7 @@ export default function Ruler({
           ctx.restore();
         }
       }
-      
+
       tickCount++;
     }
   }, [orientation, length, scale, unit, pixelsPerUnit, dpr]);
@@ -129,21 +128,37 @@ export default function Ruler({
   );
 }
 
-function getTickSpacing(pixelsPerUnit: number): number {
-  // Returns spacing in pixels for minor ticks.
-  // Aim for half-unit ticks where possible.
-  const desired = pixelsPerUnit / 2;
-  // Avoid ultra-dense ticks at extreme zoom out.
-  return Math.max(5, desired);
+function getTickSpacing(pixelsPerUnit: number, unit: string): { minorSpacing: number; majorEvery: number } {
+  const MIN_LABEL_GAP = 60; // minimum pixels between labels
+
+  if (unit === 'px') {
+    // Find a clean pattern-pixel interval whose screen width >= MIN_LABEL_GAP
+    const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    const majorPatternPx = steps.find(s => s * pixelsPerUnit >= MIN_LABEL_GAP) || 1000;
+    const minorSpacing = (majorPatternPx / 4) * pixelsPerUnit;
+    return { minorSpacing, majorEvery: 4 };
+  }
+
+  // For in/cm: base minor tick is half a unit
+  const minorSpacing = Math.max(5, pixelsPerUnit / 2);
+  const majorSpacingPx = minorSpacing * 4;
+
+  // If major ticks are too close, widen the major interval
+  if (majorSpacingPx >= MIN_LABEL_GAP) {
+    return { minorSpacing, majorEvery: 4 };
+  }
+
+  const majorEvery = Math.ceil(MIN_LABEL_GAP / minorSpacing);
+  return { minorSpacing, majorEvery };
 }
 
 function formatLabel(value: number, unit: string, pixelsPerUnit: number): string {
   if (unit === 'px') {
-    return `${Math.round(value)}px`;
+    return `${Math.round(value / pixelsPerUnit)}px`;
   }
 
   const numeric = value / pixelsPerUnit;
-  const measure = unit === 'cm' ? numeric * 2.54 : numeric;
+  const measure = numeric;
   const unitLabel = unit === 'cm' ? 'cm' : 'in';
 
   if (measure >= 10) {
