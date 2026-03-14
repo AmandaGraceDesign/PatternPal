@@ -97,15 +97,19 @@ export default function PatternPreviewCanvas({
     const updateCanvasSize = () => {
       setDpr(currentDpr);
       if (canvasRef.current) {
-        const scrollParent = canvasRef.current.parentElement;
-        const displayWidth = scrollParent
-          ? Math.round(scrollParent.clientWidth)
+        // Width: measure the scroll container (respects flex layout)
+        const container = scrollContainerRef.current;
+        const displayWidth = container
+          ? Math.round(container.clientWidth)
           : Math.round(window.innerWidth);
 
-        // Canvas matches visible container exactly
-        const displayHeight = scrollParent
-          ? Math.round(scrollParent.clientHeight)
-          : Math.round(window.innerHeight * 0.8);
+        // Height: use the container if it has real height, otherwise
+        // compute from viewport. The flex-1 container may not have
+        // height yet on first render, so fall back to viewport calc.
+        const containerH = container ? container.clientHeight : 0;
+        const displayHeight = containerH > 100
+          ? Math.round(containerH)
+          : Math.round(window.innerHeight * 0.7);
 
         const ctx = canvasRef.current.getContext('2d');
 
@@ -125,7 +129,8 @@ export default function PatternPreviewCanvas({
       }
     };
 
-    updateCanvasSize();
+    // Delay initial sizing to let flex layout settle
+    requestAnimationFrame(updateCanvasSize);
 
     window.addEventListener('resize', updateCanvasSize);
     return () => window.removeEventListener('resize', updateCanvasSize);
@@ -277,7 +282,7 @@ export default function PatternPreviewCanvas({
   const verticalUnitValue = getPixelsPerUnit(rulerUnit);
 
   return (
-    <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
+    <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]" style={{ height: '70vh' }}>
       <div className="flex items-center justify-end gap-2 p-2 text-xs bg-[#111827] border-b border-[#2d3340] text-white">
         <span className="text-slate-300">Ruler unit:</span>
         {['in', 'cm', 'px'].map((unit) => (
