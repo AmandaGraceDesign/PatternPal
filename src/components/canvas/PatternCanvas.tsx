@@ -398,8 +398,10 @@ export default function PatternCanvas() {
     });
     // #endregion
     
-    // Pass canvas size to PatternTiler so it uses correct dimensions
-    const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
+    // Pass canvas context to PatternTiler so it uses correct dimensions
+    const canvasCtx = canvas.getContext('2d');
+    if (!canvasCtx) return;
+    const tiler = new PatternTiler(canvasCtx, canvasSize.width, canvasSize.height);
     
     const scaledCanvas = document.createElement('canvas');
     scaledCanvas.width = displayWidth;
@@ -438,8 +440,8 @@ export default function PatternCanvas() {
     });
     // #endregion
 
-    // Render the tiled pattern
-    tiler.render(renderSource, repeatType);
+    // Render the tiled pattern (pre-scaled source)
+    tiler.renderPreScaled(renderSource, repeatType);
 
     // #region agent log
     console.log('🔲 PATTERN TILED - Pattern rendered:', {

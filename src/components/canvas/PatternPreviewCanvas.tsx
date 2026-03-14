@@ -12,6 +12,9 @@ interface PatternPreviewCanvasProps {
   dpi: number;
   zoom: number;
   onZoomChange?: (newZoom: number) => void;
+  panX: number;
+  panY: number;
+  onPanChange?: (x: number, y: number) => void;
   showTileOutline: boolean;
   tileOutlineColor?: string;
 }
@@ -24,23 +27,49 @@ export default function PatternPreviewCanvas({
   dpi,
   zoom,
   onZoomChange,
+  panX,
+  panY,
+  onPanChange,
   showTileOutline,
   tileOutlineColor = '#38bdf8',
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [tileDisplaySize, setTileDisplaySize] = useState({ width: 0, height: 0 });
   const [dpr, setDpr] = useState(1);
-  const [containerHeight, setContainerHeight] = useState(0);
   const [rulerUnit, setRulerUnit] = useState<'in' | 'cm' | 'px'>('in');
 
-  // Helper to get distance between two touch points
-  const getTouchDistance = useCallback((touches: React.TouchList): number => {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
+  // Pan state
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const panOriginRef = useRef({ x: 0, y: 0 });
+  const rafPanRef = useRef<number | null>(null);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    setIsPanning(true);
+    panStartRef.current = { x: e.clientX, y: e.clientY };
+    panOriginRef.current = { x: panX, y: panY };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [panX, panY]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanning || !onPanChange) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    if (rafPanRef.current !== null) cancelAnimationFrame(rafPanRef.current);
+    rafPanRef.current = requestAnimationFrame(() => {
+      onPanChange(panOriginRef.current.x + dx, panOriginRef.current.y + dy);
+      rafPanRef.current = null;
+    });
+  }, [isPanning, onPanChange]);
+
+  const handlePointerUp = useCallback(() => {
+    setIsPanning(false);
+    if (rafPanRef.current !== null) {
+      cancelAnimationFrame(rafPanRef.current);
+      rafPanRef.current = null;
+    }
   }, []);
 
   // Wheel zoom handler (ctrl/cmd + scroll = zoom)
@@ -54,7 +83,7 @@ export default function PatternPreviewCanvas({
       e.stopPropagation();
 
       const delta = -e.deltaY * 0.5;
-      const newZoom = Math.max(0, Math.min(200, zoom + delta));
+      const newZoom = Math.max(10, Math.min(800, zoom + delta));
       onZoomChange(newZoom);
     };
 
@@ -62,201 +91,121 @@ export default function PatternPreviewCanvas({
     return () => el.removeEventListener('wheel', handleWheel);
   }, [zoom, onZoomChange]);
 
-  // Pinch-to-zoom touch handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      pinchRef.current = {
-        startDist: getTouchDistance(e.touches),
-        startZoom: zoom,
-      };
-    }
-  }, [zoom, getTouchDistance]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && pinchRef.current && onZoomChange) {
-      e.preventDefault();
-      const currentDist = getTouchDistance(e.touches);
-      const scale = currentDist / pinchRef.current.startDist;
-      const newZoom = Math.max(0, Math.min(200, pinchRef.current.startZoom * scale));
-      onZoomChange(newZoom);
-    }
-  }, [onZoomChange, getTouchDistance]);
-
-  const handleTouchEnd = useCallback(() => {
-    pinchRef.current = null;
-  }, []);
-
   // Set device pixel ratio and canvas size
   useEffect(() => {
     const currentDpr = window.devicePixelRatio || 1;
     const updateCanvasSize = () => {
       setDpr(currentDpr);
       if (canvasRef.current) {
-        const viewportHeight = window.innerHeight;
-
-        // Width: measure the canvas's scroll container so we fit within
-        // the flex layout (respects sidebar). Fall back to viewport width.
-        // We go up to the overflow-auto div that wraps the canvas.
         const scrollParent = canvasRef.current.parentElement;
         const displayWidth = scrollParent
           ? Math.round(scrollParent.clientWidth)
           : Math.round(window.innerWidth);
 
-        // Height: 110% of viewport height for vertical scroll room
-        const displayHeight = Math.round(viewportHeight * 1.1);
-
-        // Container height for background padding
-        const containerSize = Math.round(viewportHeight * 1.2);
+        // Canvas matches visible container exactly
+        const displayHeight = scrollParent
+          ? Math.round(scrollParent.clientHeight)
+          : Math.round(window.innerHeight * 0.8);
 
         const ctx = canvasRef.current.getContext('2d');
 
-        // Set canvas internal size (scaled by DPR for high-DPI displays)
         canvasRef.current.width = displayWidth * currentDpr;
         canvasRef.current.height = displayHeight * currentDpr;
 
-        // Set canvas display size (CSS) to logical size
         canvasRef.current.style.width = `${displayWidth}px`;
         canvasRef.current.style.height = `${displayHeight}px`;
 
         if (ctx) {
-          // Scale context by DPR so all drawing uses display coordinates
           ctx.scale(currentDpr, currentDpr);
-
-          // Enable high-quality image smoothing
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
         }
 
         setCanvasSize({ width: displayWidth, height: displayHeight });
-        setContainerHeight(containerSize);
       }
     };
 
-    // Initialize immediately
     updateCanvasSize();
 
     window.addEventListener('resize', updateCanvasSize);
     return () => window.removeEventListener('resize', updateCanvasSize);
   }, []);
 
-  // Convert display zoom (0-200) to actual zoom
-  // Use a linear scale for smooth zooming
-  const displayZoomToActualZoom = (displayValue: number): number => {
-    // Linear mapping: 0% -> 0.02x, 100% -> 0.2x, 200% -> 0.4x
-    // This gives smooth, predictable zoom behavior with smaller default size
-    return (displayValue / 100) * 0.2;
-  };
-
-  // Render pattern with zoom
+  // Render pattern
   useEffect(() => {
-    if (!canvasRef.current || canvasSize.width === 0) {
-      console.log('Skipping render - canvas:', !!canvasRef.current, 'canvasSize:', canvasSize);
-      return;
-    }
+    if (!canvasRef.current || canvasSize.width === 0) return;
 
     const canvas = canvasRef.current;
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx) return;
 
-    // Cancellation flag — prevents stale RAF / onload callbacks from rendering
-    // after the effect re-runs (fixes intermittent blank canvas on upload).
     let cancelled = false;
     let rafId: number | undefined;
 
-    // Re-apply DPR scaling (in case context was reset)
-    // Get current DPR
     const currentDpr = window.devicePixelRatio || 1;
 
-    // Reset transform and apply DPR scale
     canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
     canvasCtx.scale(currentDpr, currentDpr);
-
-    // Ensure high-quality rendering settings
     canvasCtx.imageSmoothingEnabled = true;
     canvasCtx.imageSmoothingQuality = 'high';
 
-    // NOTE: Canvas clear is deferred to inside the async onload callbacks below.
-    // Clearing here would flash the dark background while the new tile image loads.
-
     if (!image) {
-      // Render placeholder pattern
+      // Render placeholder pattern (unchanged — small image, no pixelation concern)
       const placeholderImg = new Image();
       placeholderImg.onload = () => {
         if (cancelled) return;
-        const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
 
-        // Use actual placeholder image dimensions (800x800px seamless JPG)
-        // Treat as 18x18 inches at 150 DPI for display purposes
         const defaultDpi = 150;
         const defaultTileWidth = 18;
-        const defaultTileHeight = 18;
-        const placeholderWidth = placeholderImg.width; // 800px actual size
-        const placeholderHeight = placeholderImg.height; // 800px actual size
+        const placeholderWidth = placeholderImg.width;
+        const placeholderHeight = placeholderImg.height;
 
-        // Calculate display scale - scale the 800px image to appear as 18" at current zoom
-        const viewZoom = displayZoomToActualZoom(zoom);
-        // Target size is 18 inches at 150 DPI = 2700px, then scale for zoom
-        const targetSize = defaultTileWidth * defaultDpi; // 2700px
-        const displayScale = (targetSize / placeholderWidth) * (96 / defaultDpi) * viewZoom * 0.5; // Scale 800px to target, then apply zoom
+        // Scale placeholder to appear as 18" tile at current zoom
+        const scaleFactor = (zoom / 100) * (96 / defaultDpi);
+        const targetSize = defaultTileWidth * defaultDpi;
+        const displayScale = (targetSize / placeholderWidth) * scaleFactor * 0.5;
 
         const displayWidth = Math.round(placeholderWidth * displayScale);
         const displayHeight = Math.round(placeholderHeight * displayScale);
-        setTileDisplaySize({ width: displayWidth, height: displayHeight });
 
-        // Create scaled placeholder - scale by DPR for better quality
         const scaledCanvas = document.createElement('canvas');
         scaledCanvas.width = displayWidth * dpr;
         scaledCanvas.height = displayHeight * dpr;
 
         const scaledCtx = scaledCanvas.getContext('2d');
         if (scaledCtx) {
-          // Fill with white background first to prevent transparent/black artifacts
           scaledCtx.fillStyle = '#ffffff';
           scaledCtx.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
-
-          // Scale context by DPR
           scaledCtx.scale(dpr, dpr);
-
           scaledCtx.imageSmoothingEnabled = true;
           scaledCtx.imageSmoothingQuality = 'high';
           scaledCtx.drawImage(placeholderImg, 0, 0, displayWidth, displayHeight);
 
-          // Force canvas to finish rendering before converting to data URL
-          // This prevents black/transparent artifacts
           rafId = requestAnimationFrame(() => {
             if (cancelled) return;
             const scaledImg = new Image();
             scaledImg.onload = () => {
-            if (cancelled) return;
-            // Clear canvas right before drawing so old pattern stays visible until now
-            canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
-            canvasCtx.scale(currentDpr, currentDpr);
-            canvasCtx.fillStyle = '#0f172a';
-            canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-
-            tiler.render(scaledImg, repeatType);
-
-            // Draw tile outline for placeholder if enabled
-            if (showTileOutline) {
-              // Re-apply DPR scaling
-              const currentDpr = window.devicePixelRatio || 1;
+              if (cancelled) return;
               canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
               canvasCtx.scale(currentDpr, currentDpr);
+              canvasCtx.fillStyle = '#0f172a';
+              canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
-              canvasCtx.imageSmoothingEnabled = true;
-              canvasCtx.imageSmoothingQuality = 'high';
+              // Use old tiling for placeholder (it's a small pre-scaled image)
+              const cols = Math.ceil(canvasSize.width / displayWidth) + 2;
+              const rows = Math.ceil(canvasSize.height / displayHeight) + 2;
+              for (let x = -1; x < cols; x++) {
+                for (let y = -1; y < rows; y++) {
+                  canvasCtx.drawImage(scaledImg, x * displayWidth, y * displayHeight, displayWidth, displayHeight);
+                }
+              }
 
-              // Tile outline always starts at (0, 0) and shows the actual tile size
-              // regardless of repeat type
-              const outlineX = 0;
-              const outlineY = 0;
-
-              // Draw hot pink outline
-              canvasCtx.strokeStyle = tileOutlineColor;
-              canvasCtx.lineWidth = 6;
-              canvasCtx.setLineDash([]);
-              canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
-            }
+              if (showTileOutline) {
+                canvasCtx.strokeStyle = tileOutlineColor;
+                canvasCtx.lineWidth = 6;
+                canvasCtx.setLineDash([]);
+                canvasCtx.strokeRect(3, 3, displayWidth - 6, displayHeight - 6);
+              }
             };
             scaledImg.src = scaledCanvas.toDataURL('image/png');
           });
@@ -266,180 +215,57 @@ export default function PatternPreviewCanvas({
       return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
     }
 
-    // Render actual pattern
-    console.log('Rendering pattern...');
-    const tiler = new PatternTiler(canvas, canvasSize.width, canvasSize.height);
+    // --- Viewport-based rendering from full-res source ---
+    const scaleFactor = (zoom / 100) * (96 / dpi);
 
-    // Calculate display size based on physical tile dimensions and zoom
-    // The tile should be displayed at a size where tileWidth inches = displayWidth pixels
-    const viewZoom = displayZoomToActualZoom(zoom);
+    canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+    canvasCtx.scale(currentDpr, currentDpr);
+    canvasCtx.imageSmoothingEnabled = true;
+    canvasCtx.imageSmoothingQuality = 'high';
 
-    // Calculate how many pixels should represent the physical tile dimensions at current zoom
-    // Using the same calculation as the ruler: displayPixels = tileInches * pixelsPerInch
-    // At zoom 100%, we want the tile to appear at its physical size relative to screen DPI (96)
-    // So pixelsPerInch at zoom 100% = 96
-    const pixelsPerInch = 96 * viewZoom;
+    const tiler = new PatternTiler(canvasCtx, canvasSize.width, canvasSize.height);
+    tiler.render(image, repeatType, scaleFactor, panX, panY);
 
-    const displayWidth = Math.round(tileWidth * pixelsPerInch);
-    const displayHeight = Math.round(tileHeight * pixelsPerInch);
+    // Draw tile outlines
+    if (showTileOutline) {
+      const outlineW = image.naturalWidth * scaleFactor;
+      const outlineH = image.naturalHeight * scaleFactor;
 
-    console.log('🎯 DISPLAY SIZE CALC:', {
-      tileWidth,
-      tileHeight,
-      dpi,
-      zoom,
-      viewZoom,
-      pixelsPerInch,
-      displayWidth,
-      displayHeight,
-      imageWidth: image.width,
-      imageHeight: image.height,
-      imageDPI: dpi,
-      devicePixelRatio: dpr,
-    });
+      canvasCtx.strokeStyle = tileOutlineColor;
+      canvasCtx.lineWidth = 6;
+      canvasCtx.setLineDash([]);
 
-    // Create a scaled version of the image for tiling
-    // DON'T scale by DPR here - PatternTiler uses image.width/height directly
-    // The main canvas handles DPR scaling, not the tile image
-    const scaledCanvas = document.createElement('canvas');
-    scaledCanvas.width = displayWidth;
-    scaledCanvas.height = displayHeight;
+      const startCol = Math.floor(-panX / outlineW) - 1;
+      const endCol = Math.ceil((canvasSize.width - panX) / outlineW);
+      const startRow = Math.floor(-panY / outlineH) - 1;
+      const endRow = Math.ceil((canvasSize.height - panY) / outlineH);
 
-    const scaledCtx = scaledCanvas.getContext('2d');
+      for (let col = startCol; col <= endCol; col++) {
+        for (let row = startRow; row <= endRow; row++) {
+          let ox = col * outlineW + panX;
+          let oy = row * outlineH + panY;
 
-    if (scaledCtx) {
-      // Fill with white background first to prevent transparent/black artifacts
-      scaledCtx.fillStyle = '#ffffff';
-      scaledCtx.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
+          if (repeatType === 'half-drop') {
+            oy += (((col % 2) + 2) % 2 !== 0) ? outlineH / 2 : 0;
+          } else if (repeatType === 'half-brick') {
+            ox += (((row % 2) + 2) % 2 !== 0) ? outlineW / 2 : 0;
+          }
 
-      // Enable high-quality image smoothing
-      scaledCtx.imageSmoothingEnabled = true;
-      scaledCtx.imageSmoothingQuality = 'high';
+          if (ox + outlineW <= 0 || oy + outlineH <= 0 || ox >= canvasSize.width || oy >= canvasSize.height) continue;
 
-      // Draw original image scaled to display size
-      scaledCtx.drawImage(image, 0, 0, displayWidth, displayHeight);
-
-      // Force canvas to finish rendering before converting to data URL
-      // This prevents black/transparent artifacts during rapid scaling
-      rafId = requestAnimationFrame(() => {
-        if (cancelled) return;
-        // Create image from canvas - use PNG for lossless quality
-        const scaledImg = new Image();
-        scaledImg.onload = () => {
-        if (cancelled) return;
-
-        console.log('Scaled image loaded, rendering pattern...');
-        // Store tile display size in callback to avoid setState in effect
-        setTileDisplaySize({ width: displayWidth, height: displayHeight });
-
-        // Re-apply DPR scaling before rendering pattern (in case it was reset)
-        const currentDpr = window.devicePixelRatio || 1;
-        canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
-        canvasCtx.scale(currentDpr, currentDpr);
-        canvasCtx.imageSmoothingEnabled = true;
-        canvasCtx.imageSmoothingQuality = 'high';
-
-        // Clear canvas right before drawing so old pattern stays visible until now
-        canvasCtx.fillStyle = '#0f172a';
-        canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-
-        // Render the tiled pattern
-        tiler.render(scaledImg, repeatType);
-
-        // Draw tile outline if enabled (after pattern is rendered)
-        // Draw synchronously to ensure it happens every render and uses current values
-        if (showTileOutline) {
-          // Re-apply DPR scaling to ensure it's correct after PatternTiler.render()
-          // PatternTiler might have modified the context, so we need to ensure our transform is correct
-          const currentDpr = window.devicePixelRatio || 1;
-          canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
-          canvasCtx.scale(currentDpr, currentDpr);
-          canvasCtx.imageSmoothingEnabled = true;
-          canvasCtx.imageSmoothingQuality = 'high';
-
-          // Tile outline always starts at (0, 0) and shows the actual tile size
-          // regardless of repeat type
-          const outlineX = 0;
-          const outlineY = 0;
-
-          // Draw hot pink outline
-          canvasCtx.strokeStyle = tileOutlineColor;
-          canvasCtx.lineWidth = 6;
-          canvasCtx.setLineDash([]);
-          canvasCtx.strokeRect(outlineX + 3, outlineY + 3, displayWidth - 6, displayHeight - 6);
+          canvasCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
         }
-        };
-
-        scaledImg.onerror = (error) => {
-          console.error('Failed to load scaled image:', error);
-        };
-
-        // Use PNG for lossless quality
-        scaledImg.src = scaledCanvas.toDataURL('image/png');
-      });
+      }
     }
 
     return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
-  }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr]);
+  }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr, panX, panY]);
 
   // Calculate pixels per unit for ruler
-  // tileDisplaySize is the scaled tile size in pixels on screen
-  // To convert to inches: divide by 96 (screen DPI)
-  // pixelsPerUnit = pixels per inch = 96 (since screen is 96 DPI)
-  // But we need to account for the scaled tile size
-  // If scaled tile is displayWidth pixels, that represents scaledTileInches = displayWidth / 96
-  // So pixelsPerUnit should be: displayWidth / scaledTileInches = 96
-  // But wait - the ruler needs to know how many pixels = 1 inch in the current view
-  
-  // Actually, the ruler's pixelsPerUnit should be: how many screen pixels = 1 inch
-  // Since screen is 96 DPI, 1 inch = 96 pixels always
-  // But the ruler is showing the pattern's coordinate system, not screen coordinates
-  
-  // Let me think: if the pattern tile is scaled, we want the ruler to show inches based on the scaled size
-  // If original tile is 8" and we zoom to 200%, the scaled tile is 16" in the pattern space
-  // The ruler should show 0, 16, 32, 48... not 0, 8, 16, 24
-  
-  // So pixelsPerUnit = tileDisplaySize.width / scaledTileInches
-  // scaledTileInches = originalTileInches * zoomFactor
-  // But zoomFactor is not simple - it's viewZoom
-  
-  // Actually, simpler: tileDisplaySize.width is the pixel size of the scaled tile
-  // To get inches: divide by 96
-  // But we want pixelsPerUnit such that the ruler shows the right scale
-  // If tileDisplaySize.width pixels = scaledTileInches inches
-  // Then pixelsPerUnit = tileDisplaySize.width / scaledTileInches
-  
-  // But we need scaledTileInches. How do we get that?
-  // We have: originalTileInches = image.width / dpi
-  // We have: viewZoom = displayZoomToActualZoom(zoom)
-  // We have: displayScale = (96 / dpi) * viewZoom
-  // We have: displayWidth = image.width * displayScale = image.width * (96 / dpi) * viewZoom
-  // So: displayWidth / 96 = (image.width / dpi) * viewZoom = originalTileInches * viewZoom = scaledTileInches
-  
-  // So: scaledTileInches = tileDisplaySize.width / 96
-  // And: pixelsPerUnit = tileDisplaySize.width / scaledTileInches = tileDisplaySize.width / (tileDisplaySize.width / 96) = 96
-  
-  // That doesn't make sense. Let me reconsider.
-  
-  // The ruler shows inches. The pattern is scaled. 
-  // If the pattern tile is 8" original and we zoom 2x, it becomes 16" in display
-  // The ruler should show 0, 16, 32, 48...
-  // So 1 inch on the ruler = ? pixels on screen
-  
-  // If 16" of pattern = tileDisplaySize.width pixels
-  // Then 1" of pattern = tileDisplaySize.width / 16 pixels
-  // So pixelsPerUnit = tileDisplaySize.width / scaledTileInches
-  
-  // scaledTileInches = originalTileInches * zoomMultiplier
-  // But zoomMultiplier is not viewZoom directly...
-  
-  // Calculate pixels per unit for ruler
-  // This must match exactly how we scale the pattern image
-  // At zoom 100%, we want 96 pixels per inch (screen DPI)
-  // Then multiply by viewZoom to get the actual pixels per inch at current zoom
-  const viewZoom = displayZoomToActualZoom(zoom);
-  const pixelsPerInch = 96 * viewZoom;
-  const pixelsPerPixel = (96 / dpi) * viewZoom;
+  // Direct zoom: zoom% = scale factor, no indirection
+  const scaleFactor = (zoom / 100) * (96 / dpi);
+  const pixelsPerInch = (zoom / 100) * 96;
+  const pixelsPerPixel = scaleFactor;
 
   const getPixelsPerUnit = (unit: 'in' | 'cm' | 'px') => {
     if (unit === 'in') return pixelsPerInch;
@@ -468,7 +294,7 @@ export default function PatternPreviewCanvas({
         <div className="flex border-b border-[#3a3d44]">
           <div className="w-[30px] h-[30px] bg-[#3a3d44] border-r border-[#3a3d44]" />
           <div className="flex-1 overflow-hidden">
-            {tileDisplaySize.width > 0 && image ? (
+            {image ? (
               <Ruler
                 orientation="horizontal"
                 length={canvasSize.width}
@@ -483,9 +309,9 @@ export default function PatternPreviewCanvas({
         </div>
 
         {/* Canvas with left ruler */}
-        <div className="flex flex-1 overflow-auto">
+        <div className="flex flex-1">
           <div className="w-[30px] overflow-hidden border-r border-[#3a3d44]">
-            {tileDisplaySize.height > 0 && image ? (
+            {image ? (
               <Ruler
                 orientation="vertical"
                 length={canvasSize.height}
@@ -499,13 +325,16 @@ export default function PatternPreviewCanvas({
           </div>
           <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-auto bg-[#0f172a] relative"
-            style={{ touchAction: 'manipulation' }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            className="flex-1 overflow-hidden bg-[#0f172a] relative"
+            style={{
+              touchAction: 'none',
+              cursor: isPanning ? 'grabbing' : 'grab',
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
-            {/* Canvas - always rendered */}
             <canvas
               ref={canvasRef}
               className="block"
@@ -515,4 +344,3 @@ export default function PatternPreviewCanvas({
     </div>
   );
 }
-

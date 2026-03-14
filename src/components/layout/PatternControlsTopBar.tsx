@@ -19,6 +19,7 @@ interface PatternControlsTopBarProps {
   onTileOutlineColorChange: (color: string) => void;
   onFileUpload: (file: File, preloadedBlob?: Blob) => void;
   onPaste: () => void;
+  onClearPattern: () => void;
   scalePreviewSize: number | null;
   onScalePreviewChange: (size: number | null) => void;
   isScalePreviewActive: boolean;
@@ -52,6 +53,7 @@ export default function PatternControlsTopBar({
   onTileOutlineColorChange,
   onFileUpload,
   onPaste,
+  onClearPattern,
   scalePreviewSize,
   onScalePreviewChange,
   isScalePreviewActive,
@@ -205,6 +207,15 @@ export default function PatternControlsTopBar({
             >
               Paste
             </button>
+            {image && (
+              <button
+                onClick={onClearPattern}
+                className="flex-[1.5] px-3 py-2.5 text-sm font-semibold text-white/70 rounded-lg cursor-pointer transition-all duration-200 border border-white/20 hover:text-white hover:bg-white/10"
+                title="Clear pattern and reset canvas"
+              >
+                Clear
+              </button>
+            )}
           </div>
           <p className="text-[11px] text-white text-left max-w-[260px] leading-snug">
             Or paste with Cmd+V / Ctrl+V, or drag and drop your image.
@@ -319,16 +330,16 @@ export default function PatternControlsTopBar({
             Zoom: {Math.round(zoom)}%
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-white whitespace-nowrap">0%</span>
+            <span className="text-xs text-white whitespace-nowrap">10%</span>
             <input
               type="range"
-              min="0"
-              max="200"
+              min="10"
+              max="800"
               step="1"
-              value={Math.max(0, Math.min(200, zoom))}
+              value={Math.max(10, Math.min(800, zoom))}
               onChange={(e) => {
                 const newZoom = parseInt(e.target.value);
-                onZoomChange(Math.max(0, Math.min(200, newZoom)));
+                onZoomChange(Math.max(10, Math.min(800, newZoom)));
               }}
               disabled={effectiveScalePreviewActive}
               className={`zoom-slider flex-1 h-1.5 rounded-lg appearance-none ${
@@ -338,14 +349,19 @@ export default function PatternControlsTopBar({
                 touchAction: 'none', // Prevent scroll interference on mobile
                 background: effectiveScalePreviewActive
                   ? 'rgba(255,255,255,0.2)'
-                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, rgba(255,255,255,0.2) ${(Math.max(0, Math.min(200, zoom)) / 200) * 100}%, rgba(255,255,255,0.2) 100%)`,
+                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${((Math.max(10, Math.min(800, zoom)) - 10) / 790) * 100}%, rgba(255,255,255,0.2) ${((Math.max(10, Math.min(800, zoom)) - 10) / 790) * 100}%, rgba(255,255,255,0.2) 100%)`,
               }}
             />
-            <span className="text-xs text-white whitespace-nowrap">200%</span>
+            <span className="text-xs text-white whitespace-nowrap">800%</span>
           </div>
           {effectiveScalePreviewActive && (
             <span className="text-[11px] text-white italic mt-1 block">
               Zoom locked by scale preview
+            </span>
+          )}
+          {originalFilename && (
+            <span className="text-[11px] text-white mt-1 block truncate max-w-[240px]" title={originalFilename}>
+              {originalFilename}
             </span>
           )}
           <span className="text-[11px] text-white mt-1 block">

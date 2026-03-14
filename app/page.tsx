@@ -17,7 +17,9 @@ export default function Home() {
   const [tileWidth, setTileWidth] = useState<number>(18);
   const [tileHeight, setTileHeight] = useState<number>(18);
   const [dpi, setDpi] = useState<number>(150);
-  const [zoom, setZoom] = useState<number>(100);
+  const [zoom, setZoom] = useState<number>(50);
+  const [panX, setPanX] = useState<number>(0);
+  const [panY, setPanY] = useState<number>(0);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [showTileOutline, setShowTileOutline] = useState<boolean>(false);
@@ -157,6 +159,18 @@ export default function Home() {
             setTileHeight(detectedHeight);
             setImage(img);
             setOriginalFilename(null); // Paste doesn't have filename
+
+            // Fit-to-viewport
+            const viewportWidth = window.innerWidth * 0.8;
+            const viewportHeight = window.innerHeight * 0.6;
+            const fitZoom = Math.min(
+              viewportWidth / (detectedWidth * 96),
+              viewportHeight / (detectedHeight * 96)
+            ) * 100;
+            setZoom(Math.max(10, Math.min(800, fitZoom)));
+            setPanX(0);
+            setPanY(0);
+
             setIsLoading(false);
             incrementFreeTests();
           };
@@ -176,6 +190,22 @@ export default function Home() {
     window.addEventListener('paste', handlePasteEvent);
     return () => window.removeEventListener('paste', handlePasteEvent);
   }, [dpi, isSignedIn, openSignIn]);
+
+  const handleClearPattern = () => {
+    setImage(null);
+    setOriginalFilename(null);
+    setTileWidth(18);
+    setTileHeight(18);
+    setDpi(150);
+    setZoom(100);
+    setPanX(0);
+    setPanY(0);
+    setRepeatType('full-drop');
+    setShowTileOutline(false);
+    setTileOutlineColor('#38bdf8');
+    setScalePreviewSize(null);
+    setIsScalePreviewActive(false);
+  };
 
   const handleFileUpload = async (file: File, preloadedBlob?: Blob) => {
     // Use the preloaded blob if the caller already read the file into memory
@@ -293,6 +323,17 @@ export default function Home() {
       setTileWidth(detectedWidth);
       setTileHeight(detectedHeight);
       setImage(img);
+
+      // Fit-to-viewport: calculate initial zoom so pattern fills canvas
+      const viewportWidth = window.innerWidth * 0.8;
+      const viewportHeight = window.innerHeight * 0.6;
+      const fitZoom = Math.min(
+        viewportWidth / (detectedWidth * 96),
+        viewportHeight / (detectedHeight * 96)
+      ) * 100;
+      setZoom(Math.max(10, Math.min(800, fitZoom)));
+      setPanX(0);
+      setPanY(0);
 
       // Extract and store original filename (without extension)
       const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
@@ -462,6 +503,7 @@ export default function Home() {
         onTileOutlineColorChange={setTileOutlineColor}
         onFileUpload={handleFileUpload}
         onPaste={handleClipboardPaste}
+        onClearPattern={handleClearPattern}
         scalePreviewSize={scalePreviewSize}
         onScalePreviewChange={setScalePreviewSize}
         isScalePreviewActive={isScalePreviewActive}
@@ -503,6 +545,9 @@ export default function Home() {
               dpi={dpi}
               zoom={zoom}
               onZoomChange={isScalePreviewActive && scalePreviewSize !== null ? undefined : setZoom}
+              panX={panX}
+              panY={panY}
+              onPanChange={(x: number, y: number) => { setPanX(x); setPanY(y); }}
               showTileOutline={showTileOutline}
               tileOutlineColor={tileOutlineColor}
             />

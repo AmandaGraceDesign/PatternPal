@@ -341,7 +341,7 @@ export default function MockupRenderer({
     patternCtx.clearRect(0, 0, patternArea.width, patternArea.height);
 
     // Render tiled pattern
-    const tiler = new PatternTiler(patternCanvas, patternArea.width, patternArea.height);
+    const tiler = new PatternTiler(patternCtx, patternArea.width, patternArea.height);
     
     // Scale the pattern image to the appropriate size for tiling
     const tileDisplayWidth = scaledPatternWidth;
@@ -361,7 +361,7 @@ export default function MockupRenderer({
       const scaledPatternImg = new Image();
       scaledPatternImg.onload = () => {
         // Render the tiled pattern
-        tiler.render(scaledPatternImg, repeatType);
+        tiler.renderPreScaled(scaledPatternImg, repeatType);
         // Apply blend mode and opacity
         ctx.save();
         

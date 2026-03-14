@@ -1,149 +1,182 @@
 export type RepeatType = 'full-drop' | 'half-drop' | 'half-brick';
 
-type TileSource = HTMLImageElement | HTMLCanvasElement;
-
 export class PatternTiler {
-  private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private displayWidth: number;
-  private displayHeight: number;
+  private viewportWidth: number;
+  private viewportHeight: number;
 
-  constructor(canvas: HTMLCanvasElement, displayWidth?: number, displayHeight?: number) {
-    this.canvas = canvas;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Could not get canvas context');
+  constructor(ctx: CanvasRenderingContext2D, viewportWidth: number, viewportHeight: number) {
     this.ctx = ctx;
-    
-    // Use provided display dimensions, or fall back to canvas CSS size
-    // This accounts for DPR scaling where internal canvas size != display size
-    if (displayWidth !== undefined && displayHeight !== undefined) {
-      this.displayWidth = displayWidth;
-      this.displayHeight = displayHeight;
-    } else {
-      // Fallback: use canvas CSS size (display size)
-      const style = window.getComputedStyle(canvas);
-      this.displayWidth = parseInt(style.width) || canvas.width;
-      this.displayHeight = parseInt(style.height) || canvas.height;
-    }
-    
-    // Enable high-quality image smoothing
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    this.viewportWidth = viewportWidth;
+    this.viewportHeight = viewportHeight;
   }
 
   clear() {
-    // Fill with white background before clearing
-    this.ctx.fillStyle = '#ffffff'; // white background
-    this.ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
-    // Clear any remaining artifacts
-    this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
+    this.ctx.fillStyle = '#0f172a';
+    this.ctx.fillRect(0, 0, this.viewportWidth, this.viewportHeight);
   }
 
-  private getSourceSize(source: TileSource) {
-    if (source instanceof HTMLImageElement) {
-      return {
-        width: source.naturalWidth || source.width,
-        height: source.naturalHeight || source.height,
-      };
-    }
-    return { width: source.width, height: source.height };
-  }
-
-  renderFullDrop(image: TileSource) {
-    const { width: w, height: h } = this.getSourceSize(image);
-    
-    console.log('🔍 PatternTiler.renderFullDrop:', {
-      imageWidth: w,
-      imageHeight: h,
-      displayWidth: this.displayWidth,
-      displayHeight: this.displayHeight,
-    });
-    
-    // Add extra tiles to ensure full canvas coverage
-    const cols = Math.ceil(this.displayWidth / w) + 2;
-    const rows = Math.ceil(this.displayHeight / h) + 2;
-
-    // Start from -1 to cover edges
-    for (let x = -1; x < cols; x++) {
-      for (let y = -1; y < rows; y++) {
-        this.ctx.drawImage(image, x * w, y * h, w, h);
-      }
-    }
-  }
-
-  renderHalfDrop(image: TileSource) {
-    const { width: w, height: h } = this.getSourceSize(image);
-    const cols = Math.ceil(this.displayWidth / w) + 1;
-    const rows = Math.ceil(this.displayHeight / h) + 1;
-
-    for (let x = 0; x < cols; x++) {
-      const x0 = Math.round(x * w);
-      const x1 = Math.round((x + 1) * w);
-      const drawW = x1 - x0;
-
-      for (let y = -1; y < rows; y++) {
-        let logicalY = y * h;
-        if (x % 2 !== 0) {
-          logicalY += h / 2;
-        }
-
-        // Calculate Y-bounds based on the logical sequence to ensure adjacency
-        // We treat the grid as continuous, so we calculate start/end relative to the logical index
-        // But for half-drop, the standard integer indexing might be tricky.
-        // Safer approach: Calculate y0, drawH based on original H, but round position.
-        // However, to ensure perfect vertical stack:
-
-        const y0 = Math.round(logicalY);
-        // For height, we must ensure that the Next tile starts at exactly y0 + drawH
-        // The next tile in this column is at logicalY + h
-        const yNext = Math.round(logicalY + h);
-        const drawH = yNext - y0;
-
-        this.ctx.drawImage(image, x0, y0, drawW, drawH);
-      }
-    }
-  }
-
-  renderHalfBrick(image: TileSource) {
-    const { width: w, height: h } = this.getSourceSize(image);
-    const cols = Math.ceil(this.displayWidth / w) + 1;
-    const rows = Math.ceil(this.displayHeight / h) + 1;
-
-    for (let y = 0; y < rows; y++) {
-      const y0 = Math.round(y * h);
-      const y1 = Math.round((y + 1) * h);
-      const drawH = y1 - y0;
-
-      for (let x = -1; x < cols; x++) {
-        let logicalX = x * w;
-        if (y % 2 !== 0) {
-          logicalX += w / 2;
-        }
-
-        const x0 = Math.round(logicalX);
-        const xNext = Math.round(logicalX + w);
-        const drawW = xNext - x0;
-
-        this.ctx.drawImage(image, x0, y0, drawW, drawH);
-      }
-    }
-  }
-
-  render(image: TileSource, repeatType: RepeatType) {
+  render(
+    sourceImage: HTMLImageElement,
+    repeatType: RepeatType,
+    scale: number,
+    panX: number,
+    panY: number
+  ) {
     this.clear();
+
+    const srcW = sourceImage.naturalWidth;
+    const srcH = sourceImage.naturalHeight;
+    const scaledW = srcW * scale;
+    const scaledH = srcH * scale;
+
+    if (scaledW <= 0 || scaledH <= 0) return;
 
     switch (repeatType) {
       case 'full-drop':
-        this.renderFullDrop(image);
+        this.renderFullDrop(sourceImage, srcW, srcH, scaledW, scaledH, panX, panY);
         break;
       case 'half-drop':
-        this.renderHalfDrop(image);
+        this.renderHalfDrop(sourceImage, srcW, srcH, scaledW, scaledH, panX, panY);
         break;
       case 'half-brick':
-        this.renderHalfBrick(image);
+        this.renderHalfBrick(sourceImage, srcW, srcH, scaledW, scaledH, panX, panY);
         break;
     }
   }
+
+  private renderFullDrop(
+    img: HTMLImageElement, srcW: number, srcH: number,
+    scaledW: number, scaledH: number, panX: number, panY: number
+  ) {
+    const startCol = Math.floor(-panX / scaledW) - 1;
+    const endCol = Math.ceil((this.viewportWidth - panX) / scaledW);
+    const startRow = Math.floor(-panY / scaledH) - 1;
+    const endRow = Math.ceil((this.viewportHeight - panY) / scaledH);
+
+    for (let col = startCol; col <= endCol; col++) {
+      for (let row = startRow; row <= endRow; row++) {
+        this.drawTile(img, srcW, srcH, col * scaledW + panX, row * scaledH + panY, scaledW, scaledH);
+      }
+    }
+  }
+
+  private renderHalfDrop(
+    img: HTMLImageElement, srcW: number, srcH: number,
+    scaledW: number, scaledH: number, panX: number, panY: number
+  ) {
+    const startCol = Math.floor(-panX / scaledW) - 1;
+    const endCol = Math.ceil((this.viewportWidth - panX) / scaledW);
+    const startRow = Math.floor(-panY / scaledH) - 2;
+    const endRow = Math.ceil((this.viewportHeight - panY) / scaledH) + 1;
+
+    for (let col = startCol; col <= endCol; col++) {
+      const yOffset = (((col % 2) + 2) % 2 !== 0) ? scaledH / 2 : 0;
+      for (let row = startRow; row <= endRow; row++) {
+        const dx = col * scaledW + panX;
+        const dy = row * scaledH + yOffset + panY;
+        this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
+      }
+    }
+  }
+
+  private renderHalfBrick(
+    img: HTMLImageElement, srcW: number, srcH: number,
+    scaledW: number, scaledH: number, panX: number, panY: number
+  ) {
+    const startRow = Math.floor(-panY / scaledH) - 1;
+    const endRow = Math.ceil((this.viewportHeight - panY) / scaledH);
+    const startCol = Math.floor(-panX / scaledW) - 2;
+    const endCol = Math.ceil((this.viewportWidth - panX) / scaledW) + 1;
+
+    for (let row = startRow; row <= endRow; row++) {
+      const adjustedXOffset = (((row % 2) + 2) % 2 !== 0) ? scaledW / 2 : 0;
+      for (let col = startCol; col <= endCol; col++) {
+        const dx = col * scaledW + adjustedXOffset + panX;
+        const dy = row * scaledH + panY;
+        this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
+      }
+    }
+  }
+
+  /**
+   * Legacy method for callers that pre-scale their tile image.
+   * Tiles the source at 1:1 pixel size with no panning.
+   */
+  renderPreScaled(source: HTMLImageElement | HTMLCanvasElement, repeatType: RepeatType) {
+    this.clear();
+    const w = source instanceof HTMLImageElement
+      ? (source.naturalWidth || source.width)
+      : source.width;
+    const h = source instanceof HTMLImageElement
+      ? (source.naturalHeight || source.height)
+      : source.height;
+
+    if (w <= 0 || h <= 0) return;
+
+    const drawTile = (dx: number, dy: number) => {
+      if (dx + w <= 0 || dy + h <= 0 || dx >= this.viewportWidth || dy >= this.viewportHeight) return;
+      this.ctx.drawImage(source, dx, dy, w, h);
+    };
+
+    const startCol = -1;
+    const endCol = Math.ceil(this.viewportWidth / w) + 1;
+    const startRow = -1;
+    const endRow = Math.ceil(this.viewportHeight / h) + 1;
+
+    for (let col = startCol; col <= endCol; col++) {
+      for (let row = startRow; row <= endRow; row++) {
+        let dx = col * w;
+        let dy = row * h;
+        if (repeatType === 'half-drop') {
+          dy += (((col % 2) + 2) % 2 !== 0) ? h / 2 : 0;
+        } else if (repeatType === 'half-brick') {
+          dx += (((row % 2) + 2) % 2 !== 0) ? w / 2 : 0;
+        }
+        drawTile(dx, dy);
+      }
+    }
+  }
+
+  private drawTile(
+    img: HTMLImageElement,
+    srcW: number, srcH: number,
+    dx: number, dy: number,
+    dw: number, dh: number
+  ) {
+    if (dx + dw <= 0 || dy + dh <= 0 || dx >= this.viewportWidth || dy >= this.viewportHeight) return;
+
+    let clipDx = dx;
+    let clipDy = dy;
+    let clipDw = dw;
+    let clipDh = dh;
+    let sx = 0;
+    let sy = 0;
+
+    if (clipDx < 0) {
+      const clip = -clipDx;
+      sx = (clip / dw) * srcW;
+      clipDw -= clip;
+      clipDx = 0;
+    }
+    if (clipDy < 0) {
+      const clip = -clipDy;
+      sy = (clip / dh) * srcH;
+      clipDh -= clip;
+      clipDy = 0;
+    }
+    if (clipDx + clipDw > this.viewportWidth) {
+      clipDw = this.viewportWidth - clipDx;
+    }
+    if (clipDy + clipDh > this.viewportHeight) {
+      clipDh = this.viewportHeight - clipDy;
+    }
+
+    const sw = (clipDw / dw) * srcW;
+    const sh = (clipDh / dh) * srcH;
+
+    if (sw <= 0 || sh <= 0 || clipDw <= 0 || clipDh <= 0) return;
+
+    this.ctx.drawImage(img, sx, sy, sw, sh, clipDx, clipDy, clipDw, clipDh);
+  }
 }
-
-
