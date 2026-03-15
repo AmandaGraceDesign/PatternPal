@@ -30,6 +30,7 @@ interface PatternControlsTopBarProps {
   image: HTMLImageElement | null;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  actualZoom?: number;
   originalFilename: string | null;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   effectiveTileWidth: number;
@@ -63,6 +64,7 @@ export default function PatternControlsTopBar({
   image,
   zoom,
   onZoomChange,
+  actualZoom,
   originalFilename,
   canvasRef,
   effectiveTileWidth,
@@ -330,16 +332,16 @@ export default function PatternControlsTopBar({
             Zoom: {Math.round(zoom)}%
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-white whitespace-nowrap">10%</span>
+            <span className="text-xs text-white whitespace-nowrap">50%</span>
             <input
               type="range"
-              min="10"
-              max="800"
+              min="50"
+              max="200"
               step="1"
-              value={Math.max(10, Math.min(800, zoom))}
+              value={Math.max(50, Math.min(200, zoom))}
               onChange={(e) => {
                 const newZoom = parseInt(e.target.value);
-                onZoomChange(Math.max(10, Math.min(800, newZoom)));
+                onZoomChange(Math.max(50, Math.min(200, newZoom)));
               }}
               disabled={effectiveScalePreviewActive}
               className={`zoom-slider flex-1 h-1.5 rounded-lg appearance-none ${
@@ -349,10 +351,10 @@ export default function PatternControlsTopBar({
                 touchAction: 'none', // Prevent scroll interference on mobile
                 background: effectiveScalePreviewActive
                   ? 'rgba(255,255,255,0.2)'
-                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${((Math.max(10, Math.min(800, zoom)) - 10) / 790) * 100}%, rgba(255,255,255,0.2) ${((Math.max(10, Math.min(800, zoom)) - 10) / 790) * 100}%, rgba(255,255,255,0.2) 100%)`,
+                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${((Math.max(50, Math.min(200, zoom)) - 50) / 150) * 100}%, rgba(255,255,255,0.2) ${((Math.max(50, Math.min(200, zoom)) - 50) / 150) * 100}%, rgba(255,255,255,0.2) 100%)`,
               }}
             />
-            <span className="text-xs text-white whitespace-nowrap">800%</span>
+            <span className="text-xs text-white whitespace-nowrap">200%</span>
           </div>
           {effectiveScalePreviewActive && (
             <span className="text-[11px] text-white italic mt-1 block">
@@ -361,7 +363,7 @@ export default function PatternControlsTopBar({
           )}
           {originalFilename && (
             <span className="text-[11px] text-white mt-1 block truncate max-w-[240px]" title={originalFilename}>
-              {originalFilename}
+              File Name: {originalFilename}
             </span>
           )}
           <span className="text-[11px] text-white mt-1 block">
@@ -408,7 +410,7 @@ export default function PatternControlsTopBar({
       tileWidth={effectiveTileWidth}
       tileHeight={effectiveTileHeight}
       repeatType={repeatType}
-      zoom={zoom}
+      zoom={actualZoom ?? zoom}
       originalFilename={originalFilename}
       canvasRef={canvasRef}
       scaleFactor={effectiveScaleFactor}

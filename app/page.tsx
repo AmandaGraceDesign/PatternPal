@@ -17,7 +17,8 @@ export default function Home() {
   const [tileWidth, setTileWidth] = useState<number>(18);
   const [tileHeight, setTileHeight] = useState<number>(18);
   const [dpi, setDpi] = useState<number>(150);
-  const [zoom, setZoom] = useState<number>(50);
+  const [zoom, setZoom] = useState<number>(100);
+  const [baseZoom, setBaseZoom] = useState<number>(50);
   const [panX, setPanX] = useState<number>(0);
   const [panY, setPanY] = useState<number>(0);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -160,14 +161,15 @@ export default function Home() {
             setImage(img);
             setOriginalFilename(null); // Paste doesn't have filename
 
-            // Fit-to-viewport
+            // Fit-to-viewport: this becomes the baseline "100%" for the user
             const viewportWidth = window.innerWidth * 0.8;
             const viewportHeight = window.innerHeight * 0.6;
             const fitZoom = Math.min(
               viewportWidth / (detectedWidth * 96),
               viewportHeight / (detectedHeight * 96)
             ) * 100;
-            setZoom(Math.max(10, Math.min(800, fitZoom)));
+            setBaseZoom(Math.max(10, fitZoom));
+            setZoom(100);
             setPanX(0);
             setPanY(0);
 
@@ -198,6 +200,7 @@ export default function Home() {
     setTileHeight(18);
     setDpi(150);
     setZoom(100);
+    setBaseZoom(50);
     setPanX(0);
     setPanY(0);
     setRepeatType('full-drop');
@@ -324,14 +327,15 @@ export default function Home() {
       setTileHeight(detectedHeight);
       setImage(img);
 
-      // Fit-to-viewport: calculate initial zoom so pattern fills canvas
+      // Fit-to-viewport: this becomes the baseline "100%" for the user
       const viewportWidth = window.innerWidth * 0.8;
       const viewportHeight = window.innerHeight * 0.6;
       const fitZoom = Math.min(
         viewportWidth / (detectedWidth * 96),
         viewportHeight / (detectedHeight * 96)
       ) * 100;
-      setZoom(Math.max(10, Math.min(800, fitZoom)));
+      setBaseZoom(Math.max(10, fitZoom));
+      setZoom(100);
       setPanX(0);
       setPanY(0);
 
@@ -513,6 +517,7 @@ export default function Home() {
         image={image}
         zoom={zoom}
         onZoomChange={setZoom}
+        actualZoom={(zoom / 100) * baseZoom}
         originalFilename={originalFilename}
         canvasRef={canvasRef}
         effectiveTileWidth={getEffectiveDimensions().width}
@@ -543,8 +548,8 @@ export default function Home() {
               tileWidth={getEffectiveDimensions().width}
               tileHeight={getEffectiveDimensions().height}
               dpi={dpi}
-              zoom={zoom}
-              onZoomChange={isScalePreviewActive && scalePreviewSize !== null ? undefined : setZoom}
+              zoom={(zoom / 100) * baseZoom}
+              onZoomChange={isScalePreviewActive && scalePreviewSize !== null ? undefined : (z: number) => setZoom(Math.max(50, Math.min(200, (z / baseZoom) * 100)))}
               panX={panX}
               panY={panY}
               onPanChange={(x: number, y: number) => { setPanX(x); setPanY(y); }}

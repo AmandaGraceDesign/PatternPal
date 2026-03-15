@@ -27,8 +27,9 @@ export class PatternTiler {
 
     const srcW = sourceImage.naturalWidth;
     const srcH = sourceImage.naturalHeight;
-    const scaledW = srcW * scale;
-    const scaledH = srcH * scale;
+    // Round tile dimensions to avoid sub-pixel gaps between tiles
+    const scaledW = Math.ceil(srcW * scale);
+    const scaledH = Math.ceil(srcH * scale);
 
     if (scaledW <= 0 || scaledH <= 0) return;
 
@@ -56,7 +57,7 @@ export class PatternTiler {
 
     for (let col = startCol; col <= endCol; col++) {
       for (let row = startRow; row <= endRow; row++) {
-        this.drawTile(img, srcW, srcH, col * scaledW + panX, row * scaledH + panY, scaledW, scaledH);
+        this.drawTile(img, srcW, srcH, Math.round(col * scaledW + panX), Math.round(row * scaledH + panY), scaledW, scaledH);
       }
     }
   }
@@ -71,10 +72,10 @@ export class PatternTiler {
     const endRow = Math.ceil((this.viewportHeight - panY) / scaledH) + 1;
 
     for (let col = startCol; col <= endCol; col++) {
-      const yOffset = (((col % 2) + 2) % 2 !== 0) ? scaledH / 2 : 0;
+      const yOffset = (((col % 2) + 2) % 2 !== 0) ? Math.round(scaledH / 2) : 0;
       for (let row = startRow; row <= endRow; row++) {
-        const dx = col * scaledW + panX;
-        const dy = row * scaledH + yOffset + panY;
+        const dx = Math.round(col * scaledW + panX);
+        const dy = Math.round(row * scaledH + yOffset + panY);
         this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
       }
     }
@@ -90,10 +91,10 @@ export class PatternTiler {
     const endCol = Math.ceil((this.viewportWidth - panX) / scaledW) + 1;
 
     for (let row = startRow; row <= endRow; row++) {
-      const adjustedXOffset = (((row % 2) + 2) % 2 !== 0) ? scaledW / 2 : 0;
+      const adjustedXOffset = (((row % 2) + 2) % 2 !== 0) ? Math.round(scaledW / 2) : 0;
       for (let col = startCol; col <= endCol; col++) {
-        const dx = col * scaledW + adjustedXOffset + panX;
-        const dy = row * scaledH + panY;
+        const dx = Math.round(col * scaledW + adjustedXOffset + panX);
+        const dy = Math.round(row * scaledH + panY);
         this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
       }
     }

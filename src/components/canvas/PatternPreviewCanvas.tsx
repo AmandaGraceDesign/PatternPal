@@ -82,7 +82,7 @@ export default function PatternPreviewCanvas({
       e.preventDefault();
       e.stopPropagation();
       const delta = -e.deltaY * 0.5;
-      const newZoom = Math.max(10, Math.min(800, zoom + delta));
+      const newZoom = Math.max(1, zoom + delta);
       onZoomChange(newZoom);
     };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import SeamInspectorCanvas from '@/components/analysis/SeamInspectorCanvas';
 
 type RepeatType = 'full-drop' | 'half-drop' | 'half-brick';
@@ -16,38 +16,72 @@ interface InspectorData {
 export default function SeamInspectorPage() {
   const [data, setData] = useState<InspectorData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const receivedRef = useRef(false);
 
   useEffect(() => {
-    // Read data from sessionStorage (copied from opener) or localStorage (fallback)
-    const stored =
-      sessionStorage.getItem('__seam_inspector_data') ||
-      localStorage.getItem('__seam_inspector_data');
-
-    if (!stored) {
+    if (!window.opener) {
       setError('No pattern data available. Please open the Seam Inspector from the main editor.');
       return;
     }
 
-    // Clean up both storage locations
-    sessionStorage.removeItem('__seam_inspector_data');
-    localStorage.removeItem('__seam_inspector_data');
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'init') return;
+      if (receivedRef.current) return;
+      receivedRef.current = true;
 
-    const { imageUrl, repeatType, dpi, filename, outlineColor } = JSON.parse(stored);
+      clearInterval(readyInterval);
 
-    const img = new Image();
-    img.onload = () => {
-      setData({
-        image: img,
-        repeatType,
-        dpi,
-        filename,
-        outlineColor,
-      });
+      const { imageUrl, repeatType, dpi, filename, outlineColor } = event.data;
+
+      const img = new Image();
+      img.onload = () => {
+        setData({ image: img, repeatType, dpi, filename, outlineColor });
+      };
+      img.onerror = () => {
+        setError('Failed to load pattern image.');
+      };
+      img.src = imageUrl;
     };
-    img.onerror = () => {
-      setError('Failed to load pattern image.');
+
+    window.addEventListener('message', handleMessage);
+
+    // Send 'ready' every 200ms until parent responds with 'init'
+    // This handles React strict mode double-mounting and timing issues
+    const readyInterval = setInterval(() => {
+      if (receivedRef.current) {
+        clearInterval(readyInterval);
+        return;
+      }
+      try {
+        window.opener.postMessage({ type: 'ready' }, window.location.origin);
+      } catch {
+        // opener may have navigated away
+        clearInterval(readyInterval);
+        setError('Lost connection to the editor. Please reopen the Seam Inspector.');
+      }
+    }, 200);
+
+    // Also send one immediately
+    try {
+      window.opener.postMessage({ type: 'ready' }, window.location.origin);
+    } catch {
+      // opener not available
+    }
+
+    // Timeout after 5s — if parent never responds, something is wrong
+    const timeout = setTimeout(() => {
+      if (!receivedRef.current) {
+        clearInterval(readyInterval);
+        setError('Timed out waiting for pattern data. Please reopen the Seam Inspector.');
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(readyInterval);
+      clearTimeout(timeout);
+      window.removeEventListener('message', handleMessage);
     };
-    img.src = imageUrl;
   }, []);
 
   // ESC to close

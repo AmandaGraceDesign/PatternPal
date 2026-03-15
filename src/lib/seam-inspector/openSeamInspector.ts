@@ -15,7 +15,8 @@ export function openSeamInspector({
   filename,
   outlineColor = '#ec4899',
 }: SeamInspectorParams): void {
-  // Convert image to data URL so the child tab owns the data
+  // Convert image to data URL — postMessage can handle large payloads
+  // (structured cloning, no storage quota limits)
   const canvas = document.createElement('canvas');
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
@@ -24,22 +25,40 @@ export function openSeamInspector({
   ctx.drawImage(image, 0, 0);
   const imageDataUrl = canvas.toDataURL('image/png');
 
-  // Store data in sessionStorage — the new tab opened via window.open()
-  // receives a copy of the opener's sessionStorage
-  const payload = JSON.stringify({
+  const payload = {
+    type: 'init' as const,
     imageUrl: imageDataUrl,
     repeatType,
     dpi,
     filename: filename || 'pattern',
     outlineColor,
-  });
+  };
 
-  try {
-    sessionStorage.setItem('__seam_inspector_data', payload);
-  } catch {
-    // sessionStorage full — fall back to localStorage with cleanup
-    localStorage.setItem('__seam_inspector_data', payload);
-  }
+  const childTab = window.open('/seam-inspector', '_blank');
+  if (!childTab) return;
 
-  window.open('/seam-inspector', '_blank');
+  let sent = false;
+
+  const handleMessage = (event: MessageEvent) => {
+    if (event.origin !== window.location.origin) return;
+    if (event.source !== childTab) return;
+    if (event.data?.type !== 'ready') return;
+
+    if (!sent) {
+      sent = true;
+      childTab.postMessage(payload, window.location.origin);
+    }
+
+    window.removeEventListener('message', handleMessage);
+  };
+
+  window.addEventListener('message', handleMessage);
+
+  // Clean up listener if child tab closes without completing handshake
+  const cleanup = setInterval(() => {
+    if (childTab.closed) {
+      clearInterval(cleanup);
+      window.removeEventListener('message', handleMessage);
+    }
+  }, 1000);
 }
