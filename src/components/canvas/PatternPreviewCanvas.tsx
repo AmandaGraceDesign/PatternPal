@@ -105,7 +105,7 @@ export default function PatternPreviewCanvas({
         // the page scrolls to reveal more pattern
         let displayHeight: number;
         if (image) {
-          const sf = (zoom / 100) * (96 / dpi);
+          const sf = (zoom / 100) * (96 * tileWidth / image.naturalWidth);
           const scaledTileH = image.naturalHeight * sf;
           const minRows = Math.max(3, Math.ceil(window.innerHeight * 0.8 / scaledTileH) + 2);
           displayHeight = Math.round(Math.max(window.innerHeight * 0.6, scaledTileH * minRows));
@@ -135,7 +135,7 @@ export default function PatternPreviewCanvas({
 
     window.addEventListener('resize', updateCanvasSize);
     return () => window.removeEventListener('resize', updateCanvasSize);
-  }, [image, zoom, dpi]);
+  }, [image, zoom, dpi, tileWidth]);
 
   // Render pattern
   useEffect(() => {
@@ -222,7 +222,9 @@ export default function PatternPreviewCanvas({
     }
 
     // --- Viewport-based rendering from full-res source ---
-    const scaleFactor = (zoom / 100) * (96 / dpi);
+    // Use effective tile dimensions for scale — when scale preview is active,
+    // tileWidth/tileHeight change, making tiles render at the new physical size
+    const scaleFactor = (zoom / 100) * (96 * tileWidth / image.naturalWidth);
 
     canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
     canvasCtx.scale(currentDpr, currentDpr);
@@ -261,8 +263,8 @@ export default function PatternPreviewCanvas({
   }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr, panX, panY]);
 
   // Calculate pixels per unit for ruler
-  // Direct zoom: zoom% = scale factor, no indirection
-  const scaleFactor = (zoom / 100) * (96 / dpi);
+  const effectiveDpi = image ? image.naturalWidth / tileWidth : dpi;
+  const scaleFactor = (zoom / 100) * (96 / effectiveDpi);
   const pixelsPerInch = (zoom / 100) * 96;
   const pixelsPerPixel = scaleFactor;
 

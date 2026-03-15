@@ -27,6 +27,13 @@ export default function SeamInspectorCanvas({
   const dragStartRef = useRef({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
+  // Draggable floating control
+  const [controlPos, setControlPos] = useState({ x: 20, y: -1 }); // y=-1 means use default (bottom)
+  const [isDraggingControl, setIsDraggingControl] = useState(false);
+  const controlDragStartRef = useRef({ x: 0, y: 0 });
+  const controlPosStartRef = useRef({ x: 0, y: 0 });
+  const controlRef = useRef<HTMLDivElement>(null);
+
   // Clamp zoom to 25-800
   const clampZoom = (z: number) => Math.max(25, Math.min(800, z));
 
@@ -67,6 +74,37 @@ export default function SeamInspectorCanvas({
   );
 
   const handlePointerUp = useCallback(() => setIsPanning(false), []);
+
+  // Floating control drag handlers
+  const handleControlPointerDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDraggingControl(true);
+    controlDragStartRef.current = { x: e.clientX, y: e.clientY };
+    controlPosStartRef.current = { ...controlPos };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [controlPos]);
+
+  const handleControlPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingControl) return;
+    e.stopPropagation();
+    setControlPos({
+      x: controlPosStartRef.current.x + (e.clientX - controlDragStartRef.current.x),
+      y: controlPosStartRef.current.y + (e.clientY - controlDragStartRef.current.y),
+    });
+  }, [isDraggingControl]);
+
+  const handleControlPointerUp = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    setIsDraggingControl(false);
+  }, []);
+
+  // Initialize control position to bottom-left once container is measured
+  useEffect(() => {
+    if (containerSize.height > 0 && controlPos.y === -1) {
+      setControlPos({ x: 20, y: containerSize.height - 60 });
+    }
+  }, [containerSize.height, controlPos.y]);
 
   // Scroll-wheel zoom (10% steps, anchored to cursor)
   const handleWheel = useCallback(
@@ -131,12 +169,12 @@ export default function SeamInspectorCanvas({
 
     const srcW = image.naturalWidth;
     const srcH = image.naturalHeight;
-    const scaledW = srcW * zoomFactor;
-    const scaledH = srcH * zoomFactor;
+    const scaledW = Math.ceil(srcW * zoomFactor);
+    const scaledH = Math.ceil(srcH * zoomFactor);
 
-    // Base position: tile (0,0) starts centered in viewport, then offset by pan
-    const baseX = (canvasWidth / 2 - scaledW / 2) + panOffset.x;
-    const baseY = (canvasHeight / 2 - scaledH / 2) + panOffset.y;
+    // Base position: tile (0,0) top-left corner centered in viewport, then offset by pan
+    const baseX = Math.round((canvasWidth / 2) + panOffset.x);
+    const baseY = Math.round((canvasHeight / 2) + panOffset.y);
 
     // Calculate visible tile range
     const startCol = Math.floor(-baseX / scaledW) - 1;
@@ -147,14 +185,14 @@ export default function SeamInspectorCanvas({
     // Draw tiles
     for (let col = startCol; col <= endCol; col++) {
       for (let row = startRow; row <= endRow; row++) {
-        let dx = col * scaledW + baseX;
-        let dy = row * scaledH + baseY;
+        let dx = Math.round(col * scaledW + baseX);
+        let dy = Math.round(row * scaledH + baseY);
 
         // Apply repeat-type offsets
         if (repeatType === 'half-drop') {
-          dy += (((col % 2) + 2) % 2 !== 0) ? scaledH / 2 : 0;
+          dy += (((col % 2) + 2) % 2 !== 0) ? Math.round(scaledH / 2) : 0;
         } else if (repeatType === 'half-brick') {
-          dx += (((row % 2) + 2) % 2 !== 0) ? scaledW / 2 : 0;
+          dx += (((row % 2) + 2) % 2 !== 0) ? Math.round(scaledW / 2) : 0;
         }
 
         // Viewport culling
@@ -218,8 +256,38 @@ export default function SeamInspectorCanvas({
       >
         <canvas ref={canvasRef} className="absolute inset-0" />
 
-        {/* Floating control — bottom left */}
-        <div className="absolute bottom-5 left-5 flex items-center gap-2.5 px-4 py-2 rounded-[10px] bg-white/[0.93] backdrop-blur-[10px] shadow-[0_2px_12px_rgba(0,0,0,0.2)] text-[#374151] text-[12px] select-none">
+        {/* Floating control — draggable */}
+        <div
+          ref={controlRef}
+          className="absolute flex items-center gap-2.5 rounded-[10px] bg-white/[0.93] backdrop-blur-[10px] shadow-[0_2px_12px_rgba(0,0,0,0.2)] text-[#374151] text-[12px] select-none"
+          style={{
+            left: controlPos.x,
+            top: controlPos.y === -1 ? undefined : controlPos.y,
+            bottom: controlPos.y === -1 ? 20 : undefined,
+            zIndex: 10,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseMove={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          {/* Drag handle */}
+          <div
+            className="flex items-center justify-center px-1.5 py-2 cursor-grab active:cursor-grabbing rounded-l-[10px] hover:bg-black/5 transition-colors"
+            onPointerDown={handleControlPointerDown}
+            onPointerMove={handleControlPointerMove}
+            onPointerUp={handleControlPointerUp}
+            onPointerCancel={handleControlPointerUp}
+            style={{ touchAction: 'none' }}
+          >
+            <svg width="6" height="14" viewBox="0 0 6 14" fill="currentColor" className="text-[#9ca3af]">
+              <circle cx="1.5" cy="1.5" r="1.2" /><circle cx="4.5" cy="1.5" r="1.2" />
+              <circle cx="1.5" cy="5" r="1.2" /><circle cx="4.5" cy="5" r="1.2" />
+              <circle cx="1.5" cy="8.5" r="1.2" /><circle cx="4.5" cy="8.5" r="1.2" />
+              <circle cx="1.5" cy="12" r="1.2" /><circle cx="4.5" cy="12" r="1.2" />
+            </svg>
+          </div>
+          <div className="flex items-center gap-2.5 pr-4 py-2">
           <button
             onClick={() => setZoomLevel((z) => clampZoom(z - 25))}
             className="px-2.5 py-1 rounded-md bg-[#e5e7eb] font-bold text-sm hover:bg-[#d1d5db] transition-colors"
@@ -248,6 +316,7 @@ export default function SeamInspectorCanvas({
             />
             Outline
           </label>
+          </div>
         </div>
 
         {/* Bottom right hint */}
