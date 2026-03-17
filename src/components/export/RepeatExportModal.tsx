@@ -4,9 +4,11 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   calculateRepeatFillDimensions,
   generateRepeatFillExport,
+  generateSocialFillBlob,
   RepeatFillCalcResult,
+  SOCIAL_DPI,
+  SocialFillBlobConfig,
 } from '@/lib/utils/repeatFillExport';
-import { generateSocialFillBlob, SOCIAL_DPI, SocialFillBlobConfig } from '@/lib/utils/repeatFillExport';
 import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
 import JSZip from 'jszip';
 
@@ -58,6 +60,8 @@ const SOCIAL_SIZE_PRESETS: SocialSizePreset[] = [
 ];
 
 const SOCIAL_PREVIEW_MAX_PX = 90; // max dimension for per-size preview thumbnail
+
+type ModalMode = 'picker' | 'cricut' | 'social';
 
 function mapRepeatType(
   repeatType: 'full-drop' | 'half-drop' | 'half-brick'
@@ -118,7 +122,6 @@ export default function RepeatExportModal({
   // Local export scale factor (isolated from main canvas)
   const [exportScale, setExportScale] = useState(1.0);
 
-  type ModalMode = 'picker' | 'cricut' | 'social';
   const [mode, setMode] = useState<ModalMode>('picker');
   const [socialFormat, setSocialFormat] = useState<'png' | 'jpg'>('jpg');
   const [checkedSizes, setCheckedSizes] = useState<Set<SizeSlug>>(new Set());
