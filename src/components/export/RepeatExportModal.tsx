@@ -6,7 +6,9 @@ import {
   generateRepeatFillExport,
   RepeatFillCalcResult,
 } from '@/lib/utils/repeatFillExport';
+import { generateSocialFillBlob, SOCIAL_DPI, SocialFillBlobConfig } from '@/lib/utils/repeatFillExport';
 import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
+import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
   isOpen: boolean;
@@ -32,6 +34,30 @@ const SIZE_PRESETS: SizePreset[] = [
 const PREVIEW_WIDTH = 250;
 const MIN_SCALE = 0.02;
 const MAX_SCALE = 1.0;
+
+type SizeSlug =
+  | 'instagram-post'
+  | 'instagram-portrait'
+  | 'story'
+  | 'pinterest-pin'
+  | 'facebook-cover';
+
+interface SocialSizePreset {
+  slug: SizeSlug;
+  label: string;
+  pxW: number;
+  pxH: number;
+}
+
+const SOCIAL_SIZE_PRESETS: SocialSizePreset[] = [
+  { slug: 'instagram-post',      label: 'Instagram / Facebook Post',     pxW: 1080, pxH: 1080 },
+  { slug: 'instagram-portrait',  label: 'Instagram / Facebook Portrait',  pxW: 1080, pxH: 1350 },
+  { slug: 'story',               label: 'Story / Reel / TikTok',          pxW: 1080, pxH: 1920 },
+  { slug: 'pinterest-pin',       label: 'Pinterest Pin',                  pxW: 1000, pxH: 1500 },
+  { slug: 'facebook-cover',      label: 'Facebook Cover',                 pxW: 1640, pxH: 624  },
+];
+
+const SOCIAL_PREVIEW_MAX_PX = 90; // max dimension for per-size preview thumbnail
 
 function mapRepeatType(
   repeatType: 'full-drop' | 'half-drop' | 'half-brick'
@@ -92,6 +118,13 @@ export default function RepeatExportModal({
   // Local export scale factor (isolated from main canvas)
   const [exportScale, setExportScale] = useState(1.0);
 
+  type ModalMode = 'picker' | 'cricut' | 'social';
+  const [mode, setMode] = useState<ModalMode>('picker');
+  const [socialFormat, setSocialFormat] = useState<'png' | 'jpg'>('jpg');
+  const [checkedSizes, setCheckedSizes] = useState<Set<SizeSlug>>(new Set());
+  const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Reset on open
@@ -100,6 +133,10 @@ export default function RepeatExportModal({
       setError(null);
       setIsExporting(false);
       setExportScale(1.0);
+      setMode('picker');
+      setSocialFormat('jpg');
+      setCheckedSizes(new Set());
+      scalesRef.current = {} as Record<SizeSlug, number>;
     }
   }, [isOpen]);
 
