@@ -20,6 +20,7 @@ export default function SeamInspectorCanvas({
   onBack,
 }: SeamInspectorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null); // double-buffer to eliminate zoom flash
   const containerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState(200);
@@ -254,7 +255,7 @@ export default function SeamInspectorCanvas({
     }
   }, [containerSize]);
 
-  // Render
+  // Render — double-buffered to eliminate the navy flash between clear and tile draw
   useEffect(() => {
     if (!canvasRef.current || containerSize.width === 0 || containerSize.height === 0) return;
 
@@ -265,60 +266,68 @@ export default function SeamInspectorCanvas({
     const deviceDpr = window.devicePixelRatio || 1;
     const safeDpr = Math.min(deviceDpr, 2);
     const zoomFactor = (zoomLevel / 100) * (96 / dpi);
-
     const canvasWidth = containerSize.width;
     const canvasHeight = containerSize.height;
 
-    ctx.setTransform(safeDpr, 0, 0, safeDpr, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    // Reuse offscreen canvas — resize only when needed
+    if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
+    const offscreen = offscreenRef.current;
+    const pixelW = canvasWidth * safeDpr;
+    const pixelH = canvasHeight * safeDpr;
+    if (offscreen.width !== pixelW || offscreen.height !== pixelH) {
+      offscreen.width = pixelW;
+      offscreen.height = pixelH;
+    }
+    const offCtx = offscreen.getContext('2d');
+    if (!offCtx) return;
+
+    offCtx.setTransform(safeDpr, 0, 0, safeDpr, 0, 0);
+    offCtx.imageSmoothingEnabled = true;
+    offCtx.imageSmoothingQuality = 'high';
+    // Fill background so no transparency flash if tiles don't cover edge pixels
+    offCtx.fillStyle = '#294051';
+    offCtx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const srcW = image.naturalWidth;
     const srcH = image.naturalHeight;
     const scaledW = Math.ceil(srcW * zoomFactor);
     const scaledH = Math.ceil(srcH * zoomFactor);
 
-    // Base position: tile (0,0) top-left corner centered in viewport, then offset by pan
     const baseX = Math.round((canvasWidth / 2) + panOffset.x);
     const baseY = Math.round((canvasHeight / 2) + panOffset.y);
 
-    // Calculate visible tile range
     const startCol = Math.floor(-baseX / scaledW) - 1;
     const endCol = Math.ceil((canvasWidth - baseX) / scaledW);
     const startRow = Math.floor(-baseY / scaledH) - 1;
     const endRow = Math.ceil((canvasHeight - baseY) / scaledH);
 
-    // Draw tiles
     for (let col = startCol; col <= endCol; col++) {
       for (let row = startRow; row <= endRow; row++) {
         let dx = Math.round(col * scaledW + baseX);
         let dy = Math.round(row * scaledH + baseY);
 
-        // Apply repeat-type offsets
         if (repeatType === 'half-drop') {
           dy += (((col % 2) + 2) % 2 !== 0) ? Math.round(scaledH / 2) : 0;
         } else if (repeatType === 'half-brick') {
           dx += (((row % 2) + 2) % 2 !== 0) ? Math.round(scaledW / 2) : 0;
         }
 
-        // Viewport culling
         if (dx + scaledW <= 0 || dy + scaledH <= 0 || dx >= canvasWidth || dy >= canvasHeight) continue;
-        ctx.drawImage(image, 0, 0, srcW, srcH, dx, dy, scaledW, scaledH);
+        offCtx.drawImage(image, 0, 0, srcW, srcH, dx, dy, scaledW, scaledH);
       }
     }
 
-    // Draw outline around tile (0, 0)
     if (showOutline) {
-      const outlineX = baseX;
-      const outlineY = baseY;
-
-      ctx.strokeStyle = outlineColor;
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([8, 4]);
-      ctx.strokeRect(outlineX, outlineY, scaledW, scaledH);
-      ctx.setLineDash([]);
+      offCtx.strokeStyle = outlineColor;
+      offCtx.lineWidth = 2.5;
+      offCtx.setLineDash([8, 4]);
+      offCtx.strokeRect(baseX, baseY, scaledW, scaledH);
+      offCtx.setLineDash([]);
     }
+
+    // Blit complete frame to visible canvas in one operation — no intermediate blank state
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(offscreen, 0, 0);
   }, [image, zoomLevel, panOffset, showOutline, containerSize, repeatType, dpi, outlineColor]);
 
   const repeatLabel =

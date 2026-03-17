@@ -34,6 +34,7 @@ export default function PatternPreviewCanvas({
   tileOutlineColor = '#38bdf8',
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null); // double-buffer to eliminate zoom flash
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [dpr, setDpr] = useState(1);
@@ -183,7 +184,7 @@ export default function PatternPreviewCanvas({
 
     window.addEventListener('resize', updateCanvasSize);
     return () => window.removeEventListener('resize', updateCanvasSize);
-  }, [image, zoom, dpi, tileWidth]);
+  }, [image, dpi, tileWidth]); // zoom intentionally excluded — zoom only affects render, not canvas size
 
   // Render pattern
   useEffect(() => {
@@ -269,34 +270,40 @@ export default function PatternPreviewCanvas({
       return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
     }
 
-    // --- Viewport-based rendering from full-res source ---
-    // Use effective tile dimensions for scale — when scale preview is active,
-    // tileWidth/tileHeight change, making tiles render at the new physical size
+    // --- Viewport-based rendering from full-res source — double-buffered to eliminate flash ---
     const scaleFactor = (zoom / 100) * (96 * tileWidth / image.naturalWidth);
 
-    canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
-    canvasCtx.scale(currentDpr, currentDpr);
-    canvasCtx.imageSmoothingEnabled = true;
-    canvasCtx.imageSmoothingQuality = 'high';
+    // Reuse offscreen canvas — resize only when needed
+    if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
+    const offscreen = offscreenRef.current;
+    const pixelW = canvasSize.width * currentDpr;
+    const pixelH = canvasSize.height * currentDpr;
+    if (offscreen.width !== pixelW || offscreen.height !== pixelH) {
+      offscreen.width = pixelW;
+      offscreen.height = pixelH;
+    }
+    const offCtx = offscreen.getContext('2d');
+    if (!offCtx) return () => { cancelled = true; };
 
-    const tiler = new PatternTiler(canvasCtx, canvasSize.width, canvasSize.height);
+    offCtx.setTransform(1, 0, 0, 1, 0, 0);
+    offCtx.scale(currentDpr, currentDpr);
+    offCtx.imageSmoothingEnabled = true;
+    offCtx.imageSmoothingQuality = 'high';
+
+    const tiler = new PatternTiler(offCtx, canvasSize.width, canvasSize.height);
     tiler.render(image, repeatType, scaleFactor, panX, panY);
 
-    // Draw a single tile outline
     if (showTileOutline) {
-      // Match PatternTiler's Math.ceil rounding so outline aligns with actual tiles
       const outlineW = Math.ceil(image.naturalWidth * scaleFactor);
       const outlineH = Math.ceil(image.naturalHeight * scaleFactor);
 
-      canvasCtx.strokeStyle = tileOutlineColor;
-      canvasCtx.lineWidth = 6;
-      canvasCtx.setLineDash([]);
+      offCtx.strokeStyle = tileOutlineColor;
+      offCtx.lineWidth = 6;
+      offCtx.setLineDash([]);
 
-      // Find the first visible tile position (top-left-most tile in viewport)
       const col = Math.floor(-panX / outlineW);
       const row = Math.floor(-panY / outlineH);
 
-      // Round to match PatternTiler's Math.round on tile positions
       let ox = Math.round(col * outlineW + panX);
       let oy = Math.round(row * outlineH + panY);
 
@@ -306,8 +313,12 @@ export default function PatternPreviewCanvas({
         ox += (((row % 2) + 2) % 2 !== 0) ? Math.round(outlineW / 2) : 0;
       }
 
-      canvasCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
+      offCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
     }
+
+    // Blit complete frame to visible canvas in one operation — no intermediate blank state
+    canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+    canvasCtx.drawImage(offscreen, 0, 0);
 
     return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
   }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr, panX, panY]);
