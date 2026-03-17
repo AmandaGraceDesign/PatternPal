@@ -266,9 +266,14 @@ export async function generateSocialFillBlob(
   const tileSource: HTMLCanvasElement | HTMLImageElement =
     mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
 
+  // Effective tile dimensions after full-drop conversion:
+  // half-drop doubles width, half-brick doubles height.
+  const effectiveW = mapped === 'halfdrop' ? tileWidthInches * 2 : tileWidthInches;
+  const effectiveH = mapped === 'halfbrick' ? tileHeightInches * 2 : tileHeightInches;
+
   // DPI bridge: tile size in pixels at current scale
-  const tilePixelW = tileWidthInches * exportScale * SOCIAL_DPI;
-  const tileAspect = tileWidthInches / tileHeightInches;
+  const tilePixelW = effectiveW * exportScale * SOCIAL_DPI;
+  const tileAspect = effectiveW / effectiveH;
   const tilePixelH = tilePixelW / tileAspect;
 
   const repeatsX = Math.max(1, Math.round(targetPxW / tilePixelW));
