@@ -147,11 +147,11 @@ export default function RepeatExportModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isExporting) onClose();
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isExporting]);
 
   // Effective tile dimensions with local export scale applied
   const scaledTileW = tileWidth * exportScale;
@@ -328,33 +328,60 @@ export default function RepeatExportModal({
       >
         {/* Header */}
         <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#e0c26e]">
-          <h3 className="text-sm font-semibold text-white">
-            Pattern Fill Export
-          </h3>
+          <div className="flex items-center gap-3">
+            {mode !== 'picker' && (
+              <button
+                onClick={() => setMode('picker')}
+                className="text-white/80 hover:text-white text-xs transition-colors"
+                disabled={isExporting}
+              >
+                ← Back
+              </button>
+            )}
+            <h3 className="text-sm font-semibold text-white">
+              {mode === 'picker' ? 'Pattern Fill Export' :
+               mode === 'cricut' ? 'Cricut / Silhouette Export' :
+               'Social Media Export'}
+            </h3>
+          </div>
           <button
             onClick={onClose}
             className="text-[#705046] hover:text-[#294051] transition-all duration-200"
             aria-label="Close"
             disabled={isExporting}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+        {/* Destination picker */}
+        {mode === 'picker' && (
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-center text-[#6b7280]">What are you exporting for?</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => setMode('cricut')}
+                className="w-full text-left px-4 py-4 border-2 border-[#e0c26e] rounded-lg bg-[#faf3e0] hover:bg-[#f5ecd0] transition-colors"
+              >
+                <div className="text-sm font-semibold text-[#294051]">🖨 Cricut / Silhouette</div>
+                <div className="text-xs text-[#9ca3af] mt-1">Digital paper · print files · Etsy / Creative Fabrica</div>
+              </button>
+              <button
+                onClick={() => setMode('social')}
+                className="w-full text-left px-4 py-4 border-2 border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f9fafb] transition-colors"
+              >
+                <div className="text-sm font-semibold text-[#294051]">📱 Social Media</div>
+                <div className="text-xs text-[#9ca3af] mt-1">Instagram · Pinterest · TikTok · Facebook</div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Cricut */}
+        {mode === 'cricut' && (
+          <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
           {!image ? (
             <div className="text-center py-8">
               <p className="text-sm text-[#6b7280]">
@@ -682,7 +709,15 @@ export default function RepeatExportModal({
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )}
+
+        {/* Social */}
+        {mode === 'social' && (
+          <div className="p-6">
+            <p className="text-sm text-[#6b7280]">Social media export — coming in Task 4.</p>
+          </div>
+        )}
       </div>
     </div>
   );
