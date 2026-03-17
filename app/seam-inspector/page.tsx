@@ -118,6 +118,17 @@ export default function SeamInspectorPage() {
     );
   }
 
+  const handleBack = () => {
+    // Focus the opener tab first so the user lands back on their pattern, then close this tab
+    if (window.opener) {
+      try { window.opener.focus(); } catch { /* opener may be cross-origin */ }
+      window.close();
+    } else {
+      // Fallback: navigate back in history (e.g. if iOS opened in same tab)
+      window.history.back();
+    }
+  };
+
   return (
     <SeamInspectorCanvas
       image={data.image}
@@ -125,6 +136,7 @@ export default function SeamInspectorPage() {
       dpi={data.dpi}
       filename={data.filename}
       outlineColor={data.outlineColor}
+      onBack={handleBack}
     />
   );
 }

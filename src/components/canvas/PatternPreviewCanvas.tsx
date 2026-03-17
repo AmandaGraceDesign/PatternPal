@@ -45,8 +45,12 @@ export default function PatternPreviewCanvas({
   const panOriginRef = useRef({ x: 0, y: 0 });
   const rafPanRef = useRef<number | null>(null);
 
+  // Pinch-to-zoom state
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    if (e.pointerType === 'touch') return; // single-finger touch scrolls the page, not the canvas
     setIsPanning(true);
     panStartRef.current = { x: e.clientX, y: e.clientY };
     panOriginRef.current = { x: panX, y: panY };
@@ -71,6 +75,50 @@ export default function PatternPreviewCanvas({
       rafPanRef.current = null;
     }
   }, []);
+
+  // Pinch-to-zoom via non-passive listeners so preventDefault works
+  // (React synthetic touch events are passive and cannot preventDefault)
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !onZoomChange) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchRef.current = { startDist: Math.hypot(dx, dy), startZoom: zoom };
+        setIsPanning(false);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault(); // block browser page-zoom during pinch
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const scale = dist / pinchRef.current.startDist;
+        const newZoom = Math.max(1, pinchRef.current.startZoom * scale);
+        onZoomChange(newZoom);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchRef.current = null;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [zoom, onZoomChange]);
 
   // Wheel zoom handler (ctrl/cmd + scroll = zoom)
   useEffect(() => {
@@ -236,8 +284,9 @@ export default function PatternPreviewCanvas({
 
     // Draw a single tile outline
     if (showTileOutline) {
-      const outlineW = image.naturalWidth * scaleFactor;
-      const outlineH = image.naturalHeight * scaleFactor;
+      // Match PatternTiler's Math.ceil rounding so outline aligns with actual tiles
+      const outlineW = Math.ceil(image.naturalWidth * scaleFactor);
+      const outlineH = Math.ceil(image.naturalHeight * scaleFactor);
 
       canvasCtx.strokeStyle = tileOutlineColor;
       canvasCtx.lineWidth = 6;
@@ -247,13 +296,14 @@ export default function PatternPreviewCanvas({
       const col = Math.floor(-panX / outlineW);
       const row = Math.floor(-panY / outlineH);
 
-      let ox = col * outlineW + panX;
-      let oy = row * outlineH + panY;
+      // Round to match PatternTiler's Math.round on tile positions
+      let ox = Math.round(col * outlineW + panX);
+      let oy = Math.round(row * outlineH + panY);
 
       if (repeatType === 'half-drop') {
-        oy += (((col % 2) + 2) % 2 !== 0) ? outlineH / 2 : 0;
+        oy += (((col % 2) + 2) % 2 !== 0) ? Math.round(outlineH / 2) : 0;
       } else if (repeatType === 'half-brick') {
-        ox += (((row % 2) + 2) % 2 !== 0) ? outlineW / 2 : 0;
+        ox += (((row % 2) + 2) % 2 !== 0) ? Math.round(outlineW / 2) : 0;
       }
 
       canvasCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
@@ -328,7 +378,7 @@ export default function PatternPreviewCanvas({
             ref={scrollContainerRef}
             className="flex-1 overflow-hidden bg-[#0f172a] relative"
             style={{
-              touchAction: 'none',
+              touchAction: 'pan-x pan-y', // single-finger scrolls the page; pinch handled via non-passive listeners
               cursor: isPanning ? 'grabbing' : 'grab',
             }}
             onPointerDown={handlePointerDown}

@@ -8,6 +8,7 @@ interface SeamInspectorCanvasProps {
   dpi: number;
   filename: string;
   outlineColor: string;
+  onBack?: () => void;
 }
 
 export default function SeamInspectorCanvas({
@@ -16,9 +17,11 @@ export default function SeamInspectorCanvas({
   dpi,
   filename,
   outlineColor,
+  onBack,
 }: SeamInspectorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState(200);
   const [showOutline, setShowOutline] = useState(true);
   const [isPanning, setIsPanning] = useState(false);
@@ -28,11 +31,27 @@ export default function SeamInspectorCanvas({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Draggable floating control
-  const [controlPos, setControlPos] = useState({ x: 20, y: -1 }); // y=-1 means use default (bottom)
+  const [controlPos, setControlPos] = useState({ x: 20, y: -1 }); // y=-1 = use bottom:20
   const [isDraggingControl, setIsDraggingControl] = useState(false);
+  const controlRef = useRef<HTMLDivElement>(null);
   const controlDragStartRef = useRef({ x: 0, y: 0 });
   const controlPosStartRef = useRef({ x: 0, y: 0 });
-  const controlRef = useRef<HTMLDivElement>(null);
+
+  // Pinch-to-zoom state (stores start values so zoom anchor is non-incremental — no stale state)
+  const pinchRef = useRef<{
+    startDist: number;
+    startZoom: number;
+    startPanX: number;
+    startPanY: number;
+    startMidX: number;
+    startMidY: number;
+  } | null>(null);
+
+  // Refs for current state — lets the non-passive touch listener read fresh values without re-attaching
+  const zoomRef = useRef(zoomLevel);
+  const panRef = useRef(panOffset);
+  useEffect(() => { zoomRef.current = zoomLevel; }, [zoomLevel]);
+  useEffect(() => { panRef.current = panOffset; }, [panOffset]);
 
   // Clamp zoom to 25-800
   const clampZoom = (z: number) => Math.max(25, Math.min(800, z));
@@ -81,7 +100,16 @@ export default function SeamInspectorCanvas({
     e.preventDefault();
     setIsDraggingControl(true);
     controlDragStartRef.current = { x: e.clientX, y: e.clientY };
-    controlPosStartRef.current = { ...controlPos };
+
+    // On first drag, measure real viewport position from DOM to switch from bottom- to top-anchored
+    // position:fixed coords are viewport-relative, matching getBoundingClientRect()
+    let startPos = { ...controlPos };
+    if (controlPos.y === -1 && controlRef.current) {
+      const controlRect = controlRef.current.getBoundingClientRect();
+      startPos = { x: controlRect.left, y: controlRect.top };
+      setControlPos(startPos);
+    }
+    controlPosStartRef.current = startPos;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, [controlPos]);
 
@@ -99,12 +127,81 @@ export default function SeamInspectorCanvas({
     setIsDraggingControl(false);
   }, []);
 
-  // Initialize control position to bottom-left once container is measured
+  // Refs so the touch useEffect (attached once) always calls fresh callbacks
+  const pointerDownRef = useRef(handlePointerDown);
+  const pointerMoveRef = useRef(handlePointerMove);
+  const pointerUpRef = useRef(handlePointerUp);
+  useEffect(() => { pointerDownRef.current = handlePointerDown; }, [handlePointerDown]);
+  useEffect(() => { pointerMoveRef.current = handlePointerMove; }, [handlePointerMove]);
+  useEffect(() => { pointerUpRef.current = handlePointerUp; }, [handlePointerUp]);
+
+  // Non-passive touch listeners — lets e.preventDefault() work for pinch, and fixes anchor math
   useEffect(() => {
-    if (containerSize.height > 0 && controlPos.y === -1) {
-      setControlPos({ x: 20, y: containerSize.height - 60 });
-    }
-  }, [containerSize.height, controlPos.y]);
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const rect = el.getBoundingClientRect();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchRef.current = {
+          startDist: Math.hypot(dx, dy),
+          startZoom: zoomRef.current,
+          startPanX: panRef.current.x,
+          startPanY: panRef.current.y,
+          startMidX: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
+          startMidY: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top,
+        };
+        setIsPanning(false);
+      } else if (e.touches.length === 1) {
+        pointerDownRef.current(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault(); // block browser page-zoom during pinch
+        const rect = el.getBoundingClientRect();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const scale = dist / pinchRef.current.startDist;
+        const newZoom = clampZoom(pinchRef.current.startZoom * scale);
+
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        const { startZoom, startPanX, startPanY, startMidX, startMidY } = pinchRef.current;
+
+        // Non-incremental anchor: keep the world point that was under startMid now under currentMid
+        // Derived from: (mid - containerCenter - newPan) / newZoom = (startMid - containerCenter - startPan) / startZoom
+        const newPanX = midX - rect.width / 2 - (newZoom / startZoom) * (startMidX - rect.width / 2 - startPanX);
+        const newPanY = midY - rect.height / 2 - (newZoom / startZoom) * (startMidY - rect.height / 2 - startPanY);
+
+        setPanOffset({ x: newPanX, y: newPanY });
+        setZoomLevel(newZoom);
+      } else if (e.touches.length === 1 && !pinchRef.current) {
+        pointerMoveRef.current(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchRef.current = null;
+      if (e.touches.length === 0) pointerUpRef.current();
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []); // attached once — reads state via refs
 
   // Scroll-wheel zoom (10% steps, anchored to cursor)
   const handleWheel = useCallback(
@@ -142,6 +239,21 @@ export default function SeamInspectorCanvas({
     return () => container.removeEventListener('wheel', handleWheel);
   }, [handleWheel]);
 
+  // Resize canvas only when container dimensions change (not on zoom/pan — avoids the solid-color flash)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || containerSize.width === 0 || containerSize.height === 0) return;
+    const safeDpr = Math.min(window.devicePixelRatio || 1, 2);
+    const newW = containerSize.width * safeDpr;
+    const newH = containerSize.height * safeDpr;
+    if (canvas.width !== newW || canvas.height !== newH) {
+      canvas.width = newW;
+      canvas.height = newH;
+      canvas.style.width = `${containerSize.width}px`;
+      canvas.style.height = `${containerSize.height}px`;
+    }
+  }, [containerSize]);
+
   // Render
   useEffect(() => {
     if (!canvasRef.current || containerSize.width === 0 || containerSize.height === 0) return;
@@ -156,11 +268,6 @@ export default function SeamInspectorCanvas({
 
     const canvasWidth = containerSize.width;
     const canvasHeight = containerSize.height;
-
-    canvas.width = canvasWidth * safeDpr;
-    canvas.height = canvasHeight * safeDpr;
-    canvas.style.width = `${canvasWidth}px`;
-    canvas.style.height = `${canvasHeight}px`;
 
     ctx.setTransform(safeDpr, 0, 0, safeDpr, 0, 0);
     ctx.imageSmoothingEnabled = true;
@@ -219,16 +326,28 @@ export default function SeamInspectorCanvas({
     repeatType === 'half-drop' ? 'Half Drop' : 'Half Brick';
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#294051]">
+    <div ref={outerRef} className="relative flex flex-col h-screen w-screen overflow-hidden bg-[#294051]">
       {/* Top bar */}
       <div className="flex items-center gap-3 px-5 py-2.5 bg-[#f8fafc] border-b border-[#e2e8f0] shrink-0">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-[#294051] text-[13px] font-semibold hover:text-[#1e3040] transition-colors"
+            aria-label="Back to editor"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 12L6 8l4-4" />
+            </svg>
+            Back
+          </button>
+        )}
         <span className="font-bold text-[#294051] text-[15px]">Seam Inspector</span>
         <span className="text-[#9ca3af] text-xs italic">{filename}</span>
         <span className="text-[10px] px-2 py-0.5 rounded bg-[#f0fdf4] text-[#166534] border border-[#bbf7d0]">
           {repeatLabel}
         </span>
-        <span className="ml-auto text-[#9ca3af] text-[11px]">
-          Drag to pan · Scroll to zoom
+        <span className="ml-auto text-[#9ca3af] text-[11px] hidden sm:block">
+          Drag to pan · Scroll or pinch to zoom
         </span>
       </div>
 
@@ -241,60 +360,47 @@ export default function SeamInspectorCanvas({
         onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
         onMouseUp={handlePointerUp}
         onMouseLeave={handlePointerUp}
-        onTouchStart={(e) => {
-          if (e.touches.length === 1) {
-            handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
-          }
-        }}
-        onTouchMove={(e) => {
-          if (e.touches.length === 1) {
-            handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-          }
-        }}
-        onTouchEnd={handlePointerUp}
-        onTouchCancel={handlePointerUp}
       >
         <canvas ref={canvasRef} className="absolute inset-0" />
+      </div>
 
-        {/* Floating control — draggable */}
+      {/* Floating control — position:fixed so iOS Safari's canvas GPU layer can't paint over it */}
+      <div
+        ref={controlRef}
+        className="fixed flex items-center gap-2.5 rounded-[10px] bg-white/[0.93] backdrop-blur-[10px] shadow-[0_2px_12px_rgba(0,0,0,0.2)] text-[#374151] text-[12px] select-none"
+        style={{
+          left: controlPos.x,
+          top: controlPos.y === -1 ? undefined : controlPos.y,
+          bottom: controlPos.y === -1 ? 20 : undefined,
+          zIndex: 20,
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseMove={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        {/* Drag handle */}
         <div
-          ref={controlRef}
-          className="absolute flex items-center gap-2.5 rounded-[10px] bg-white/[0.93] backdrop-blur-[10px] shadow-[0_2px_12px_rgba(0,0,0,0.2)] text-[#374151] text-[12px] select-none"
-          style={{
-            left: controlPos.x,
-            top: controlPos.y === -1 ? undefined : controlPos.y,
-            bottom: controlPos.y === -1 ? 20 : undefined,
-            zIndex: 10,
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onMouseMove={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
+          className="flex items-center justify-center px-1.5 py-2 cursor-grab active:cursor-grabbing rounded-l-[10px] hover:bg-black/5 transition-colors"
+          onPointerDown={handleControlPointerDown}
+          onPointerMove={handleControlPointerMove}
+          onPointerUp={handleControlPointerUp}
+          onPointerCancel={handleControlPointerUp}
+          style={{ touchAction: 'none' }}
         >
-          {/* Drag handle */}
-          <div
-            className="flex items-center justify-center px-1.5 py-2 cursor-grab active:cursor-grabbing rounded-l-[10px] hover:bg-black/5 transition-colors"
-            onPointerDown={handleControlPointerDown}
-            onPointerMove={handleControlPointerMove}
-            onPointerUp={handleControlPointerUp}
-            onPointerCancel={handleControlPointerUp}
-            style={{ touchAction: 'none' }}
-          >
-            <svg width="6" height="14" viewBox="0 0 6 14" fill="currentColor" className="text-[#9ca3af]">
-              <circle cx="1.5" cy="1.5" r="1.2" /><circle cx="4.5" cy="1.5" r="1.2" />
-              <circle cx="1.5" cy="5" r="1.2" /><circle cx="4.5" cy="5" r="1.2" />
-              <circle cx="1.5" cy="8.5" r="1.2" /><circle cx="4.5" cy="8.5" r="1.2" />
-              <circle cx="1.5" cy="12" r="1.2" /><circle cx="4.5" cy="12" r="1.2" />
-            </svg>
-          </div>
-          <div className="flex items-center gap-2.5 pr-4 py-2">
+          <svg width="6" height="14" viewBox="0 0 6 14" fill="currentColor" className="text-[#9ca3af]">
+            <circle cx="1.5" cy="1.5" r="1.2" /><circle cx="4.5" cy="1.5" r="1.2" />
+            <circle cx="1.5" cy="5" r="1.2" /><circle cx="4.5" cy="5" r="1.2" />
+            <circle cx="1.5" cy="8.5" r="1.2" /><circle cx="4.5" cy="8.5" r="1.2" />
+            <circle cx="1.5" cy="12" r="1.2" /><circle cx="4.5" cy="12" r="1.2" />
+          </svg>
+        </div>
+        <div className="flex items-center gap-2.5 pr-4 py-2">
           <button
             onClick={() => setZoomLevel((z) => clampZoom(z - 25))}
             className="px-2.5 py-1 rounded-md bg-[#e5e7eb] font-bold text-sm hover:bg-[#d1d5db] transition-colors"
             aria-label="Zoom out"
-          >
-            −
-          </button>
+          >−</button>
           <span className="font-bold min-w-[42px] text-center text-[13px]">
             {Math.round(zoomLevel)}%
           </span>
@@ -302,9 +408,7 @@ export default function SeamInspectorCanvas({
             onClick={() => setZoomLevel((z) => clampZoom(z + 25))}
             className="px-2.5 py-1 rounded-md bg-[#e5e7eb] font-bold text-sm hover:bg-[#d1d5db] transition-colors"
             aria-label="Zoom in"
-          >
-            +
-          </button>
+          >+</button>
           <span className="text-[#d1d5db] mx-0.5">|</span>
           <label className="flex items-center gap-1.5 cursor-pointer text-[12px]">
             <input
@@ -316,12 +420,6 @@ export default function SeamInspectorCanvas({
             />
             Outline
           </label>
-          </div>
-        </div>
-
-        {/* Bottom right hint */}
-        <div className="absolute bottom-6 right-5 text-[10px] text-white/30">
-          ESC or close tab to return
         </div>
       </div>
     </div>
