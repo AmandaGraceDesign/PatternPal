@@ -111,6 +111,7 @@ export default function PatternAnalysisModal({
   }, [getBaseColors, onColorHarmonyUpdate]);
 
   const handleColorInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsPickingColor(false);
     if (getBaseColors().length >= 8) return;
     const hex = e.target.value;
     const r = parseInt(hex.slice(1, 3), 16);
@@ -565,6 +566,8 @@ export default function PatternAnalysisModal({
                               type="color"
                               className="absolute w-0 h-0 opacity-0 overflow-hidden"
                               onChange={handleColorInputChange}
+                              onFocus={() => setIsPickingColor(true)}
+                              onBlur={() => setIsPickingColor(false)}
                               tabIndex={-1}
                             />
                           </label>
