@@ -84,7 +84,9 @@ export default function PatternAnalysisModal({
 
   const handleAddColor = useCallback(async () => {
     if (getBaseColors().length >= 8) return;
-    if ('EyeDropper' in window) {
+    // EyeDropper is desktop-only — not supported on iOS/iPadOS even if property exists
+    const hasHover = window.matchMedia('(hover: hover)').matches;
+    if (hasHover && 'EyeDropper' in window) {
       try {
         // Hide modal so eyedropper picks true colors, not darkened ones
         setIsPickingColor(true);
