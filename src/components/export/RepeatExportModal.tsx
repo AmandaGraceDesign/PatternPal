@@ -554,10 +554,10 @@ export default function RepeatExportModal({
         }
       }
 
-      const successful = results.filter(r => r.blob !== null);
+      const successful = results.filter((r): r is { slug: SizeSlug; label: string; blob: Blob } => r.blob !== null);
       const failed = results.filter(r => r.blob === null);
       const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
-      const ext = socialFormat === 'jpg' ? 'jpg' : 'png';
+      const ext = socialFormat;
 
       if (successful.length === 0) {
         throw new Error('All exports failed. Try a smaller scale or different format.');
@@ -566,7 +566,7 @@ export default function RepeatExportModal({
       if (successful.length === 1) {
         // Single file — direct download
         const { slug, blob } = successful[0];
-        const url = URL.createObjectURL(blob!);
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = `${baseName}-${slug}.${ext}`;
@@ -578,7 +578,7 @@ export default function RepeatExportModal({
         // Multiple files — zip
         const zip = new JSZip();
         for (const { slug, blob } of successful) {
-          zip.file(`${baseName}-${slug}.${ext}`, blob!);
+          zip.file(`${baseName}-${slug}.${ext}`, blob);
         }
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(zipBlob);
