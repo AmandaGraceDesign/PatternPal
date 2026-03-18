@@ -522,9 +522,89 @@ export default function RepeatExportModal({
     });
   };
 
-  // Task 6 stub
   const handleSocialExport = async () => {
-    setError('Social media export coming soon.');
+    if (!image || checkedSizes.size === 0) return;
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      // Single pro gate before any rendering
+      const res = await fetch('/api/pro/verify', { method: 'POST' });
+      if (!res.ok) throw new Error('Pro subscription required.');
+
+      const slugsToExport = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
+      const results: { slug: SizeSlug; label: string; blob: Blob | null }[] = [];
+
+      for (const preset of slugsToExport) {
+        const scale = scalesRef.current[preset.slug] ?? 1.0;
+        try {
+          const blob = await generateSocialFillBlob({
+            image,
+            repeatType,
+            targetPxW: preset.pxW,
+            targetPxH: preset.pxH,
+            format: socialFormat,
+            tileWidthInches: tileWidth,
+            tileHeightInches: tileHeight,
+            exportScale: scale,
+          });
+          results.push({ slug: preset.slug, label: preset.label, blob });
+        } catch {
+          results.push({ slug: preset.slug, label: preset.label, blob: null });
+        }
+      }
+
+      const successful = results.filter(r => r.blob !== null);
+      const failed = results.filter(r => r.blob === null);
+      const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
+      const ext = socialFormat === 'jpg' ? 'jpg' : 'png';
+
+      if (successful.length === 0) {
+        throw new Error('All exports failed. Try a smaller scale or different format.');
+      }
+
+      if (successful.length === 1) {
+        // Single file — direct download
+        const { slug, blob } = successful[0];
+        const url = URL.createObjectURL(blob!);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${baseName}-${slug}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        // Multiple files — zip
+        const zip = new JSZip();
+        for (const { slug, blob } of successful) {
+          zip.file(`${baseName}-${slug}.${ext}`, blob!);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${baseName}-social-media.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      // Warn about partial failures
+      if (failed.length > 0) {
+        setError(`Could not export: ${failed.map(f => f.label).join(', ')}. Others downloaded successfully.`);
+        setIsExporting(false);
+      } else {
+        setTimeout(() => {
+          onClose();
+          setIsExporting(false);
+        }, 500);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed. Please try again.');
+      setIsExporting(false);
+    }
   };
 
   if (!isOpen) return null;
