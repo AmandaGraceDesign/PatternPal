@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, MutableRefObject } from 'react';
 import {
   calculateRepeatFillDimensions,
   generateRepeatFillExport,
@@ -10,6 +10,7 @@ import {
   SocialFillBlobConfig,
 } from '@/lib/utils/repeatFillExport';
 import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
+import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
@@ -63,9 +64,179 @@ const SOCIAL_PREVIEW_MAX_PX = 90; // max dimension for per-size preview thumbnai
 
 type ModalMode = 'picker' | 'cricut' | 'social';
 
-// Task 5 stub — will be replaced with full implementation
-function SocialSizeRow(_props: Record<string, unknown>) {
-  return null;
+/** Preview canvas dimensions: max 90px on longest side, exact aspect ratio */
+function socialPreviewDims(pxW: number, pxH: number): { w: number; h: number } {
+  const aspect = pxW / pxH;
+  if (pxW >= pxH) {
+    return { w: SOCIAL_PREVIEW_MAX_PX, h: Math.round(SOCIAL_PREVIEW_MAX_PX / aspect) };
+  } else {
+    return { w: Math.round(SOCIAL_PREVIEW_MAX_PX * aspect), h: SOCIAL_PREVIEW_MAX_PX };
+  }
+}
+
+/** Scale that produces exactly targetRepeatsX repeats at 96 DPI */
+function socialScaleForRepeatsX(
+  targetPxW: number,
+  tileWidthInches: number,
+  widthMultiplier: number,
+  targetRepeatsX: number
+): number {
+  return targetPxW / (tileWidthInches * SOCIAL_DPI * widthMultiplier * targetRepeatsX);
+}
+
+interface SocialSizeRowProps {
+  preset: SocialSizePreset;
+  isChecked: boolean;
+  onToggle: () => void;
+  isExporting: boolean;
+  image: HTMLImageElement;
+  tileWidth: number;
+  tileHeight: number;
+  repeatType: 'full-drop' | 'half-drop' | 'half-brick';
+  originalFilename: string | null;
+  socialFormat: 'png' | 'jpg';
+  scalesRef: MutableRefObject<Record<string, number>>;
+}
+
+function SocialSizeRow({
+  preset, isChecked, onToggle, isExporting,
+  image, tileWidth, tileHeight, repeatType,
+  originalFilename, socialFormat, scalesRef,
+}: SocialSizeRowProps) {
+  const [, forceUpdate] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const scale = scalesRef.current[preset.slug] ?? 1.0;
+  const wMult = getWidthMultiplier(repeatType);
+
+  // Current repeat counts at this scale
+  const tilePixelW = tileWidth * scale * SOCIAL_DPI * wMult;
+  const tileAspect = (tileWidth * wMult) / tileHeight;
+  const tilePixelH = tilePixelW / tileAspect;
+  const repeatsX = Math.max(1, Math.round(preset.pxW / tilePixelW));
+  const repeatsY = Math.max(1, Math.round(preset.pxH / tilePixelH));
+
+  const canScaleUp = repeatsX > 1;
+  const canScaleDown = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX + 1) >= MIN_SCALE;
+
+  const handleScaleDown = () => {
+    const newScale = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX + 1);
+    if (newScale >= MIN_SCALE) {
+      scalesRef.current[preset.slug] = newScale;
+      forceUpdate(n => n + 1);
+    }
+  };
+
+  const handleScaleUp = () => {
+    if (repeatsX <= 1) return;
+    const newScale = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX - 1);
+    if (newScale <= MAX_SCALE) {
+      scalesRef.current[preset.slug] = Math.min(newScale, MAX_SCALE);
+      forceUpdate(n => n + 1);
+    }
+  };
+
+  // Draw preview canvas
+  const { w: previewW, h: previewH } = socialPreviewDims(preset.pxW, preset.pxH);
+
+  useEffect(() => {
+    if (!isChecked || !canvasRef.current || !image) return;
+    const canvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = previewW * dpr;
+    canvas.height = previewH * dpr;
+    canvas.style.width = `${previewW}px`;
+    canvas.style.height = `${previewH}px`;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, previewW, previewH);
+
+    const mapped = mapRepeatType(repeatType);
+    const tileSource: HTMLCanvasElement | HTMLImageElement =
+      mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
+
+    const tilePW = previewW / repeatsX;
+    const tilePH = previewH / repeatsY;
+    for (let x = 0; x < repeatsX; x++) {
+      for (let y = 0; y < repeatsY; y++) {
+        ctx.drawImage(
+          tileSource,
+          Math.floor(x * tilePW), Math.floor(y * tilePH),
+          Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1
+        );
+      }
+    }
+  }, [isChecked, image, repeatType, repeatsX, repeatsY, previewW, previewH]);
+
+  const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
+  const fileName = `${baseName}-${preset.slug}.${socialFormat}`;
+  const scaledTileW = tileWidth * scale;
+  const scaledTileH = tileHeight * scale;
+
+  return (
+    <div className={`border rounded-lg overflow-hidden transition-colors ${
+      isChecked ? 'border-[#e0c26e]' : 'border-[#e5e7eb]'
+    }`}>
+      {/* Checkbox row */}
+      <label className={`flex items-center justify-between px-3 py-2 cursor-pointer ${
+        isChecked ? 'bg-[#faf3e0]' : 'bg-white hover:bg-[#fafafa]'
+      }`}>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={onToggle}
+            style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+            disabled={isExporting}
+          />
+          <span className={`text-xs ${isChecked ? 'font-semibold text-[#294051]' : 'text-[#374151]'}`}>
+            {preset.label}
+          </span>
+        </div>
+        <span className="text-[10px] text-[#9ca3af]">{preset.pxW}×{preset.pxH}</span>
+      </label>
+
+      {/* Expanded section — only when checked */}
+      {isChecked && (
+        <div className="px-3 py-3 bg-white border-t border-[#f0e9d4] flex items-center gap-3">
+          {/* Preview canvas + scale buttons */}
+          <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+            <canvas
+              ref={canvasRef}
+              className="border border-[#e5e7eb] rounded bg-white"
+            />
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleScaleDown}
+                disabled={isExporting || !canScaleDown}
+                className="w-6 h-6 flex items-center justify-center rounded border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Smaller tiles, more repeats"
+              >−</button>
+              <span className="text-[9px] text-[#9ca3af] min-w-[56px] text-center">
+                {scaledTileW.toFixed(2)}&quot; × {scaledTileH.toFixed(2)}&quot;
+              </span>
+              <button
+                onClick={handleScaleUp}
+                disabled={isExporting || !canScaleUp}
+                className="w-6 h-6 flex items-center justify-center rounded border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Larger tiles, fewer repeats"
+              >+</button>
+            </div>
+          </div>
+          {/* Info */}
+          <div className="text-[11px] text-[#555] space-y-0.5 min-w-0">
+            <div><span className="font-semibold text-[#294051]">{repeatsX} × {repeatsY}</span> repeats</div>
+            <div className="text-[#9ca3af]">{preset.pxW} × {preset.pxH} px</div>
+            <div className="text-[#9ca3af] truncate" title={fileName}>{fileName}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function mapRepeatType(
