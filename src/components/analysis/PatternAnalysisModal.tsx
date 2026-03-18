@@ -82,11 +82,13 @@ export default function PatternAnalysisModal({
     return colorHarmonyAnalysis?.chromaticColors.map(c => ({ r: c.r, g: c.g, b: c.b })) ?? [];
   }, [editedColors, colorHarmonyAnalysis]);
 
-  const handleAddColor = useCallback(async () => {
+  const handleAddColor = useCallback(async (e: React.MouseEvent) => {
     if (getBaseColors().length >= 8) return;
     // EyeDropper is desktop-only — not supported on iOS/iPadOS even if property exists
     const hasHover = window.matchMedia('(hover: hover)').matches;
     if (hasHover && 'EyeDropper' in window) {
+      // Prevent label from also opening the color input
+      e.preventDefault();
       try {
         // Hide modal so eyedropper picks true colors, not darkened ones
         setIsPickingColor(true);
@@ -104,9 +106,8 @@ export default function PatternAnalysisModal({
         // User cancelled the eyedropper
         setIsPickingColor(false);
       }
-    } else {
-      colorInputRef.current?.click();
     }
+    // On touch devices: label natively opens the inline color input — no action needed
   }, [getBaseColors, onColorHarmonyUpdate]);
 
   const handleColorInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -550,15 +551,23 @@ export default function PatternAnalysisModal({
 
                         {/* Add color button — hidden when 8 colors reached */}
                         {effectiveAnalysis.chromaticColors.length < 8 && (
-                          <button
+                          <label
+                            className="w-9 h-9 [@media(hover:hover)]:w-8 [@media(hover:hover)]:h-8 rounded-full border-2 border-dashed border-[#e0c26e] hover:border-[#e8d28e] hover:bg-[#e0c26e]/10 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Add a color"
                             onClick={handleAddColor}
-                            className="w-9 h-9 [@media(hover:hover)]:w-8 [@media(hover:hover)]:h-8 rounded-full border-2 border-dashed border-[#e0c26e] hover:border-[#e8d28e] hover:bg-[#e0c26e]/10 flex items-center justify-center transition-colors"
-                            title={'EyeDropper' in window ? 'Pick a color from the pattern' : 'Add a color'}
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0c26e" strokeWidth={2.5}>
                               <path strokeLinecap="round" d="M12 5v14M5 12h14" />
                             </svg>
-                          </button>
+                            {/* Inline color input for touch devices — label tap opens it natively */}
+                            <input
+                              ref={colorInputRef}
+                              type="color"
+                              className="absolute w-0 h-0 opacity-0 overflow-hidden"
+                              onChange={handleColorInputChange}
+                              tabIndex={-1}
+                            />
+                          </label>
                         )}
                       </div>
                       <p className="text-[10px] text-[#9ca3af] mt-1">
@@ -639,14 +648,6 @@ export default function PatternAnalysisModal({
                     </>
                   )}
 
-                  {/* Hidden color input for browsers without EyeDropper */}
-                  <input
-                    ref={colorInputRef}
-                    type="color"
-                    className="sr-only"
-                    onChange={handleColorInputChange}
-                    tabIndex={-1}
-                  />
                 </div>
               )}
 
