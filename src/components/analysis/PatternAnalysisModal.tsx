@@ -522,7 +522,7 @@ export default function PatternAnalysisModal({
                             title={color.isClashing ? 'This color may be clashing' : undefined}
                           >
                             <div
-                              className={`w-8 h-8 rounded-full ${
+                              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-full ${
                                 color.isClashing
                                   ? 'ring-2 ring-orange-400 ring-offset-1'
                                   : ''
@@ -536,7 +536,7 @@ export default function PatternAnalysisModal({
                             {/* Remove button — visible on hover */}
                             <button
                               onClick={() => handleRemoveColor(i)}
-                              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 sm:w-4 sm:h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                               title="Remove this color"
                             >
                               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
@@ -550,7 +550,7 @@ export default function PatternAnalysisModal({
                         {effectiveAnalysis.chromaticColors.length < 8 && (
                           <button
                             onClick={handleAddColor}
-                            className="w-8 h-8 rounded-full border-2 border-dashed border-[#e0c26e] hover:border-[#e8d28e] hover:bg-[#e0c26e]/10 flex items-center justify-center transition-colors"
+                            className="w-9 h-9 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-[#e0c26e] hover:border-[#e8d28e] hover:bg-[#e0c26e]/10 flex items-center justify-center transition-colors"
                             title={'EyeDropper' in window ? 'Pick a color from the pattern' : 'Add a color'}
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0c26e" strokeWidth={2.5}>
