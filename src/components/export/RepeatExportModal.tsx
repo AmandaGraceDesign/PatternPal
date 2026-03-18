@@ -320,7 +320,7 @@ export default function RepeatExportModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      onClick={!isExporting ? onClose : undefined}
     >
       <div
         className="relative max-w-2xl w-full max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
@@ -382,333 +382,333 @@ export default function RepeatExportModal({
         {/* Cricut */}
         {mode === 'cricut' && (
           <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
-          {!image ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-[#6b7280]">
-                No pattern loaded. Please upload a pattern first.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {/* Info Banner */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-xs text-blue-800 leading-relaxed">
-                  <span className="font-semibold">Digital Paper Export</span> —
-                  Creates a ready-to-use pattern fill image for Cricut Design
-                  Space and Silhouette Studio. This bakes multiple repeats of
-                  your tile into one flat image, which eliminates the white
-                  grid line bug in Silhouette. 12&times;12&quot; at 300 DPI is
-                  the standard for selling digital papers on Etsy and Creative
-                  Fabrica.
+            {!image ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-[#6b7280]">
+                  No pattern loaded. Please upload a pattern first.
                 </p>
               </div>
-
-              {/* Current Tile Info */}
-              <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
-                <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
-                  Current Tile
-                </h4>
-                <div className="text-sm text-[#374151] space-y-1">
-                  <p>
-                    Size: {tileWidth.toFixed(2)}&quot; &times; {tileHeight.toFixed(2)}&quot; ({Math.round(image.naturalWidth / tileWidth)} DPI)
+            ) : (
+              <div className="space-y-5">
+                {/* Info Banner */}
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    <span className="font-semibold">Digital Paper Export</span> —
+                    Creates a ready-to-use pattern fill image for Cricut Design
+                    Space and Silhouette Studio. This bakes multiple repeats of
+                    your tile into one flat image, which eliminates the white
+                    grid line bug in Silhouette. 12&times;12&quot; at 300 DPI is
+                    the standard for selling digital papers on Etsy and Creative
+                    Fabrica.
                   </p>
-                  <p>
-                    Pixels: {image.naturalWidth} &times; {image.naturalHeight} &bull;
-                    Repeat: {repeatLabel}
+                </div>
+  
+                {/* Current Tile Info */}
+                <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
+                  <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+                    Current Tile
+                  </h4>
+                  <div className="text-sm text-[#374151] space-y-1">
+                    <p>
+                      Size: {tileWidth.toFixed(2)}&quot; &times; {tileHeight.toFixed(2)}&quot; ({Math.round(image.naturalWidth / tileWidth)} DPI)
+                    </p>
+                    <p>
+                      Pixels: {image.naturalWidth} &times; {image.naturalHeight} &bull;
+                      Repeat: {repeatLabel}
+                    </p>
+                    {repeatType !== 'full-drop' && (
+                      <p className="text-xs text-[#6b7280] mt-1">
+                        Auto-converts to full-drop tile (
+                        {repeatType === 'half-drop'
+                          ? `${(tileWidth * 2).toFixed(2)}" \u00d7 ${tileHeight.toFixed(2)}"`
+                          : `${tileWidth.toFixed(2)}" \u00d7 ${(tileHeight * 2).toFixed(2)}"`}
+                        ) before tiling.
+                      </p>
+                    )}
+                  </div>
+                </div>
+  
+                {/* Target Size */}
+                <div>
+                  <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                    Target Size
+                  </h4>
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      onClick={() => handlePresetClick(SIZE_PRESETS[0])}
+                      className={`px-4 py-2 rounded-md border text-xs font-semibold transition-colors ${
+                        isPresetActive(SIZE_PRESETS[0])
+                          ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
+                          : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
+                      }`}
+                      disabled={isExporting}
+                    >
+                      12&times;12&quot; Standard
+                    </button>
+                    <span className="text-[10px] text-[#9ca3af]">Recommended</span>
+                  </div>
+  
+                  {/* Custom size inputs */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#6b7280]">Custom size:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      step="0.5"
+                      value={customW}
+                      onChange={(e) => setCustomW(e.target.value)}
+                      placeholder="W"
+                      className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
+                      disabled={isExporting}
+                    />
+                    <span className="text-xs text-[#6b7280]">&times;</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      step="0.5"
+                      value={customH}
+                      onChange={(e) => setCustomH(e.target.value)}
+                      placeholder="H"
+                      className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
+                      disabled={isExporting}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleApplyCustom();
+                        }
+                      }}
+                    />
+                    <span className="text-xs text-[#6b7280]">inches</span>
+                    <button
+                      onClick={handleApplyCustom}
+                      disabled={
+                        isExporting ||
+                        !customW ||
+                        !customH ||
+                        parseFloat(customW) <= 0 ||
+                        parseFloat(customH) <= 0
+                      }
+                      className="px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: '#e0c26e', color: 'white' }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+  
+                {/* DPI */}
+                <div>
+                  <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+                    Target DPI
+                  </h4>
+                  <p className="text-sm text-[#374151] font-medium">
+                    300 DPI{' '}
+                    <span className="text-[10px] text-[#9ca3af] font-normal ml-1">
+                      Print-quality standard
+                    </span>
                   </p>
-                  {repeatType !== 'full-drop' && (
-                    <p className="text-xs text-[#6b7280] mt-1">
-                      Auto-converts to full-drop tile (
-                      {repeatType === 'half-drop'
-                        ? `${(tileWidth * 2).toFixed(2)}" \u00d7 ${tileHeight.toFixed(2)}"`
-                        : `${tileWidth.toFixed(2)}" \u00d7 ${(tileHeight * 2).toFixed(2)}"`}
-                      ) before tiling.
+                  <label className="flex items-center cursor-pointer mt-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedDPI === 150}
+                      onChange={() =>
+                        setSelectedDPI(selectedDPI === 150 ? 300 : 150)
+                      }
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
+                      style={{ accentColor: '#e0c26e' }}
+                      disabled={isExporting}
+                    />
+                    <span className="text-[11px] text-[#9ca3af]">
+                      Use 150 DPI instead (smaller file)
+                    </span>
+                  </label>
+                  {calc?.isUpscaled && (
+                    <p className="text-xs text-orange-600 mt-2">
+                      Your tile is {effectiveDPI} DPI — each repeat will be
+                      upscaled at {selectedDPI} DPI. Consider using 150 DPI to
+                      avoid softening.
                     </p>
                   )}
                 </div>
-              </div>
-
-              {/* Target Size */}
-              <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Target Size
-                </h4>
-                <div className="flex items-center gap-3 mb-3">
+  
+                {/* Format Toggle */}
+                <div>
+                  <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                    Format
+                  </h4>
+                  <div className="flex gap-3">
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="fill-format"
+                        value="png"
+                        checked={format === 'png'}
+                        onChange={() => setFormat('png')}
+                        className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
+                        style={{ accentColor: '#e0c26e' }}
+                        disabled={isExporting}
+                      />
+                      <span className="text-sm text-[#374151] group-hover:text-[#294051]">
+                        PNG (Lossless)
+                      </span>
+                    </label>
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="fill-format"
+                        value="jpg"
+                        checked={format === 'jpg'}
+                        onChange={() => setFormat('jpg')}
+                        className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
+                        style={{ accentColor: '#e0c26e' }}
+                        disabled={isExporting}
+                      />
+                      <span className="text-sm text-[#374151] group-hover:text-[#294051]">
+                        JPG (Smaller File)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+  
+                {/* Output Preview with Live Canvas + Scale Buttons */}
+                {calc && (
+                  <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
+                    <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                      Output Preview
+                    </h4>
+                    <div className="flex gap-4">
+                      {/* Preview canvas with +/- buttons */}
+                      <div className="flex-shrink-0">
+                        <canvas
+                          ref={previewCanvasRef}
+                          className="border border-[#e5e7eb] rounded bg-white"
+                          style={{ width: PREVIEW_WIDTH, imageRendering: 'auto' }}
+                        />
+                        {/* Scale adjustment buttons */}
+                        <div className="flex items-center justify-center gap-2 mt-2">
+                          <button
+                            onClick={handleScaleDown}
+                            disabled={isExporting || !canScaleDown}
+                            className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Smaller tiles, more repeats"
+                          >
+                            &minus;
+                          </button>
+                          <span className="text-[10px] text-[#6b7280] min-w-[90px] text-center">
+                            {scaledTileW.toFixed(2)}&quot; &times; {scaledTileH.toFixed(2)}&quot;
+                          </span>
+                          <button
+                            onClick={handleScaleUp}
+                            disabled={isExporting || !canScaleUp}
+                            className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Larger tiles, fewer repeats"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-[#9ca3af] text-center mt-1">
+                          Adjust tile scale
+                        </p>
+                      </div>
+                      {/* Text info */}
+                      <div className="text-sm text-[#374151] space-y-1 min-w-0">
+                        <p>
+                          <span className="font-medium">
+                            {calc.outputWidthInches.toFixed(1)}&quot; &times; {calc.outputHeightInches.toFixed(1)}&quot;
+                          </span>{' '}
+                          <span className="text-xs text-[#6b7280]">
+                            ({calc.outputPxW} &times; {calc.outputPxH} px)
+                          </span>
+                        </p>
+                        <p>
+                          {calc.repeatsX} &times; {calc.repeatsY} whole repeats ={' '}
+                          {calc.repeatsX * calc.repeatsY} tiles
+                        </p>
+                        {calc.wasConverted && (
+                          <p className="text-xs text-emerald-700 mt-1">
+                            {repeatLabel} auto-converted to full-drop for seamless
+                            tiling.
+                          </p>
+                        )}
+                        {heightAdjusted && (
+                          <p className="text-xs text-[#6b7280] mt-1">
+                            Height adjusted from {targetH}&quot; to{' '}
+                            {calc.outputHeightInches.toFixed(1)}&quot; for whole repeats
+                            at correct aspect ratio.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+  
+                    {/* Commercial-ready indicator */}
+                    {(() => {
+                      const is12x12 =
+                        Math.abs(calc.outputWidthInches - 12) < 0.05 &&
+                        Math.abs(calc.outputHeightInches - 12) < 0.05;
+                      return is12x12 ? (
+                        <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md">
+                          <p className="text-xs text-emerald-800 leading-relaxed">
+                            <span className="font-semibold">Perfect 12 &times; 12</span> —
+                            this is a commercial-quality digital paper, ready to
+                            sell on Etsy, Creative Fabrica, or any marketplace.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-xs text-red-800 leading-relaxed">
+                            This export is{' '}
+                            {calc.outputWidthInches.toFixed(1)}&quot; &times;{' '}
+                            {calc.outputHeightInches.toFixed(1)}&quot; — it works
+                            great as a pattern fill in Cricut and Silhouette, but
+                            doesn&apos;t meet the 12 &times; 12 standard for
+                            selling digital papers. Try adjusting the scale with
+                            +/&minus; to find a repeat count that hits 12 &times; 12.
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+  
+                {/* Error */}
+                {error && (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                    <p className="text-xs text-orange-700">{error}</p>
+                  </div>
+                )}
+  
+                {/* Buttons */}
+                <div className="flex gap-3 pt-2">
                   <button
-                    onClick={() => handlePresetClick(SIZE_PRESETS[0])}
-                    className={`px-4 py-2 rounded-md border text-xs font-semibold transition-colors ${
-                      isPresetActive(SIZE_PRESETS[0])
-                        ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
-                        : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
-                    }`}
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
                     disabled={isExporting}
                   >
-                    12&times;12&quot; Standard
+                    Cancel
                   </button>
-                  <span className="text-[10px] text-[#9ca3af]">Recommended</span>
-                </div>
-
-                {/* Custom size inputs */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[#6b7280]">Custom size:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    step="0.5"
-                    value={customW}
-                    onChange={(e) => setCustomW(e.target.value)}
-                    placeholder="W"
-                    className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
-                    disabled={isExporting}
-                  />
-                  <span className="text-xs text-[#6b7280]">&times;</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    step="0.5"
-                    value={customH}
-                    onChange={(e) => setCustomH(e.target.value)}
-                    placeholder="H"
-                    className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
-                    disabled={isExporting}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleApplyCustom();
+                  <button
+                    onClick={handleExport}
+                    disabled={isExporting || !image}
+                    className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#e0c26e' }}
+                    onMouseEnter={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#c9a94e';
                       }
                     }}
-                  />
-                  <span className="text-xs text-[#6b7280]">inches</span>
-                  <button
-                    onClick={handleApplyCustom}
-                    disabled={
-                      isExporting ||
-                      !customW ||
-                      !customH ||
-                      parseFloat(customW) <= 0 ||
-                      parseFloat(customH) <= 0
-                    }
-                    className="px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#e0c26e', color: 'white' }}
+                    onMouseLeave={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#e0c26e';
+                      }
+                    }}
                   >
-                    Apply
+                    {isExporting ? 'Exporting...' : 'Export Fill Image'}
                   </button>
                 </div>
               </div>
-
-              {/* DPI */}
-              <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
-                  Target DPI
-                </h4>
-                <p className="text-sm text-[#374151] font-medium">
-                  300 DPI{' '}
-                  <span className="text-[10px] text-[#9ca3af] font-normal ml-1">
-                    Print-quality standard
-                  </span>
-                </p>
-                <label className="flex items-center cursor-pointer mt-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedDPI === 150}
-                    onChange={() =>
-                      setSelectedDPI(selectedDPI === 150 ? 300 : 150)
-                    }
-                    className="mr-2 w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
-                    style={{ accentColor: '#e0c26e' }}
-                    disabled={isExporting}
-                  />
-                  <span className="text-[11px] text-[#9ca3af]">
-                    Use 150 DPI instead (smaller file)
-                  </span>
-                </label>
-                {calc?.isUpscaled && (
-                  <p className="text-xs text-orange-600 mt-2">
-                    Your tile is {effectiveDPI} DPI — each repeat will be
-                    upscaled at {selectedDPI} DPI. Consider using 150 DPI to
-                    avoid softening.
-                  </p>
-                )}
-              </div>
-
-              {/* Format Toggle */}
-              <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Format
-                </h4>
-                <div className="flex gap-3">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="fill-format"
-                      value="png"
-                      checked={format === 'png'}
-                      onChange={() => setFormat('png')}
-                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      PNG (Lossless)
-                    </span>
-                  </label>
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="fill-format"
-                      value="jpg"
-                      checked={format === 'jpg'}
-                      onChange={() => setFormat('jpg')}
-                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      JPG (Smaller File)
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Output Preview with Live Canvas + Scale Buttons */}
-              {calc && (
-                <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
-                  <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                    Output Preview
-                  </h4>
-                  <div className="flex gap-4">
-                    {/* Preview canvas with +/- buttons */}
-                    <div className="flex-shrink-0">
-                      <canvas
-                        ref={previewCanvasRef}
-                        className="border border-[#e5e7eb] rounded bg-white"
-                        style={{ width: PREVIEW_WIDTH, imageRendering: 'auto' }}
-                      />
-                      {/* Scale adjustment buttons */}
-                      <div className="flex items-center justify-center gap-2 mt-2">
-                        <button
-                          onClick={handleScaleDown}
-                          disabled={isExporting || !canScaleDown}
-                          className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Smaller tiles, more repeats"
-                        >
-                          &minus;
-                        </button>
-                        <span className="text-[10px] text-[#6b7280] min-w-[90px] text-center">
-                          {scaledTileW.toFixed(2)}&quot; &times; {scaledTileH.toFixed(2)}&quot;
-                        </span>
-                        <button
-                          onClick={handleScaleUp}
-                          disabled={isExporting || !canScaleUp}
-                          className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Larger tiles, fewer repeats"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-[#9ca3af] text-center mt-1">
-                        Adjust tile scale
-                      </p>
-                    </div>
-                    {/* Text info */}
-                    <div className="text-sm text-[#374151] space-y-1 min-w-0">
-                      <p>
-                        <span className="font-medium">
-                          {calc.outputWidthInches.toFixed(1)}&quot; &times; {calc.outputHeightInches.toFixed(1)}&quot;
-                        </span>{' '}
-                        <span className="text-xs text-[#6b7280]">
-                          ({calc.outputPxW} &times; {calc.outputPxH} px)
-                        </span>
-                      </p>
-                      <p>
-                        {calc.repeatsX} &times; {calc.repeatsY} whole repeats ={' '}
-                        {calc.repeatsX * calc.repeatsY} tiles
-                      </p>
-                      {calc.wasConverted && (
-                        <p className="text-xs text-emerald-700 mt-1">
-                          {repeatLabel} auto-converted to full-drop for seamless
-                          tiling.
-                        </p>
-                      )}
-                      {heightAdjusted && (
-                        <p className="text-xs text-[#6b7280] mt-1">
-                          Height adjusted from {targetH}&quot; to{' '}
-                          {calc.outputHeightInches.toFixed(1)}&quot; for whole repeats
-                          at correct aspect ratio.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Commercial-ready indicator */}
-                  {(() => {
-                    const is12x12 =
-                      Math.abs(calc.outputWidthInches - 12) < 0.05 &&
-                      Math.abs(calc.outputHeightInches - 12) < 0.05;
-                    return is12x12 ? (
-                      <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md">
-                        <p className="text-xs text-emerald-800 leading-relaxed">
-                          <span className="font-semibold">Perfect 12 &times; 12</span> —
-                          this is a commercial-quality digital paper, ready to
-                          sell on Etsy, Creative Fabrica, or any marketplace.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-xs text-red-800 leading-relaxed">
-                          This export is{' '}
-                          {calc.outputWidthInches.toFixed(1)}&quot; &times;{' '}
-                          {calc.outputHeightInches.toFixed(1)}&quot; — it works
-                          great as a pattern fill in Cricut and Silhouette, but
-                          doesn&apos;t meet the 12 &times; 12 standard for
-                          selling digital papers. Try adjusting the scale with
-                          +/&minus; to find a repeat count that hits 12 &times; 12.
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Error */}
-              {error && (
-                <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                  <p className="text-xs text-orange-700">{error}</p>
-                </div>
-              )}
-
-              {/* Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
-                  disabled={isExporting}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting || !image}
-                  className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#e0c26e' }}
-                  onMouseEnter={(e) => {
-                    if (!e.currentTarget.disabled) {
-                      e.currentTarget.style.backgroundColor = '#c9a94e';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!e.currentTarget.disabled) {
-                      e.currentTarget.style.backgroundColor = '#e0c26e';
-                    }
-                  }}
-                >
-                  {isExporting ? 'Exporting...' : 'Export Fill Image'}
-                </button>
-              </div>
-            </div>
-          )}
+            )}
           </div>
         )}
 
