@@ -63,6 +63,11 @@ const SOCIAL_PREVIEW_MAX_PX = 90; // max dimension for per-size preview thumbnai
 
 type ModalMode = 'picker' | 'cricut' | 'social';
 
+// Task 5 stub — will be replaced with full implementation
+function SocialSizeRow(_props: Record<string, unknown>) {
+  return null;
+}
+
 function mapRepeatType(
   repeatType: 'full-drop' | 'half-drop' | 'half-brick'
 ): string {
@@ -129,6 +134,22 @@ export default function RepeatExportModal({
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Sync Select All checkbox indeterminate state (can't be done declaratively in JSX)
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    const count = checkedSizes.size;
+    if (count === 0) {
+      selectAllRef.current.checked = false;
+      selectAllRef.current.indeterminate = false;
+    } else if (count === SOCIAL_SIZE_PRESETS.length) {
+      selectAllRef.current.checked = true;
+      selectAllRef.current.indeterminate = false;
+    } else {
+      selectAllRef.current.checked = false;
+      selectAllRef.current.indeterminate = true;
+    }
+  }, [checkedSizes]);
 
   // Reset on open
   useEffect(() => {
@@ -299,6 +320,39 @@ export default function RepeatExportModal({
       setIsExporting(false);
     }
   };
+
+  const handleSelectAll = () => {
+    if (checkedSizes.size === SOCIAL_SIZE_PRESETS.length) {
+      setCheckedSizes(new Set());
+    } else {
+      const all = new Set<SizeSlug>(SOCIAL_SIZE_PRESETS.map(p => p.slug));
+      // Initialize scale for any newly checked sizes
+      all.forEach(slug => {
+        if (!(slug in scalesRef.current)) {
+          scalesRef.current[slug] = 1.0;
+        }
+      });
+      setCheckedSizes(all);
+    }
+  };
+
+  const handleToggleSize = (slug: SizeSlug) => {
+    setCheckedSizes(prev => {
+      const next = new Set(prev);
+      if (next.has(slug)) {
+        next.delete(slug);
+      } else {
+        next.add(slug);
+        if (!(slug in scalesRef.current)) {
+          scalesRef.current[slug] = 1.0;
+        }
+      }
+      return next;
+    });
+  };
+
+  // Task 6 stub
+  const handleSocialExport = async () => {};
 
   if (!isOpen) return null;
 
@@ -712,10 +766,111 @@ export default function RepeatExportModal({
           </div>
         )}
 
-        {/* Social */}
+        {/* Social media path */}
         {mode === 'social' && (
-          <div className="p-6">
-            <p className="text-sm text-[#6b7280]">Social media export — coming in Task 4.</p>
+          <div className="p-4 space-y-4 overflow-auto max-h-[calc(90vh-120px)]">
+            {!image ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-[#6b7280]">No pattern loaded. Please upload a pattern first.</p>
+              </div>
+            ) : (
+              <>
+                {/* Format toggle */}
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">Format</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio" name="social-format" value="jpg"
+                      checked={socialFormat === 'jpg'}
+                      onChange={() => setSocialFormat('jpg')}
+                      style={{ accentColor: '#e0c26e' }}
+                      disabled={isExporting}
+                    />
+                    <span className="text-xs text-[#374151]">JPG</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio" name="social-format" value="png"
+                      checked={socialFormat === 'png'}
+                      onChange={() => setSocialFormat('png')}
+                      style={{ accentColor: '#e0c26e' }}
+                      disabled={isExporting}
+                    />
+                    <span className="text-xs text-[#374151]">PNG</span>
+                  </label>
+                </div>
+
+                {/* Select All */}
+                <div>
+                  <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
+                  <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      onChange={handleSelectAll}
+                      style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+                      disabled={isExporting}
+                    />
+                    <span className="text-xs font-semibold text-[#294051]">Select All</span>
+                  </label>
+
+                  {/* Size rows */}
+                  <div className="space-y-2">
+                    {SOCIAL_SIZE_PRESETS.map(preset => {
+                      const isChecked = checkedSizes.has(preset.slug);
+                      return (
+                        <SocialSizeRow
+                          key={preset.slug}
+                          preset={preset}
+                          isChecked={isChecked}
+                          onToggle={() => handleToggleSize(preset.slug)}
+                          isExporting={isExporting}
+                          image={image}
+                          tileWidth={tileWidth}
+                          tileHeight={tileHeight}
+                          repeatType={repeatType}
+                          originalFilename={originalFilename}
+                          socialFormat={socialFormat}
+                          scalesRef={scalesRef}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                    <p className="text-xs text-orange-700">{error}</p>
+                  </div>
+                )}
+
+                {/* Buttons */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
+                    disabled={isExporting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSocialExport}
+                    disabled={isExporting || checkedSizes.size === 0}
+                    className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#e0c26e' }}
+                  >
+                    {isExporting
+                      ? 'Exporting...'
+                      : checkedSizes.size === 0
+                      ? 'Select a Size'
+                      : checkedSizes.size === 1
+                      ? 'Export 1 Image'
+                      : `Export ${checkedSizes.size} Images`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
