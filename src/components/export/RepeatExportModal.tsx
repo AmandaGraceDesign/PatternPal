@@ -352,7 +352,9 @@ export default function RepeatExportModal({
   };
 
   // Task 6 stub
-  const handleSocialExport = async () => {};
+  const handleSocialExport = async () => {
+    setError('Social media export coming soon.');
+  };
 
   if (!isOpen) return null;
 
