@@ -60,9 +60,10 @@ const SOCIAL_SIZE_PRESETS: SocialSizePreset[] = [
   { slug: 'facebook-cover',      label: 'Facebook Cover',                 pxW: 1640, pxH: 624  },
 ];
 
-const SOCIAL_PREVIEW_MAX_PX = 90; // max dimension for per-size preview thumbnail
+const SOCIAL_PREVIEW_MAX_PX = 240; // max dimension for per-size preview thumbnail
 
 type ModalMode = 'picker' | 'cricut' | 'social';
+type SocialStep = 'select' | 'preview';
 
 /** Preview canvas dimensions: max 90px on longest side, exact aspect ratio */
 function socialPreviewDims(pxW: number, pxH: number): { w: number; h: number } {
@@ -89,27 +90,53 @@ interface SocialSizeRowProps {
   isChecked: boolean;
   onToggle: () => void;
   isExporting: boolean;
+}
+
+function SocialSizeRow({ preset, isChecked, onToggle, isExporting }: SocialSizeRowProps) {
+  return (
+    <div className={`border rounded-md overflow-hidden transition-colors ${
+      isChecked ? 'border-[#e0c26e] bg-[#faf3e0]' : 'border-[#e5e7eb] bg-white'
+    }`}>
+      <label className="flex items-center justify-between px-3 py-2.5 cursor-pointer">
+        <div className="flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={onToggle}
+            disabled={isExporting}
+            style={{ accentColor: '#e0c26e', width: 14, height: 14 }}
+          />
+          <span className={`text-xs ${isChecked ? 'font-semibold text-[#294051]' : 'text-[#374151]'}`}>
+            {preset.label}
+          </span>
+        </div>
+        <span className="text-[10px] text-[#9ca3af]">{preset.pxW}×{preset.pxH}</span>
+      </label>
+    </div>
+  );
+}
+
+interface SocialPreviewSlideProps {
+  preset: SocialSizePreset;
   image: HTMLImageElement;
   tileWidth: number;
   tileHeight: number;
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   originalFilename: string | null;
   socialFormat: 'png' | 'jpg';
-  scalesRef: MutableRefObject<Record<string, number>>;
+  scalesRef: MutableRefObject<Record<SizeSlug, number>>;
+  isExporting: boolean;
 }
 
-function SocialSizeRow({
-  preset, isChecked, onToggle, isExporting,
-  image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef,
-}: SocialSizeRowProps) {
+function SocialPreviewSlide({
+  preset, image, tileWidth, tileHeight, repeatType,
+  originalFilename, socialFormat, scalesRef, isExporting,
+}: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const scale = scalesRef.current[preset.slug] ?? 1.0;
   const wMult = getWidthMultiplier(repeatType);
-
-  // Current repeat counts at this scale
   const tilePixelW = tileWidth * scale * SOCIAL_DPI * wMult;
   const tileAspect = (tileWidth * wMult) / tileHeight;
   const tilePixelH = tilePixelW / tileAspect;
@@ -136,11 +163,10 @@ function SocialSizeRow({
     }
   };
 
-  // Draw preview canvas
   const { w: previewW, h: previewH } = socialPreviewDims(preset.pxW, preset.pxH);
 
   useEffect(() => {
-    if (!isChecked || !canvasRef.current || !image) return;
+    if (!canvasRef.current || !image) return;
     const canvas = canvasRef.current;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = previewW * dpr;
@@ -154,87 +180,58 @@ function SocialSizeRow({
     ctx.imageSmoothingQuality = 'high';
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, previewW, previewH);
-
     const mapped = mapRepeatType(repeatType);
     const tileSource: HTMLCanvasElement | HTMLImageElement =
       mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
-
     const tilePW = previewW / repeatsX;
     const tilePH = previewH / repeatsY;
     for (let x = 0; x < repeatsX; x++) {
       for (let y = 0; y < repeatsY; y++) {
-        ctx.drawImage(
-          tileSource,
-          Math.floor(x * tilePW), Math.floor(y * tilePH),
-          Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1
-        );
+        ctx.drawImage(tileSource, Math.floor(x * tilePW), Math.floor(y * tilePH), Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1);
       }
     }
-  }, [isChecked, image, repeatType, repeatsX, repeatsY, previewW, previewH]);
+  }, [image, repeatType, repeatsX, repeatsY, previewW, previewH]);
 
-  const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
-  const fileName = `${baseName}-${preset.slug}.${socialFormat}`;
   const scaledTileW = tileWidth * scale;
   const scaledTileH = tileHeight * scale;
+  const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
+  const fileName = `${baseName}-${preset.slug}.${socialFormat}`;
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-colors ${
-      isChecked ? 'border-[#e0c26e]' : 'border-[#e5e7eb]'
-    }`}>
-      {/* Checkbox row */}
-      <label className={`flex items-center justify-between px-3 py-2 cursor-pointer ${
-        isChecked ? 'bg-[#faf3e0]' : 'bg-white hover:bg-[#fafafa]'
-      }`}>
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isChecked}
-            onChange={onToggle}
-            style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
-            disabled={isExporting}
-          />
-          <span className={`text-xs ${isChecked ? 'font-semibold text-[#294051]' : 'text-[#374151]'}`}>
-            {preset.label}
-          </span>
-        </div>
-        <span className="text-[10px] text-[#9ca3af]">{preset.pxW}×{preset.pxH}</span>
-      </label>
+    <div className="flex flex-col items-center gap-4">
+      {/* Big preview canvas */}
+      <canvas
+        ref={canvasRef}
+        className="border border-[#e5e7eb] rounded-md shadow-sm bg-white"
+      />
 
-      {/* Expanded section — only when checked */}
-      {isChecked && (
-        <div className="px-3 py-3 bg-white border-t border-[#f0e9d4] flex items-center gap-3">
-          {/* Preview canvas + scale buttons */}
-          <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-            <canvas
-              ref={canvasRef}
-              className="border border-[#e5e7eb] rounded bg-white"
-            />
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleScaleDown}
-                disabled={isExporting || !canScaleDown}
-                className="w-6 h-6 flex items-center justify-center rounded border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                title="Smaller tiles, more repeats"
-              >−</button>
-              <span className="text-[9px] text-[#9ca3af] min-w-[56px] text-center">
-                {scaledTileW.toFixed(2)}&quot; × {scaledTileH.toFixed(2)}&quot;
-              </span>
-              <button
-                onClick={handleScaleUp}
-                disabled={isExporting || !canScaleUp}
-                className="w-6 h-6 flex items-center justify-center rounded border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                title="Larger tiles, fewer repeats"
-              >+</button>
-            </div>
-          </div>
-          {/* Info */}
-          <div className="text-[11px] text-[#555] space-y-0.5 min-w-0">
-            <div><span className="font-semibold text-[#294051]">{repeatsX} × {repeatsY}</span> repeats</div>
-            <div className="text-[#9ca3af]">{preset.pxW} × {preset.pxH} px</div>
-            <div className="text-[#9ca3af] truncate" title={fileName}>{fileName}</div>
-          </div>
+      {/* Scale controls */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleScaleDown}
+          disabled={isExporting || !canScaleDown}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-base font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Smaller tiles, more repeats"
+        >−</button>
+        <span className="text-xs text-[#555] min-w-[80px] text-center">
+          {scaledTileW.toFixed(2)}&quot; × {scaledTileH.toFixed(2)}&quot;
+        </span>
+        <button
+          onClick={handleScaleUp}
+          disabled={isExporting || !canScaleUp}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-base font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Larger tiles, fewer repeats"
+        >+</button>
+      </div>
+
+      {/* Info */}
+      <div className="text-center space-y-1">
+        <div className="text-xs text-[#555]">
+          <span className="font-semibold text-[#294051]">{repeatsX} × {repeatsY}</span> repeats
         </div>
-      )}
+        <div className="text-[11px] text-[#9ca3af]">{preset.pxW} × {preset.pxH} px</div>
+        <div className="text-[11px] text-[#9ca3af]">{fileName}</div>
+      </div>
     </div>
   );
 }
@@ -301,6 +298,8 @@ export default function RepeatExportModal({
   const [mode, setMode] = useState<ModalMode>('picker');
   const [socialFormat, setSocialFormat] = useState<'png' | 'jpg'>('jpg');
   const [checkedSizes, setCheckedSizes] = useState<Set<SizeSlug>>(new Set());
+  const [socialStep, setSocialStep] = useState<SocialStep>('select');
+  const [previewIndex, setPreviewIndex] = useState(0);
   const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -332,6 +331,8 @@ export default function RepeatExportModal({
       setSocialFormat('jpg');
       setCheckedSizes(new Set());
       scalesRef.current = {} as Record<SizeSlug, number>;
+      setSocialStep('select');
+      setPreviewIndex(0);
     }
   }, [isOpen]);
 
@@ -638,7 +639,13 @@ export default function RepeatExportModal({
           <div className="flex items-center gap-3">
             {mode !== 'picker' && (
               <button
-                onClick={() => setMode('picker')}
+                onClick={() => {
+                  if (mode === 'social' && socialStep === 'preview') {
+                    setSocialStep('select');
+                  } else {
+                    setMode('picker');
+                  }
+                }}
                 className="text-white/80 hover:text-white text-xs transition-colors"
                 disabled={isExporting}
               >
@@ -1021,110 +1028,153 @@ export default function RepeatExportModal({
 
         {/* Social media path */}
         {mode === 'social' && (
-          <div className="p-4 space-y-4 overflow-auto max-h-[calc(90vh-120px)]">
-            {!image ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-[#6b7280]">No pattern loaded. Please upload a pattern first.</p>
-              </div>
-            ) : (
-              <>
-                {/* Format toggle */}
-                <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">Format</span>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio" name="social-format" value="jpg"
-                      checked={socialFormat === 'jpg'}
-                      onChange={() => setSocialFormat('jpg')}
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-xs text-[#374151]">JPG</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio" name="social-format" value="png"
-                      checked={socialFormat === 'png'}
-                      onChange={() => setSocialFormat('png')}
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-xs text-[#374151]">PNG</span>
-                  </label>
-                </div>
-
-                {/* Select All */}
-                <div>
-                  <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
-                  <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
-                    <input
-                      ref={selectAllRef}
-                      type="checkbox"
-                      onChange={handleSelectAll}
-                      style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-xs font-semibold text-[#294051]">Select All</span>
-                  </label>
-
-                  {/* Size rows */}
-                  <div className="space-y-2">
-                    {SOCIAL_SIZE_PRESETS.map(preset => {
-                      const isChecked = checkedSizes.has(preset.slug);
-                      return (
-                        <SocialSizeRow
-                          key={preset.slug}
-                          preset={preset}
-                          isChecked={isChecked}
-                          onToggle={() => handleToggleSize(preset.slug)}
-                          isExporting={isExporting}
-                          image={image}
-                          tileWidth={tileWidth}
-                          tileHeight={tileHeight}
-                          repeatType={repeatType}
-                          originalFilename={originalFilename}
-                          socialFormat={socialFormat}
-                          scalesRef={scalesRef}
+          <>
+            {/* Step 1: Select sizes */}
+            {socialStep === 'select' && (
+              <div className="p-4 space-y-4 overflow-auto max-h-[calc(90vh-120px)]">
+                {!image ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-[#6b7280]">No pattern loaded. Please upload a pattern first.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Format toggle */}
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">Format</span>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio" name="social-format" value="jpg"
+                          checked={socialFormat === 'jpg'}
+                          onChange={() => setSocialFormat('jpg')}
+                          style={{ accentColor: '#e0c26e' }}
                         />
-                      );
-                    })}
-                  </div>
-                </div>
+                        <span className="text-xs text-[#374151]">JPG</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio" name="social-format" value="png"
+                          checked={socialFormat === 'png'}
+                          onChange={() => setSocialFormat('png')}
+                          style={{ accentColor: '#e0c26e' }}
+                        />
+                        <span className="text-xs text-[#374151]">PNG</span>
+                      </label>
+                    </div>
 
-                {/* Error */}
-                {error && (
-                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                    <p className="text-xs text-orange-700">{error}</p>
-                  </div>
+                    {/* Select All */}
+                    <div>
+                      <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
+                      <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
+                        <input
+                          ref={selectAllRef}
+                          type="checkbox"
+                          onChange={handleSelectAll}
+                          style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+                        />
+                        <span className="text-xs font-semibold text-[#294051]">Select All</span>
+                      </label>
+                      <div className="space-y-2">
+                        {SOCIAL_SIZE_PRESETS.map(preset => (
+                          <SocialSizeRow
+                            key={preset.slug}
+                            preset={preset}
+                            isChecked={checkedSizes.has(preset.slug)}
+                            onToggle={() => handleToggleSize(preset.slug)}
+                            isExporting={false}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-3 pt-1">
+                      <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => { setPreviewIndex(0); setSocialStep('preview'); }}
+                        disabled={checkedSizes.size === 0}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#e0c26e' }}
+                      >
+                        {checkedSizes.size === 0 ? 'Select a Size' : `Preview & Export`}
+                      </button>
+                    </div>
+                  </>
                 )}
-
-                {/* Buttons */}
-                <div className="flex gap-3 pt-1">
-                  <button
-                    onClick={onClose}
-                    className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
-                    disabled={isExporting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSocialExport}
-                    disabled={isExporting || checkedSizes.size === 0}
-                    className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#e0c26e' }}
-                  >
-                    {isExporting
-                      ? 'Exporting...'
-                      : checkedSizes.size === 0
-                      ? 'Select a Size'
-                      : checkedSizes.size === 1
-                      ? 'Export 1 Image'
-                      : `Export ${checkedSizes.size} Images`}
-                  </button>
-                </div>
-              </>
+              </div>
             )}
-          </div>
+
+            {/* Step 2: Preview wizard */}
+            {socialStep === 'preview' && image && (() => {
+              const selectedPresets = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
+              const current = selectedPresets[previewIndex];
+              const isFirst = previewIndex === 0;
+              const isLast = previewIndex === selectedPresets.length - 1;
+              if (!current) return null;
+              return (
+                <div className="p-4 overflow-auto max-h-[calc(90vh-120px)]">
+                  {/* Progress indicator */}
+                  <div className="text-center mb-4">
+                    <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">{current.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] ml-2">{previewIndex + 1} of {selectedPresets.length}</span>
+                  </div>
+
+                  <SocialPreviewSlide
+                    preset={current}
+                    image={image}
+                    tileWidth={tileWidth}
+                    tileHeight={tileHeight}
+                    repeatType={repeatType}
+                    originalFilename={originalFilename}
+                    socialFormat={socialFormat}
+                    scalesRef={scalesRef}
+                    isExporting={isExporting}
+                  />
+
+                  {/* Error */}
+                  {error && (
+                    <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                      <p className="text-xs text-orange-700">{error}</p>
+                    </div>
+                  )}
+
+                  {/* Navigation */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => isFirst ? setSocialStep('select') : setPreviewIndex(i => i - 1)}
+                      disabled={isExporting}
+                      className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
+                    >
+                      ← {isFirst ? 'Back to Sizes' : 'Prev'}
+                    </button>
+                    {isLast ? (
+                      <button
+                        onClick={handleSocialExport}
+                        disabled={isExporting}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#e0c26e' }}
+                      >
+                        {isExporting ? 'Exporting...' : selectedPresets.length === 1 ? 'Export 1 Image' : `Export ${selectedPresets.length} Images`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setPreviewIndex(i => i + 1)}
+                        disabled={isExporting}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors"
+                        style={{ backgroundColor: '#e0c26e' }}
+                      >
+                        Next →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </>
         )}
       </div>
     </div>
