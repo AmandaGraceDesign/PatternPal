@@ -116,6 +116,107 @@ function SocialSizeRow({ preset, isChecked, onToggle, isExporting }: SocialSizeR
   );
 }
 
+type WatermarkFont = 'sans' | 'serif' | 'script';
+
+interface WatermarkConfig {
+  enabled: boolean;
+  text: string;
+  font: WatermarkFont;
+  color: string;
+  opacity: number;   // 0–1
+  fontSize: number;   // px relative to 1080px-wide canvas
+  bgEnabled: boolean;
+  bgColor: string;
+}
+
+const WATERMARK_FONTS: { value: WatermarkFont; label: string; css: string; google: string }[] = [
+  { value: 'sans', label: 'Montserrat', css: '"Montserrat", sans-serif', google: 'Montserrat:wght@400;600' },
+  { value: 'serif', label: 'Playfair', css: '"Playfair Display", serif', google: 'Playfair+Display:wght@400;600' },
+  { value: 'script', label: 'Handwritten', css: '"Homemade Apple", cursive', google: 'Homemade+Apple' },
+];
+
+let _fontsLoaded = false;
+function loadWatermarkFonts() {
+  if (_fontsLoaded) return;
+  _fontsLoaded = true;
+  const families = WATERMARK_FONTS.map(f => f.google).join('&family=');
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+  document.head.appendChild(link);
+}
+
+const DEFAULT_WATERMARK: WatermarkConfig = {
+  enabled: false,
+  text: '',
+  font: 'sans',
+  color: '#ffffff',
+  opacity: 0.5,
+  fontSize: 32,
+  bgEnabled: false,
+  bgColor: '#000000',
+};
+
+/** Draw watermark text at bottom center of a canvas context */
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  canvasW: number,
+  canvasH: number,
+  wm: WatermarkConfig,
+  scaleFactor: number = 1,
+) {
+  if (!wm.enabled || !wm.text.trim()) return;
+  const fontDef = WATERMARK_FONTS.find(f => f.value === wm.font) ?? WATERMARK_FONTS[0];
+  const fontSize = Math.round(wm.fontSize * scaleFactor);
+  const pad = Math.round(8 * scaleFactor);
+  const bottomMargin = Math.round(32 * scaleFactor);
+  ctx.save();
+  ctx.globalAlpha = wm.opacity;
+  ctx.font = `${fontSize}px ${fontDef.css}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  const textY = canvasH - bottomMargin;
+  // Draw background box behind text
+  if (wm.bgEnabled) {
+    const metrics = ctx.measureText(wm.text);
+    const boxW = metrics.width + pad * 2;
+    const boxH = fontSize + pad * 2;
+    const boxX = (canvasW - boxW) / 2;
+    const boxY = textY - fontSize - pad;
+    ctx.fillStyle = wm.bgColor;
+    ctx.fillRect(Math.round(boxX), Math.round(boxY), Math.round(boxW), Math.round(boxH));
+  }
+  ctx.fillStyle = wm.color;
+  ctx.fillText(wm.text, canvasW / 2, textY);
+  ctx.restore();
+}
+
+/** Stamp watermark onto an existing image blob, return a new blob */
+async function applyWatermarkToBlob(
+  blob: Blob, w: number, h: number, wm: WatermarkConfig, format: 'png' | 'jpg',
+): Promise<Blob> {
+  // Ensure the chosen font is fully loaded before drawing
+  const fontDef = WATERMARK_FONTS.find(f => f.value === wm.font) ?? WATERMARK_FONTS[0];
+  const fontFamily = fontDef.css.split(',')[0].replace(/"/g, '').trim();
+  try { await document.fonts.load(`${wm.fontSize}px "${fontFamily}"`); } catch { /* fallback ok */ }
+
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return blob;
+  ctx.drawImage(img, 0, 0, w, h);
+  drawWatermark(ctx, w, h, wm, w / 1080);
+  return new Promise(resolve => {
+    canvas.toBlob(
+      b => resolve(b ?? blob),
+      format === 'jpg' ? 'image/jpeg' : 'image/png',
+      format === 'jpg' ? 0.92 : undefined,
+    );
+  });
+}
+
 interface SocialPreviewSlideProps {
   preset: SocialSizePreset;
   image: HTMLImageElement;
@@ -126,11 +227,12 @@ interface SocialPreviewSlideProps {
   socialFormat: 'png' | 'jpg';
   scalesRef: MutableRefObject<Record<SizeSlug, number>>;
   isExporting: boolean;
+  watermark: WatermarkConfig;
 }
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -195,7 +297,9 @@ function SocialPreviewSlide({
         ctx.drawImage(tileSource, Math.floor(x * tilePW), Math.floor(y * tilePH), Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1);
       }
     }
-  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH]);
+    // Draw watermark on preview (scale relative to 1080px reference)
+    drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080);
+  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark]);
 
   const scaledTileW = tileWidth * scale;
   const scaledTileH = tileHeight * scale;
@@ -308,6 +412,7 @@ export default function RepeatExportModal({
   const [previewIndex, setPreviewIndex] = useState(0);
   const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -339,6 +444,7 @@ export default function RepeatExportModal({
       scalesRef.current = {} as Record<SizeSlug, number>;
       setSocialStep('select');
       setPreviewIndex(0);
+      setWatermark({ ...DEFAULT_WATERMARK });
     }
   }, [isOpen]);
 
@@ -545,7 +651,7 @@ export default function RepeatExportModal({
       for (const preset of slugsToExport) {
         const scale = scalesRef.current[preset.slug] ?? 1.0;
         try {
-          const blob = await generateSocialFillBlob({
+          let blob = await generateSocialFillBlob({
             image,
             repeatType,
             targetPxW: preset.pxW,
@@ -555,6 +661,10 @@ export default function RepeatExportModal({
             tileHeightInches: tileHeight,
             exportScale: scale,
           });
+          // Stamp watermark onto exported image
+          if (watermark.enabled && watermark.text.trim()) {
+            blob = await applyWatermarkToBlob(blob, preset.pxW, preset.pxH, watermark, socialFormat);
+          }
           results.push({ slug: preset.slug, label: preset.label, blob });
         } catch {
           results.push({ slug: preset.slug, label: preset.label, blob: null });
@@ -634,7 +744,6 @@ export default function RepeatExportModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={!isExporting ? onClose : undefined}
     >
       <div
         className="relative max-w-2xl w-full max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
@@ -682,18 +791,18 @@ export default function RepeatExportModal({
             <p className="text-sm text-center text-[#6b7280]">What are you exporting for?</p>
             <div className="space-y-3">
               <button
-                onClick={() => setMode('cricut')}
-                className="w-full text-left px-4 py-4 border-2 border-[#e0c26e] rounded-lg bg-[#faf3e0] hover:bg-[#f5ecd0] transition-colors"
-              >
-                <div className="text-sm font-semibold text-[#294051]">🖨 Cricut / Silhouette</div>
-                <div className="text-xs text-[#9ca3af] mt-1">Digital paper · print files · Etsy / Creative Fabrica</div>
-              </button>
-              <button
                 onClick={() => setMode('social')}
-                className="w-full text-left px-4 py-4 border-2 border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f9fafb] transition-colors"
+                className="w-full text-left px-4 py-4 border-2 border-[#e0c26e] rounded-lg bg-[#faf3e0] hover:bg-[#f5ecd0] transition-colors"
               >
                 <div className="text-sm font-semibold text-[#294051]">📱 Social Media</div>
                 <div className="text-xs text-[#9ca3af] mt-1">Instagram · Pinterest · TikTok · Facebook</div>
+              </button>
+              <button
+                onClick={() => setMode('cricut')}
+                className="w-full text-left px-4 py-4 border-2 border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f9fafb] transition-colors"
+              >
+                <div className="text-sm font-semibold text-[#294051]">🖨 Cricut / Silhouette</div>
+                <div className="text-xs text-[#9ca3af] mt-1">Digital paper · print files · Etsy / Creative Fabrica</div>
               </button>
             </div>
           </div>
@@ -715,7 +824,7 @@ export default function RepeatExportModal({
                   <p className="text-xs text-blue-800 leading-relaxed">
                     <span className="font-semibold">Digital Paper Export</span> —
                     Creates a ready-to-use pattern fill image for Cricut Design
-                    Space and Silhouette Studio. This bakes multiple repeats of
+                    Space and Silhouette Studio. This makes multiple repeats of
                     your tile into one flat image, which eliminates the white
                     grid line bug in Silhouette. 12&times;12&quot; at 300 DPI is
                     the standard for selling digital papers on Etsy and Creative
@@ -1092,6 +1201,138 @@ export default function RepeatExportModal({
                       </div>
                     </div>
 
+                    {/* Watermark */}
+                    <div className="border border-[#e5e7eb] rounded-md overflow-hidden">
+                      <label className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={watermark.enabled}
+                          onChange={e => { if (e.target.checked) loadWatermarkFonts(); setWatermark(w => ({ ...w, enabled: e.target.checked })); }}
+                          style={{ accentColor: '#e0c26e', width: 14, height: 14 }}
+                        />
+                        <span className="text-xs font-semibold text-[#294051]">Add Watermark</span>
+                      </label>
+                      {watermark.enabled && (
+                        <div className="px-3 pb-3 space-y-3 border-t border-[#e5e7eb] pt-3">
+                          {/* Text input */}
+                          <input
+                            type="text"
+                            value={watermark.text}
+                            onChange={e => setWatermark(w => ({ ...w, text: e.target.value }))}
+                            placeholder="Your name or brand"
+                            maxLength={60}
+                            className="w-full px-2.5 py-1.5 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#294051] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#e0c26e]"
+                          />
+
+                          {/* Font choice */}
+                          <div>
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Font</span>
+                            <div className="flex gap-2 mt-1">
+                              {WATERMARK_FONTS.map(f => (
+                                <button
+                                  key={f.value}
+                                  onClick={() => setWatermark(w => ({ ...w, font: f.value }))}
+                                  className={`flex-1 px-2 py-1.5 text-xs rounded-md border transition-colors ${
+                                    watermark.font === f.value
+                                      ? 'border-[#e0c26e] bg-[#faf3e0] text-[#294051] font-semibold'
+                                      : 'border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f5f5f5]'
+                                  }`}
+                                  style={{ fontFamily: f.css }}
+                                >
+                                  {f.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Color + Opacity + Size row */}
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center">
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Color</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={watermark.color}
+                                onChange={e => setWatermark(w => ({ ...w, color: e.target.value }))}
+                                className="w-7 h-7 rounded border border-[#e5e7eb] cursor-pointer p-0"
+                              />
+                              <span className="text-[10px] text-[#9ca3af]">{watermark.color}</span>
+                            </div>
+
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Opacity</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range" min={10} max={100} step={5}
+                                value={Math.round(watermark.opacity * 100)}
+                                onChange={e => setWatermark(w => ({ ...w, opacity: Number(e.target.value) / 100 }))}
+                                className="flex-1 accent-[#e0c26e]"
+                              />
+                              <span className="text-[10px] text-[#9ca3af] w-8 text-right">{Math.round(watermark.opacity * 100)}%</span>
+                            </div>
+
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Size</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range" min={16} max={72} step={2}
+                                value={watermark.fontSize}
+                                onChange={e => setWatermark(w => ({ ...w, fontSize: Number(e.target.value) }))}
+                                className="flex-1 accent-[#e0c26e]"
+                              />
+                              <span className="text-[10px] text-[#9ca3af] w-8 text-right">{watermark.fontSize}px</span>
+                            </div>
+                          </div>
+
+                          {/* Background box */}
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={watermark.bgEnabled}
+                                onChange={e => setWatermark(w => ({ ...w, bgEnabled: e.target.checked }))}
+                                style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+                              />
+                              <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Background</span>
+                            </label>
+                            {watermark.bgEnabled && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={watermark.bgColor}
+                                  onChange={e => setWatermark(w => ({ ...w, bgColor: e.target.value }))}
+                                  className="w-7 h-7 rounded border border-[#e5e7eb] cursor-pointer p-0"
+                                />
+                                <span className="text-[10px] text-[#9ca3af]">{watermark.bgColor}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Live preview strip */}
+                          {watermark.text.trim() && (
+                            <div
+                              className="rounded-md border border-[#e5e7eb] overflow-hidden"
+                              style={{
+                                background: `repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%) 50% / 16px 16px`,
+                              }}
+                            >
+                              <div className="flex items-center justify-center py-4 px-3">
+                                <span
+                                  style={{
+                                    fontFamily: (WATERMARK_FONTS.find(f => f.value === watermark.font) ?? WATERMARK_FONTS[0]).css,
+                                    fontSize: `${Math.min(watermark.fontSize, 48)}px`,
+                                    color: watermark.color,
+                                    opacity: watermark.opacity,
+                                    backgroundColor: watermark.bgEnabled ? watermark.bgColor : undefined,
+                                    padding: watermark.bgEnabled ? '4px 10px' : undefined,
+                                  }}
+                                >
+                                  {watermark.text}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Action buttons */}
                     <div className="flex gap-3 pt-1">
                       <button
@@ -1139,6 +1380,7 @@ export default function RepeatExportModal({
                     socialFormat={socialFormat}
                     scalesRef={scalesRef}
                     isExporting={isExporting}
+                    watermark={watermark}
                   />
 
                   {/* Error */}
