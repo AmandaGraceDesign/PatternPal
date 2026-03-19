@@ -117,7 +117,8 @@ export class PatternTiler {
 
     const drawTile = (dx: number, dy: number) => {
       if (dx + w <= 0 || dy + h <= 0 || dx >= this.viewportWidth || dy >= this.viewportHeight) return;
-      this.ctx.drawImage(source, dx, dy, w, h);
+      // +1px overlap prevents sub-pixel anti-aliasing gaps between tiles
+      this.ctx.drawImage(source, Math.floor(dx), Math.floor(dy), Math.ceil(w) + 1, Math.ceil(h) + 1);
     };
 
     const startCol = -1;

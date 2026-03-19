@@ -313,7 +313,8 @@ export default function SeamInspectorCanvas({
         }
 
         if (dx + scaledW <= 0 || dy + scaledH <= 0 || dx >= canvasWidth || dy >= canvasHeight) continue;
-        offCtx.drawImage(image, 0, 0, srcW, srcH, dx, dy, scaledW, scaledH);
+        // +1px overlap prevents sub-pixel anti-aliasing gaps between tiles
+        offCtx.drawImage(image, 0, 0, srcW, srcH, dx, dy, scaledW + 1, scaledH + 1);
       }
     }
 
