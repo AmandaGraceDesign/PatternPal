@@ -285,7 +285,7 @@ export default function SeamInspectorCanvas({
     offCtx.imageSmoothingEnabled = true;
     offCtx.imageSmoothingQuality = 'high';
     // Fill background so no transparency flash if tiles don't cover edge pixels
-    offCtx.fillStyle = '#294051';
+    offCtx.fillStyle = '#ffffff';
     offCtx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const srcW = image.naturalWidth;

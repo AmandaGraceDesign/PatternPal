@@ -12,7 +12,7 @@ export class PatternTiler {
   }
 
   clear() {
-    this.ctx.fillStyle = '#0f172a';
+    this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, this.viewportWidth, this.viewportHeight);
   }
 
