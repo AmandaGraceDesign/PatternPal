@@ -277,11 +277,12 @@ export async function generateSocialFillBlob(
   const tilePixelH = tilePixelW / tileAspect;
 
   const repeatsX = Math.max(1, Math.round(targetPxW / tilePixelW));
-  const repeatsY = Math.max(1, Math.round(targetPxH / tilePixelH));
 
-  // Actual tile size fitted evenly into the exact output dimensions
+  // Tile at aspect-correct size: derive height from width so tiles are never stretched
   const actualTilePxW = targetPxW / repeatsX;
-  const actualTilePxH = targetPxH / repeatsY;
+  const actualTilePxH = actualTilePxW / tileAspect;
+  // How many rows needed to cover the full canvas height
+  const rowsNeeded = Math.max(1, Math.ceil(targetPxH / actualTilePxH));
 
   // Create canvas at EXACT platform pixel dimensions
   const canvas = document.createElement('canvas');
@@ -297,7 +298,7 @@ export async function generateSocialFillBlob(
 
   // Tile with +1px overlap to prevent sub-pixel seam lines
   for (let x = 0; x < repeatsX; x++) {
-    for (let y = 0; y < repeatsY; y++) {
+    for (let y = 0; y < rowsNeeded; y++) {
       const dx = Math.floor(x * actualTilePxW);
       const dy = Math.floor(y * actualTilePxH);
       const dw = Math.ceil(actualTilePxW) + 1;

@@ -141,7 +141,9 @@ function SocialPreviewSlide({
   const tileAspect = (tileWidth * wMult) / tileHeight;
   const tilePixelH = tilePixelW / tileAspect;
   const repeatsX = Math.max(1, Math.round(preset.pxW / tilePixelW));
-  const repeatsY = Math.max(1, Math.round(preset.pxH / tilePixelH));
+  // Aspect-correct tile height based on repeatsX, then compute rows needed to fill canvas
+  const aspectTileH = (preset.pxW / repeatsX) / tileAspect;
+  const repeatsY = Math.max(1, Math.ceil(preset.pxH / aspectTileH));
 
   const canScaleUp = repeatsX > 1;
   const canScaleDown = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX + 1) >= MIN_SCALE;
@@ -183,14 +185,17 @@ function SocialPreviewSlide({
     const mapped = mapRepeatType(repeatType);
     const tileSource: HTMLCanvasElement | HTMLImageElement =
       mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
+    // Tile at aspect-correct size: derive tile height from tile width so tiles are never stretched
     const tilePW = previewW / repeatsX;
-    const tilePH = previewH / repeatsY;
+    const tilePH = tilePW / tileAspect;
+    // How many rows needed to cover the full canvas height
+    const rowsNeeded = Math.max(repeatsY, Math.ceil(previewH / tilePH));
     for (let x = 0; x < repeatsX; x++) {
-      for (let y = 0; y < repeatsY; y++) {
+      for (let y = 0; y < rowsNeeded; y++) {
         ctx.drawImage(tileSource, Math.floor(x * tilePW), Math.floor(y * tilePH), Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1);
       }
     }
-  }, [image, repeatType, repeatsX, repeatsY, previewW, previewH]);
+  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH]);
 
   const scaledTileW = tileWidth * scale;
   const scaledTileH = tileHeight * scale;
@@ -203,6 +208,7 @@ function SocialPreviewSlide({
       <canvas
         ref={canvasRef}
         className="border border-[#e5e7eb] rounded-md shadow-sm bg-white"
+        style={{ width: previewW, height: previewH }}
       />
 
       {/* Scale controls */}
