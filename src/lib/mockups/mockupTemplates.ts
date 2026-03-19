@@ -228,6 +228,16 @@ export const mockupTemplates: Record<MockupType, MockupTemplate> = {
   },
 };
 
+/** Mockup IDs available for the social media export overlay. */
+export const SOCIAL_MOCKUP_IDS: MockupType[] = [
+  'onesie',
+  'fabric-swatch',
+  'wallpaper',
+  'throw-pillow',
+  'wrapping-paper',
+  'journal',
+];
+
 export function getMockupTemplate(type: MockupType): MockupTemplate {
   return mockupTemplates[type];
 }

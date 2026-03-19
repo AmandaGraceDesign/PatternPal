@@ -11,6 +11,8 @@ import {
 } from '@/lib/utils/repeatFillExport';
 import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
+import { renderMockupOffscreen } from '@/lib/utils/renderMockupOffscreen';
+import { MockupType, mockupTemplates, SOCIAL_MOCKUP_IDS } from '@/lib/mockups/mockupTemplates';
 import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
@@ -217,6 +219,89 @@ async function applyWatermarkToBlob(
   });
 }
 
+interface MockupOverlayConfig {
+  enabled: boolean;
+  templateId: MockupType;
+}
+
+const DEFAULT_MOCKUP_OVERLAY: MockupOverlayConfig = {
+  enabled: false,
+  templateId: SOCIAL_MOCKUP_IDS[0],
+};
+
+/** Draw a rendered mockup centered on a canvas with a white photo border. */
+function drawMockupOverlay(
+  ctx: CanvasRenderingContext2D,
+  mockupCanvas: HTMLCanvasElement,
+  canvasW: number,
+  canvasH: number,
+) {
+  const shorter = Math.min(canvasW, canvasH);
+  const mockupSize = Math.round(shorter * 0.55);
+  const borderW = Math.round(shorter * 0.025);
+  const totalSize = mockupSize + borderW * 2;
+
+  // Maintain mockup aspect ratio
+  const mAspect = mockupCanvas.width / mockupCanvas.height;
+  let drawW: number, drawH: number;
+  if (mAspect >= 1) {
+    drawW = mockupSize;
+    drawH = Math.round(mockupSize / mAspect);
+  } else {
+    drawH = mockupSize;
+    drawW = Math.round(mockupSize * mAspect);
+  }
+
+  const totalW = drawW + borderW * 2;
+  const totalH = drawH + borderW * 2;
+  const x = Math.round((canvasW - totalW) / 2);
+  const y = Math.round((canvasH - totalH) / 2);
+
+  // White border
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.18)';
+  ctx.shadowBlur = Math.round(shorter * 0.02);
+  ctx.shadowOffsetY = Math.round(shorter * 0.008);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x, y, totalW, totalH);
+  ctx.restore();
+
+  // Draw mockup
+  ctx.drawImage(mockupCanvas, x + borderW, y + borderW, drawW, drawH);
+}
+
+/** Stamp a mockup overlay onto an existing image blob, return a new blob. */
+async function applyMockupOverlay(
+  blob: Blob,
+  w: number,
+  h: number,
+  templateId: MockupType,
+  patternImage: HTMLImageElement,
+  tileWidth: number,
+  tileHeight: number,
+  repeatType: 'full-drop' | 'half-drop' | 'half-brick',
+  format: 'png' | 'jpg',
+): Promise<Blob> {
+  const mockupCanvas = await renderMockupOffscreen(
+    templateId, patternImage, tileWidth, tileHeight, repeatType,
+  );
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return blob;
+  ctx.drawImage(img, 0, 0, w, h);
+  drawMockupOverlay(ctx, mockupCanvas, w, h);
+  return new Promise(resolve => {
+    canvas.toBlob(
+      b => resolve(b ?? blob),
+      format === 'jpg' ? 'image/jpeg' : 'image/png',
+      format === 'jpg' ? 0.92 : undefined,
+    );
+  });
+}
+
 interface SocialPreviewSlideProps {
   preset: SocialSizePreset;
   image: HTMLImageElement;
@@ -228,14 +313,21 @@ interface SocialPreviewSlideProps {
   scalesRef: MutableRefObject<Record<SizeSlug, number>>;
   isExporting: boolean;
   watermark: WatermarkConfig;
+  mockupsRef: MutableRefObject<Record<SizeSlug, MockupOverlayConfig>>;
 }
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting, watermark,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Initialize mockup config for this slug if needed
+  if (!(preset.slug in mockupsRef.current)) {
+    mockupsRef.current[preset.slug] = { ...DEFAULT_MOCKUP_OVERLAY };
+  }
+  const mockupCfg = mockupsRef.current[preset.slug];
 
   const scale = scalesRef.current[preset.slug] ?? 1.0;
   const wMult = getWidthMultiplier(repeatType);
@@ -297,9 +389,21 @@ function SocialPreviewSlide({
         ctx.drawImage(tileSource, Math.floor(x * tilePW), Math.floor(y * tilePH), Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1);
       }
     }
-    // Draw watermark on preview (scale relative to 1080px reference)
-    drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080);
-  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark]);
+    // Draw mockup overlay (async — renders on top of tiles, before watermark)
+    const drawOverlays = async () => {
+      if (mockupCfg.enabled) {
+        try {
+          const mc = await renderMockupOffscreen(
+            mockupCfg.templateId, image, tileWidth, tileHeight, repeatType,
+          );
+          drawMockupOverlay(ctx, mc, previewW, previewH);
+        } catch { /* mockup render failed — skip overlay */ }
+      }
+      // Draw watermark on preview (scale relative to 1080px reference)
+      drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080);
+    };
+    drawOverlays();
+  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark, mockupCfg.enabled, mockupCfg.templateId, tileWidth, tileHeight]);
 
   const scaledTileW = tileWidth * scale;
   const scaledTileH = tileHeight * scale;
@@ -332,6 +436,57 @@ function SocialPreviewSlide({
           className="w-8 h-8 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-base font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="Larger tiles, fewer repeats"
         >+</button>
+      </div>
+
+      {/* Mockup overlay controls */}
+      <div className="w-full border border-[#e5e7eb] rounded-md overflow-hidden">
+        <label className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={mockupCfg.enabled}
+            onChange={e => {
+              mockupsRef.current[preset.slug] = { ...mockupCfg, enabled: e.target.checked };
+              forceUpdate(n => n + 1);
+            }}
+            disabled={isExporting}
+            style={{ accentColor: '#e0c26e', width: 16, height: 16 }}
+          />
+          <span className="text-xs font-semibold text-[#294051]">Add Mockup</span>
+        </label>
+        {mockupCfg.enabled && (
+          <div className="px-3 pb-3 pt-1 border-t border-[#e5e7eb]">
+            <div className="flex justify-center gap-2 flex-wrap">
+              {SOCIAL_MOCKUP_IDS.map(id => {
+                const tmpl = mockupTemplates[id];
+                const isSelected = mockupCfg.templateId === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      mockupsRef.current[preset.slug] = { ...mockupCfg, templateId: id };
+                      forceUpdate(n => n + 1);
+                    }}
+                    disabled={isExporting}
+                    className={`flex-shrink-0 w-11 h-11 rounded-md border-2 overflow-hidden transition-colors ${
+                      isSelected ? 'border-[#e0c26e] ring-1 ring-[#e0c26e]' : 'border-[#e5e7eb] hover:border-[#ccc]'
+                    }`}
+                    title={tmpl.name}
+                  >
+                    <img
+                      src={tmpl.image || tmpl.templateImage}
+                      alt={tmpl.name}
+                      className="w-full h-full object-contain"
+                      draggable={false}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="text-[10px] text-[#9ca3af] mt-1.5 text-center">
+              {mockupTemplates[mockupCfg.templateId].name}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -411,6 +566,7 @@ export default function RepeatExportModal({
   const [socialStep, setSocialStep] = useState<SocialStep>('select');
   const [previewIndex, setPreviewIndex] = useState(0);
   const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
+  const mockupsRef = useRef<Record<SizeSlug, MockupOverlayConfig>>({} as Record<SizeSlug, MockupOverlayConfig>);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
 
@@ -442,6 +598,7 @@ export default function RepeatExportModal({
       setSocialFormat('jpg');
       setCheckedSizes(new Set());
       scalesRef.current = {} as Record<SizeSlug, number>;
+      mockupsRef.current = {} as Record<SizeSlug, MockupOverlayConfig>;
       setSocialStep('select');
       setPreviewIndex(0);
       setWatermark({ ...DEFAULT_WATERMARK });
@@ -661,6 +818,14 @@ export default function RepeatExportModal({
             tileHeightInches: tileHeight,
             exportScale: scale,
           });
+          // Stamp mockup overlay onto exported image
+          const mc = mockupsRef.current[preset.slug];
+          if (mc?.enabled) {
+            blob = await applyMockupOverlay(
+              blob, preset.pxW, preset.pxH, mc.templateId,
+              image, tileWidth, tileHeight, repeatType, socialFormat,
+            );
+          }
           // Stamp watermark onto exported image
           if (watermark.enabled && watermark.text.trim()) {
             blob = await applyWatermarkToBlob(blob, preset.pxW, preset.pxH, watermark, socialFormat);
@@ -746,7 +911,7 @@ export default function RepeatExportModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
       <div
-        className="relative max-w-2xl w-full max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
+        className="relative max-w-2xl w-full mx-3 sm:mx-auto max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1381,6 +1546,7 @@ export default function RepeatExportModal({
                     scalesRef={scalesRef}
                     isExporting={isExporting}
                     watermark={watermark}
+                    mockupsRef={mockupsRef}
                   />
 
                   {/* Error */}
