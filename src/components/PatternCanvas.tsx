@@ -249,7 +249,7 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
               onClick={() => setShowUpgradeModal(true)}
               className="w-full px-4 py-2 bg-[#e0c26e] text-white rounded hover:bg-[#c9a94e] transition-colors text-sm font-semibold"
             >
-              🔒 Upgrade to Pro
+              🔒 Try Pro free for 3 days
             </button>
           )}
         </div>

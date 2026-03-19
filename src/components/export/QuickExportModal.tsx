@@ -193,7 +193,7 @@ export default function QuickExportModal({
               onClick={onUpgrade}
               className="text-sm text-[#fbbf24] hover:text-[#f59e0b] font-medium transition-colors"
             >
-              Need more sizes + PNG & TIFF? Upgrade to Pro →
+              Need more sizes + PNG & TIFF? Try Pro free for 3 days →
             </button>
           </div>
         </div>

@@ -244,6 +244,7 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
                 >
                   <div className="text-sm font-semibold text-slate-200">Monthly</div>
                   <div className="text-xs text-slate-400">$7.99 / month</div>
+                  <div className="text-[11px] text-green-400 font-medium">3-day free trial</div>
                 </button>
                 <button
                   onClick={() => setInterval('year')}
@@ -256,6 +257,7 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
                   <div className="text-sm font-semibold text-slate-200">Yearly</div>
                   <div className="text-xs text-slate-400">$79 / year</div>
                   <div className="text-[11px] text-[#e0c26e] font-medium">Save 2 months</div>
+                  <div className="text-[11px] text-green-400 font-medium">3-day free trial</div>
                 </button>
               </div>
 
@@ -360,8 +362,8 @@ export default function UpgradeModal({ isOpen, onClose, initialPlan }: UpgradeMo
                 {isLoading
                   ? 'Starting checkout\u2026'
                   : isSignedIn
-                  ? 'Continue to payment'
-                  : 'Sign up & Upgrade'}
+                  ? 'Start free 3-day trial'
+                  : 'Sign up & start free trial'}
               </button>
             )}
             <button

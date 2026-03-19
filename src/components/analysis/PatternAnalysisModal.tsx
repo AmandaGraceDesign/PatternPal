@@ -342,10 +342,10 @@ export default function PatternAnalysisModal({
                 onClick={onUpgrade}
                 className="w-full px-6 py-3 bg-gradient-to-r from-[#fbbf24] to-[#f59e0b] hover:from-[#f59e0b] hover:to-[#d97706] text-white font-semibold rounded-lg transition-all"
               >
-                Start 7-Day Free Trial →
+                Start 3-Day Free Trial →
               </button>
               <div className="text-center text-xs text-gray-500">
-                or upgrade now for $7.99/month
+                then $7.99/month · cancel anytime
               </div>
             </>
           ) : !image ? (

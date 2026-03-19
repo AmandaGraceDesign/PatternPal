@@ -320,7 +320,7 @@ export default function EasyscaleExportModal({
                 </div>
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
-                    💡 Upgrade to Pro to export all sizes (2", 4", 6", 8", 10", 12", 18", 24")
+                    💡 Try Pro free for 3 days to export all sizes (2", 4", 6", 8", 10", 12", 18", 24")
                   </p>
                 )}
 
@@ -440,7 +440,7 @@ export default function EasyscaleExportModal({
                 </div>
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
-                    💡 Upgrade to Pro for 300 DPI exports
+                    💡 Try Pro free for 3 days for 300 DPI exports
                   </p>
                 )}
                 {isPro && currentDPI < 300 && (
@@ -509,7 +509,7 @@ export default function EasyscaleExportModal({
                 </div>
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
-                    💡 Upgrade to Pro for PNG and TIFF exports
+                    💡 Try Pro free for 3 days for PNG and TIFF exports
                   </p>
                 )}
               </div>
@@ -553,7 +553,7 @@ export default function EasyscaleExportModal({
                 </label>
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic ml-6">
-                    💡 Upgrade to Pro to include your original tile
+                    💡 Try Pro free for 3 days to include your original tile
                   </p>
                 )}
               </div>

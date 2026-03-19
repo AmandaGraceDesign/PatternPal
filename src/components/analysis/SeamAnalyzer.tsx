@@ -63,7 +63,7 @@ export default function SeamAnalyzer({ canvas, image, repeatType, isPro, dpi = 1
           onClick={onUpgrade}
           className="w-full px-4 py-2 bg-[#e0c26e] text-white rounded flex items-center justify-center gap-2 text-sm font-semibold hover:bg-[#c9a94e] transition-colors"
         >
-          Upgrade to Pro
+          Try Pro free for 3 days
         </button>
       </div>
     );
