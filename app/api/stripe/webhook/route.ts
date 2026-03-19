@@ -144,6 +144,26 @@ export async function POST(req: Request) {
     }
   }
 
+  // Handle trial ending soon - opportunity to notify user
+  if (event.type === "customer.subscription.trial_will_end") {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    try {
+      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const email = (customer as Stripe.Customer).email;
+
+      if (email) {
+        console.log(`Trial ending soon for ${email}, subscription ${subscription.id}`);
+        // Future: send email notification to user about trial ending
+      }
+
+      return NextResponse.json({ received: true });
+    } catch (err) {
+      console.error("Failed to process trial_will_end event", err);
+      return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    }
+  }
+
   // Handle invoice payment failed - revoke Pro access
   if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice;

@@ -89,8 +89,8 @@ export async function POST(req: Request) {
 
     const origin = requestOrigin;
 
-    // Validate promo code if provided
-    let trialPeriodDays: number | undefined;
+    // Default 3-day free trial (payment method required upfront)
+    let trialPeriodDays: number | undefined = 3;
     let promoDescription: string | undefined;
 
     if (promoCode) {
