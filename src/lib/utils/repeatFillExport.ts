@@ -34,6 +34,19 @@ export interface RepeatFillCalcResult {
   isUpscaled: boolean;
 }
 
+export const SOCIAL_DPI = 96;
+
+export interface SocialFillBlobConfig {
+  image: HTMLImageElement;
+  repeatType: 'full-drop' | 'half-drop' | 'half-brick';
+  targetPxW: number;
+  targetPxH: number;
+  format: 'png' | 'jpg';
+  tileWidthInches: number;
+  tileHeightInches: number;
+  exportScale: number;
+}
+
 /**
  * Map UI repeat types to the format convertToFullDrop expects.
  */
@@ -233,4 +246,78 @@ export async function generateRepeatFillExport(
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Render a pattern fill at exact platform pixel dimensions and return a Blob.
+ * Used for social media exports. Does NOT auto-download or inject DPI metadata.
+ * Uses a fixed 96 DPI bridge to convert tile inches → pixels.
+ */
+export async function generateSocialFillBlob(
+  config: SocialFillBlobConfig
+): Promise<Blob> {
+  const {
+    image, repeatType, targetPxW, targetPxH,
+    format, tileWidthInches, tileHeightInches, exportScale,
+  } = config;
+
+  // Convert HD/HB tile to full-drop canvas (same as generateRepeatFillExport)
+  const mapped = mapRepeatType(repeatType);
+  const tileSource: HTMLCanvasElement | HTMLImageElement =
+    mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
+
+  // Effective tile dimensions after full-drop conversion:
+  // half-drop doubles width, half-brick doubles height.
+  const effectiveW = mapped === 'halfdrop' ? tileWidthInches * 2 : tileWidthInches;
+  const effectiveH = mapped === 'halfbrick' ? tileHeightInches * 2 : tileHeightInches;
+
+  // DPI bridge: tile size in pixels at current scale
+  const tilePixelW = effectiveW * exportScale * SOCIAL_DPI;
+  const tileAspect = effectiveW / effectiveH;
+  const tilePixelH = tilePixelW / tileAspect;
+
+  const repeatsX = Math.max(1, Math.round(targetPxW / tilePixelW));
+
+  // Tile at aspect-correct size: derive height from width so tiles are never stretched
+  const actualTilePxW = targetPxW / repeatsX;
+  const actualTilePxH = actualTilePxW / tileAspect;
+  // How many rows needed to cover the full canvas height
+  const rowsNeeded = Math.max(1, Math.ceil(targetPxH / actualTilePxH));
+
+  // Create canvas at EXACT platform pixel dimensions
+  const canvas = document.createElement('canvas');
+  canvas.width = targetPxW;
+  canvas.height = targetPxH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not create canvas context.');
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, targetPxW, targetPxH);
+
+  // Tile with +1px overlap to prevent sub-pixel seam lines
+  for (let x = 0; x < repeatsX; x++) {
+    for (let y = 0; y < rowsNeeded; y++) {
+      const dx = Math.floor(x * actualTilePxW);
+      const dy = Math.floor(y * actualTilePxH);
+      const dw = Math.ceil(actualTilePxW) + 1;
+      const dh = Math.ceil(actualTilePxH) + 1;
+      ctx.drawImage(tileSource, dx, dy, dw, dh);
+    }
+  }
+
+  const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+  const quality = format === 'jpg' ? 0.95 : undefined;
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => {
+        if (b) resolve(b);
+        else reject(new Error('Failed to create image blob.'));
+      },
+      mimeType,
+      quality
+    );
+  });
 }

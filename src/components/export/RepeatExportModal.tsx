@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, MutableRefObject } from 'react';
 import {
   calculateRepeatFillDimensions,
   generateRepeatFillExport,
+  generateSocialFillBlob,
   RepeatFillCalcResult,
+  SOCIAL_DPI,
+  SocialFillBlobConfig,
 } from '@/lib/utils/repeatFillExport';
 import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
+import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
+import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
   isOpen: boolean;
@@ -32,6 +37,314 @@ const SIZE_PRESETS: SizePreset[] = [
 const PREVIEW_WIDTH = 250;
 const MIN_SCALE = 0.02;
 const MAX_SCALE = 1.0;
+
+type SizeSlug =
+  | 'instagram-post'
+  | 'instagram-portrait'
+  | 'story'
+  | 'pinterest-pin'
+  | 'facebook-cover';
+
+interface SocialSizePreset {
+  slug: SizeSlug;
+  label: string;
+  pxW: number;
+  pxH: number;
+}
+
+const SOCIAL_SIZE_PRESETS: SocialSizePreset[] = [
+  { slug: 'instagram-post',      label: 'Instagram / Facebook Post',     pxW: 1080, pxH: 1080 },
+  { slug: 'instagram-portrait',  label: 'Instagram / Facebook Portrait',  pxW: 1080, pxH: 1350 },
+  { slug: 'story',               label: 'Story / Reel / TikTok',          pxW: 1080, pxH: 1920 },
+  { slug: 'pinterest-pin',       label: 'Pinterest Pin',                  pxW: 1000, pxH: 1500 },
+  { slug: 'facebook-cover',      label: 'Facebook Cover',                 pxW: 1640, pxH: 624  },
+];
+
+const SOCIAL_PREVIEW_MAX_PX = 240; // max dimension for per-size preview thumbnail
+
+type ModalMode = 'picker' | 'cricut' | 'social';
+type SocialStep = 'select' | 'preview';
+
+/** Preview canvas dimensions: max 90px on longest side, exact aspect ratio */
+function socialPreviewDims(pxW: number, pxH: number): { w: number; h: number } {
+  const aspect = pxW / pxH;
+  if (pxW >= pxH) {
+    return { w: SOCIAL_PREVIEW_MAX_PX, h: Math.round(SOCIAL_PREVIEW_MAX_PX / aspect) };
+  } else {
+    return { w: Math.round(SOCIAL_PREVIEW_MAX_PX * aspect), h: SOCIAL_PREVIEW_MAX_PX };
+  }
+}
+
+/** Scale that produces exactly targetRepeatsX repeats at 96 DPI */
+function socialScaleForRepeatsX(
+  targetPxW: number,
+  tileWidthInches: number,
+  widthMultiplier: number,
+  targetRepeatsX: number
+): number {
+  return targetPxW / (tileWidthInches * SOCIAL_DPI * widthMultiplier * targetRepeatsX);
+}
+
+interface SocialSizeRowProps {
+  preset: SocialSizePreset;
+  isChecked: boolean;
+  onToggle: () => void;
+  isExporting: boolean;
+}
+
+function SocialSizeRow({ preset, isChecked, onToggle, isExporting }: SocialSizeRowProps) {
+  return (
+    <div className={`border rounded-md overflow-hidden transition-colors ${
+      isChecked ? 'border-[#e0c26e] bg-[#faf3e0]' : 'border-[#e5e7eb] bg-white'
+    }`}>
+      <label className="flex items-center justify-between px-3 py-2.5 cursor-pointer">
+        <div className="flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={onToggle}
+            disabled={isExporting}
+            style={{ accentColor: '#e0c26e', width: 14, height: 14 }}
+          />
+          <span className={`text-xs ${isChecked ? 'font-semibold text-[#294051]' : 'text-[#374151]'}`}>
+            {preset.label}
+          </span>
+        </div>
+        <span className="text-[10px] text-[#9ca3af]">{preset.pxW}×{preset.pxH}</span>
+      </label>
+    </div>
+  );
+}
+
+type WatermarkFont = 'sans' | 'serif' | 'script';
+
+interface WatermarkConfig {
+  enabled: boolean;
+  text: string;
+  font: WatermarkFont;
+  color: string;
+  opacity: number;   // 0–1
+  fontSize: number;   // px relative to 1080px-wide canvas
+  bgEnabled: boolean;
+  bgColor: string;
+}
+
+const WATERMARK_FONTS: { value: WatermarkFont; label: string; css: string; google: string }[] = [
+  { value: 'sans', label: 'Montserrat', css: '"Montserrat", sans-serif', google: 'Montserrat:wght@400;600' },
+  { value: 'serif', label: 'Playfair', css: '"Playfair Display", serif', google: 'Playfair+Display:wght@400;600' },
+  { value: 'script', label: 'Handwritten', css: '"Homemade Apple", cursive', google: 'Homemade+Apple' },
+];
+
+let _fontsLoaded = false;
+function loadWatermarkFonts() {
+  if (_fontsLoaded) return;
+  _fontsLoaded = true;
+  const families = WATERMARK_FONTS.map(f => f.google).join('&family=');
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+  document.head.appendChild(link);
+}
+
+const DEFAULT_WATERMARK: WatermarkConfig = {
+  enabled: false,
+  text: '',
+  font: 'sans',
+  color: '#ffffff',
+  opacity: 0.5,
+  fontSize: 32,
+  bgEnabled: false,
+  bgColor: '#000000',
+};
+
+/** Draw watermark text at bottom center of a canvas context */
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  canvasW: number,
+  canvasH: number,
+  wm: WatermarkConfig,
+  scaleFactor: number = 1,
+) {
+  if (!wm.enabled || !wm.text.trim()) return;
+  const fontDef = WATERMARK_FONTS.find(f => f.value === wm.font) ?? WATERMARK_FONTS[0];
+  const fontSize = Math.round(wm.fontSize * scaleFactor);
+  const pad = Math.round(8 * scaleFactor);
+  const bottomMargin = Math.round(32 * scaleFactor);
+  ctx.save();
+  ctx.globalAlpha = wm.opacity;
+  ctx.font = `${fontSize}px ${fontDef.css}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  const textY = canvasH - bottomMargin;
+  // Draw background box behind text
+  if (wm.bgEnabled) {
+    const metrics = ctx.measureText(wm.text);
+    const boxW = metrics.width + pad * 2;
+    const boxH = fontSize + pad * 2;
+    const boxX = (canvasW - boxW) / 2;
+    const boxY = textY - fontSize - pad;
+    ctx.fillStyle = wm.bgColor;
+    ctx.fillRect(Math.round(boxX), Math.round(boxY), Math.round(boxW), Math.round(boxH));
+  }
+  ctx.fillStyle = wm.color;
+  ctx.fillText(wm.text, canvasW / 2, textY);
+  ctx.restore();
+}
+
+/** Stamp watermark onto an existing image blob, return a new blob */
+async function applyWatermarkToBlob(
+  blob: Blob, w: number, h: number, wm: WatermarkConfig, format: 'png' | 'jpg',
+): Promise<Blob> {
+  // Ensure the chosen font is fully loaded before drawing
+  const fontDef = WATERMARK_FONTS.find(f => f.value === wm.font) ?? WATERMARK_FONTS[0];
+  const fontFamily = fontDef.css.split(',')[0].replace(/"/g, '').trim();
+  try { await document.fonts.load(`${wm.fontSize}px "${fontFamily}"`); } catch { /* fallback ok */ }
+
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return blob;
+  ctx.drawImage(img, 0, 0, w, h);
+  drawWatermark(ctx, w, h, wm, w / 1080);
+  return new Promise(resolve => {
+    canvas.toBlob(
+      b => resolve(b ?? blob),
+      format === 'jpg' ? 'image/jpeg' : 'image/png',
+      format === 'jpg' ? 0.92 : undefined,
+    );
+  });
+}
+
+interface SocialPreviewSlideProps {
+  preset: SocialSizePreset;
+  image: HTMLImageElement;
+  tileWidth: number;
+  tileHeight: number;
+  repeatType: 'full-drop' | 'half-drop' | 'half-brick';
+  originalFilename: string | null;
+  socialFormat: 'png' | 'jpg';
+  scalesRef: MutableRefObject<Record<SizeSlug, number>>;
+  isExporting: boolean;
+  watermark: WatermarkConfig;
+}
+
+function SocialPreviewSlide({
+  preset, image, tileWidth, tileHeight, repeatType,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark,
+}: SocialPreviewSlideProps) {
+  const [, forceUpdate] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const scale = scalesRef.current[preset.slug] ?? 1.0;
+  const wMult = getWidthMultiplier(repeatType);
+  const tilePixelW = tileWidth * scale * SOCIAL_DPI * wMult;
+  const tileAspect = (tileWidth * wMult) / tileHeight;
+  const tilePixelH = tilePixelW / tileAspect;
+  const repeatsX = Math.max(1, Math.round(preset.pxW / tilePixelW));
+  // Aspect-correct tile height based on repeatsX, then compute rows needed to fill canvas
+  const aspectTileH = (preset.pxW / repeatsX) / tileAspect;
+  const repeatsY = Math.max(1, Math.ceil(preset.pxH / aspectTileH));
+
+  const canScaleUp = repeatsX > 1;
+  const canScaleDown = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX + 1) >= MIN_SCALE;
+
+  const handleScaleDown = () => {
+    const newScale = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX + 1);
+    if (newScale >= MIN_SCALE) {
+      scalesRef.current[preset.slug] = newScale;
+      forceUpdate(n => n + 1);
+    }
+  };
+
+  const handleScaleUp = () => {
+    if (repeatsX <= 1) return;
+    const newScale = socialScaleForRepeatsX(preset.pxW, tileWidth, wMult, repeatsX - 1);
+    if (newScale <= MAX_SCALE) {
+      scalesRef.current[preset.slug] = Math.min(newScale, MAX_SCALE);
+      forceUpdate(n => n + 1);
+    }
+  };
+
+  const { w: previewW, h: previewH } = socialPreviewDims(preset.pxW, preset.pxH);
+
+  useEffect(() => {
+    if (!canvasRef.current || !image) return;
+    const canvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = previewW * dpr;
+    canvas.height = previewH * dpr;
+    canvas.style.width = `${previewW}px`;
+    canvas.style.height = `${previewH}px`;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, previewW, previewH);
+    const mapped = mapRepeatType(repeatType);
+    const tileSource: HTMLCanvasElement | HTMLImageElement =
+      mapped === 'fulldrop' ? image : convertToFullDrop(image, mapped);
+    // Tile at aspect-correct size: derive tile height from tile width so tiles are never stretched
+    const tilePW = previewW / repeatsX;
+    const tilePH = tilePW / tileAspect;
+    // How many rows needed to cover the full canvas height
+    const rowsNeeded = Math.max(repeatsY, Math.ceil(previewH / tilePH));
+    for (let x = 0; x < repeatsX; x++) {
+      for (let y = 0; y < rowsNeeded; y++) {
+        ctx.drawImage(tileSource, Math.floor(x * tilePW), Math.floor(y * tilePH), Math.ceil(tilePW) + 1, Math.ceil(tilePH) + 1);
+      }
+    }
+    // Draw watermark on preview (scale relative to 1080px reference)
+    drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080);
+  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark]);
+
+  const scaledTileW = tileWidth * scale;
+  const scaledTileH = tileHeight * scale;
+  const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
+  const fileName = `${baseName}-${preset.slug}.${socialFormat}`;
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      {/* Big preview canvas */}
+      <canvas
+        ref={canvasRef}
+        className="border border-[#e5e7eb] rounded-md shadow-sm bg-white"
+        style={{ width: previewW, height: previewH }}
+      />
+
+      {/* Scale controls */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleScaleDown}
+          disabled={isExporting || !canScaleDown}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-base font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Smaller tiles, more repeats"
+        >−</button>
+        <span className="text-xs text-[#555] min-w-[80px] text-center">
+          {scaledTileW.toFixed(2)}&quot; × {scaledTileH.toFixed(2)}&quot;
+        </span>
+        <button
+          onClick={handleScaleUp}
+          disabled={isExporting || !canScaleUp}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-base font-bold hover:bg-[#f5f5f5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Larger tiles, fewer repeats"
+        >+</button>
+      </div>
+
+      {/* Info */}
+      <div className="text-center space-y-1">
+        <div className="text-xs text-[#555]">
+          <span className="font-semibold text-[#294051]">{repeatsX} × {repeatsY}</span> repeats
+        </div>
+        <div className="text-[11px] text-[#9ca3af]">{preset.pxW} × {preset.pxH} px</div>
+        <div className="text-[11px] text-[#9ca3af]">{fileName}</div>
+      </div>
+    </div>
+  );
+}
 
 function mapRepeatType(
   repeatType: 'full-drop' | 'half-drop' | 'half-brick'
@@ -92,7 +405,32 @@ export default function RepeatExportModal({
   // Local export scale factor (isolated from main canvas)
   const [exportScale, setExportScale] = useState(1.0);
 
+  const [mode, setMode] = useState<ModalMode>('picker');
+  const [socialFormat, setSocialFormat] = useState<'png' | 'jpg'>('jpg');
+  const [checkedSizes, setCheckedSizes] = useState<Set<SizeSlug>>(new Set());
+  const [socialStep, setSocialStep] = useState<SocialStep>('select');
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
+
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Sync Select All checkbox indeterminate state (can't be done declaratively in JSX)
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    const count = checkedSizes.size;
+    if (count === 0) {
+      selectAllRef.current.checked = false;
+      selectAllRef.current.indeterminate = false;
+    } else if (count === SOCIAL_SIZE_PRESETS.length) {
+      selectAllRef.current.checked = true;
+      selectAllRef.current.indeterminate = false;
+    } else {
+      selectAllRef.current.checked = false;
+      selectAllRef.current.indeterminate = true;
+    }
+  }, [checkedSizes]);
 
   // Reset on open
   useEffect(() => {
@@ -100,6 +438,13 @@ export default function RepeatExportModal({
       setError(null);
       setIsExporting(false);
       setExportScale(1.0);
+      setMode('picker');
+      setSocialFormat('jpg');
+      setCheckedSizes(new Set());
+      scalesRef.current = {} as Record<SizeSlug, number>;
+      setSocialStep('select');
+      setPreviewIndex(0);
+      setWatermark({ ...DEFAULT_WATERMARK });
     }
   }, [isOpen]);
 
@@ -107,11 +452,11 @@ export default function RepeatExportModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isExporting) onClose();
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isExporting]);
 
   // Effective tile dimensions with local export scale applied
   const scaledTileW = tileWidth * exportScale;
@@ -260,6 +605,125 @@ export default function RepeatExportModal({
     }
   };
 
+  const handleSelectAll = () => {
+    if (checkedSizes.size === SOCIAL_SIZE_PRESETS.length) {
+      setCheckedSizes(new Set());
+    } else {
+      const all = new Set<SizeSlug>(SOCIAL_SIZE_PRESETS.map(p => p.slug));
+      // Initialize scale for any newly checked sizes
+      all.forEach(slug => {
+        if (!(slug in scalesRef.current)) {
+          scalesRef.current[slug] = 1.0;
+        }
+      });
+      setCheckedSizes(all);
+    }
+  };
+
+  const handleToggleSize = (slug: SizeSlug) => {
+    setCheckedSizes(prev => {
+      const next = new Set(prev);
+      if (next.has(slug)) {
+        next.delete(slug);
+      } else {
+        next.add(slug);
+        if (!(slug in scalesRef.current)) {
+          scalesRef.current[slug] = 1.0;
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleSocialExport = async () => {
+    if (!image || checkedSizes.size === 0) return;
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      // Single pro gate before any rendering
+      const res = await fetch('/api/pro/verify', { method: 'POST' });
+      if (!res.ok) throw new Error('Pro subscription required.');
+
+      const slugsToExport = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
+      const results: { slug: SizeSlug; label: string; blob: Blob | null }[] = [];
+
+      for (const preset of slugsToExport) {
+        const scale = scalesRef.current[preset.slug] ?? 1.0;
+        try {
+          let blob = await generateSocialFillBlob({
+            image,
+            repeatType,
+            targetPxW: preset.pxW,
+            targetPxH: preset.pxH,
+            format: socialFormat,
+            tileWidthInches: tileWidth,
+            tileHeightInches: tileHeight,
+            exportScale: scale,
+          });
+          // Stamp watermark onto exported image
+          if (watermark.enabled && watermark.text.trim()) {
+            blob = await applyWatermarkToBlob(blob, preset.pxW, preset.pxH, watermark, socialFormat);
+          }
+          results.push({ slug: preset.slug, label: preset.label, blob });
+        } catch {
+          results.push({ slug: preset.slug, label: preset.label, blob: null });
+        }
+      }
+
+      const successful = results.filter((r): r is { slug: SizeSlug; label: string; blob: Blob } => r.blob !== null);
+      const failed = results.filter(r => r.blob === null);
+      const baseName = sanitizeFilename(originalFilename || 'pattern', 'pattern');
+      const ext = socialFormat;
+
+      if (successful.length === 0) {
+        throw new Error('All exports failed. Try a smaller scale or different format.');
+      }
+
+      if (successful.length === 1) {
+        // Single file — direct download
+        const { slug, blob } = successful[0];
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${baseName}-${slug}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        // Multiple files — zip
+        const zip = new JSZip();
+        for (const { slug, blob } of successful) {
+          zip.file(`${baseName}-${slug}.${ext}`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${baseName}-social-media.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      // Warn about partial failures
+      if (failed.length > 0) {
+        setError(`Could not export: ${failed.map(f => f.label).join(', ')}. Others downloaded successfully.`);
+        setIsExporting(false);
+      } else {
+        setTimeout(() => {
+          onClose();
+          setIsExporting(false);
+        }, 500);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed. Please try again.');
+      setIsExporting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const repeatLabel =
@@ -280,7 +744,6 @@ export default function RepeatExportModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
     >
       <div
         className="relative max-w-2xl w-full max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
@@ -288,361 +751,679 @@ export default function RepeatExportModal({
       >
         {/* Header */}
         <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#e0c26e]">
-          <h3 className="text-sm font-semibold text-white">
-            Pattern Fill Export
-          </h3>
+          <div className="flex items-center gap-3">
+            {mode !== 'picker' && (
+              <button
+                onClick={() => {
+                  if (mode === 'social' && socialStep === 'preview') {
+                    setSocialStep('select');
+                  } else {
+                    setMode('picker');
+                  }
+                }}
+                className="text-white/80 hover:text-white text-xs transition-colors"
+                disabled={isExporting}
+              >
+                ← Back
+              </button>
+            )}
+            <h3 className="text-sm font-semibold text-white">
+              {mode === 'picker' ? 'Pattern Fill Export' :
+               mode === 'cricut' ? 'Cricut / Silhouette Export' :
+               'Social Media Export'}
+            </h3>
+          </div>
           <button
             onClick={onClose}
             className="text-[#705046] hover:text-[#294051] transition-all duration-200"
             aria-label="Close"
             disabled={isExporting}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
-          {!image ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-[#6b7280]">
-                No pattern loaded. Please upload a pattern first.
-              </p>
+        {/* Destination picker */}
+        {mode === 'picker' && (
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-center text-[#6b7280]">What are you exporting for?</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => setMode('social')}
+                className="w-full text-left px-4 py-4 border-2 border-[#e0c26e] rounded-lg bg-[#faf3e0] hover:bg-[#f5ecd0] transition-colors"
+              >
+                <div className="text-sm font-semibold text-[#294051]">📱 Social Media</div>
+                <div className="text-xs text-[#9ca3af] mt-1">Instagram · Pinterest · TikTok · Facebook</div>
+              </button>
+              <button
+                onClick={() => setMode('cricut')}
+                className="w-full text-left px-4 py-4 border-2 border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f9fafb] transition-colors"
+              >
+                <div className="text-sm font-semibold text-[#294051]">🖨 Cricut / Silhouette</div>
+                <div className="text-xs text-[#9ca3af] mt-1">Digital paper · print files · Etsy / Creative Fabrica</div>
+              </button>
             </div>
-          ) : (
-            <div className="space-y-5">
-              {/* Info Banner */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-xs text-blue-800 leading-relaxed">
-                  <span className="font-semibold">Digital Paper Export</span> —
-                  Creates a ready-to-use pattern fill image for Cricut Design
-                  Space and Silhouette Studio. This bakes multiple repeats of
-                  your tile into one flat image, which eliminates the white
-                  grid line bug in Silhouette. 12&times;12&quot; at 300 DPI is
-                  the standard for selling digital papers on Etsy and Creative
-                  Fabrica.
+          </div>
+        )}
+
+        {/* Cricut */}
+        {mode === 'cricut' && (
+          <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+            {!image ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-[#6b7280]">
+                  No pattern loaded. Please upload a pattern first.
                 </p>
               </div>
-
-              {/* Current Tile Info */}
-              <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
-                <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
-                  Current Tile
-                </h4>
-                <div className="text-sm text-[#374151] space-y-1">
-                  <p>
-                    Size: {tileWidth.toFixed(2)}&quot; &times; {tileHeight.toFixed(2)}&quot; ({Math.round(image.naturalWidth / tileWidth)} DPI)
+            ) : (
+              <div className="space-y-5">
+                {/* Info Banner */}
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    <span className="font-semibold">Digital Paper Export</span> —
+                    Creates a ready-to-use pattern fill image for Cricut Design
+                    Space and Silhouette Studio. This makes multiple repeats of
+                    your tile into one flat image, which eliminates the white
+                    grid line bug in Silhouette. 12&times;12&quot; at 300 DPI is
+                    the standard for selling digital papers on Etsy and Creative
+                    Fabrica.
                   </p>
-                  <p>
-                    Pixels: {image.naturalWidth} &times; {image.naturalHeight} &bull;
-                    Repeat: {repeatLabel}
+                </div>
+  
+                {/* Current Tile Info */}
+                <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
+                  <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+                    Current Tile
+                  </h4>
+                  <div className="text-sm text-[#374151] space-y-1">
+                    <p>
+                      Size: {tileWidth.toFixed(2)}&quot; &times; {tileHeight.toFixed(2)}&quot; ({Math.round(image.naturalWidth / tileWidth)} DPI)
+                    </p>
+                    <p>
+                      Pixels: {image.naturalWidth} &times; {image.naturalHeight} &bull;
+                      Repeat: {repeatLabel}
+                    </p>
+                    {repeatType !== 'full-drop' && (
+                      <p className="text-xs text-[#6b7280] mt-1">
+                        Auto-converts to full-drop tile (
+                        {repeatType === 'half-drop'
+                          ? `${(tileWidth * 2).toFixed(2)}" \u00d7 ${tileHeight.toFixed(2)}"`
+                          : `${tileWidth.toFixed(2)}" \u00d7 ${(tileHeight * 2).toFixed(2)}"`}
+                        ) before tiling.
+                      </p>
+                    )}
+                  </div>
+                </div>
+  
+                {/* Target Size */}
+                <div>
+                  <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                    Target Size
+                  </h4>
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      onClick={() => handlePresetClick(SIZE_PRESETS[0])}
+                      className={`px-4 py-2 rounded-md border text-xs font-semibold transition-colors ${
+                        isPresetActive(SIZE_PRESETS[0])
+                          ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
+                          : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
+                      }`}
+                      disabled={isExporting}
+                    >
+                      12&times;12&quot; Standard
+                    </button>
+                    <span className="text-[10px] text-[#9ca3af]">Recommended</span>
+                  </div>
+  
+                  {/* Custom size inputs */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#6b7280]">Custom size:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      step="0.5"
+                      value={customW}
+                      onChange={(e) => setCustomW(e.target.value)}
+                      placeholder="W"
+                      className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
+                      disabled={isExporting}
+                    />
+                    <span className="text-xs text-[#6b7280]">&times;</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      step="0.5"
+                      value={customH}
+                      onChange={(e) => setCustomH(e.target.value)}
+                      placeholder="H"
+                      className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
+                      disabled={isExporting}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleApplyCustom();
+                        }
+                      }}
+                    />
+                    <span className="text-xs text-[#6b7280]">inches</span>
+                    <button
+                      onClick={handleApplyCustom}
+                      disabled={
+                        isExporting ||
+                        !customW ||
+                        !customH ||
+                        parseFloat(customW) <= 0 ||
+                        parseFloat(customH) <= 0
+                      }
+                      className="px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: '#e0c26e', color: 'white' }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+  
+                {/* DPI */}
+                <div>
+                  <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
+                    Target DPI
+                  </h4>
+                  <p className="text-sm text-[#374151] font-medium">
+                    300 DPI{' '}
+                    <span className="text-[10px] text-[#9ca3af] font-normal ml-1">
+                      Print-quality standard
+                    </span>
                   </p>
-                  {repeatType !== 'full-drop' && (
-                    <p className="text-xs text-[#6b7280] mt-1">
-                      Auto-converts to full-drop tile (
-                      {repeatType === 'half-drop'
-                        ? `${(tileWidth * 2).toFixed(2)}" \u00d7 ${tileHeight.toFixed(2)}"`
-                        : `${tileWidth.toFixed(2)}" \u00d7 ${(tileHeight * 2).toFixed(2)}"`}
-                      ) before tiling.
+                  <label className="flex items-center cursor-pointer mt-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedDPI === 150}
+                      onChange={() =>
+                        setSelectedDPI(selectedDPI === 150 ? 300 : 150)
+                      }
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
+                      style={{ accentColor: '#e0c26e' }}
+                      disabled={isExporting}
+                    />
+                    <span className="text-[11px] text-[#9ca3af]">
+                      Use 150 DPI instead (smaller file)
+                    </span>
+                  </label>
+                  {calc?.isUpscaled && (
+                    <p className="text-xs text-orange-600 mt-2">
+                      Your tile is {effectiveDPI} DPI — each repeat will be
+                      upscaled at {selectedDPI} DPI. Consider using 150 DPI to
+                      avoid softening.
                     </p>
                   )}
                 </div>
-              </div>
-
-              {/* Target Size */}
-              <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Target Size
-                </h4>
-                <div className="flex items-center gap-3 mb-3">
+  
+                {/* Format Toggle */}
+                <div>
+                  <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                    Format
+                  </h4>
+                  <div className="flex gap-3">
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="fill-format"
+                        value="png"
+                        checked={format === 'png'}
+                        onChange={() => setFormat('png')}
+                        className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
+                        style={{ accentColor: '#e0c26e' }}
+                        disabled={isExporting}
+                      />
+                      <span className="text-sm text-[#374151] group-hover:text-[#294051]">
+                        PNG (Lossless)
+                      </span>
+                    </label>
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="fill-format"
+                        value="jpg"
+                        checked={format === 'jpg'}
+                        onChange={() => setFormat('jpg')}
+                        className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
+                        style={{ accentColor: '#e0c26e' }}
+                        disabled={isExporting}
+                      />
+                      <span className="text-sm text-[#374151] group-hover:text-[#294051]">
+                        JPG (Smaller File)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+  
+                {/* Output Preview with Live Canvas + Scale Buttons */}
+                {calc && (
+                  <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
+                    <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
+                      Output Preview
+                    </h4>
+                    <div className="flex gap-4">
+                      {/* Preview canvas with +/- buttons */}
+                      <div className="flex-shrink-0">
+                        <canvas
+                          ref={previewCanvasRef}
+                          className="border border-[#e5e7eb] rounded bg-white"
+                          style={{ width: PREVIEW_WIDTH, imageRendering: 'auto' }}
+                        />
+                        {/* Scale adjustment buttons */}
+                        <div className="flex items-center justify-center gap-2 mt-2">
+                          <button
+                            onClick={handleScaleDown}
+                            disabled={isExporting || !canScaleDown}
+                            className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Smaller tiles, more repeats"
+                          >
+                            &minus;
+                          </button>
+                          <span className="text-[10px] text-[#6b7280] min-w-[90px] text-center">
+                            {scaledTileW.toFixed(2)}&quot; &times; {scaledTileH.toFixed(2)}&quot;
+                          </span>
+                          <button
+                            onClick={handleScaleUp}
+                            disabled={isExporting || !canScaleUp}
+                            className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Larger tiles, fewer repeats"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-[#9ca3af] text-center mt-1">
+                          Adjust tile scale
+                        </p>
+                      </div>
+                      {/* Text info */}
+                      <div className="text-sm text-[#374151] space-y-1 min-w-0">
+                        <p>
+                          <span className="font-medium">
+                            {calc.outputWidthInches.toFixed(1)}&quot; &times; {calc.outputHeightInches.toFixed(1)}&quot;
+                          </span>{' '}
+                          <span className="text-xs text-[#6b7280]">
+                            ({calc.outputPxW} &times; {calc.outputPxH} px)
+                          </span>
+                        </p>
+                        <p>
+                          {calc.repeatsX} &times; {calc.repeatsY} whole repeats ={' '}
+                          {calc.repeatsX * calc.repeatsY} tiles
+                        </p>
+                        {calc.wasConverted && (
+                          <p className="text-xs text-emerald-700 mt-1">
+                            {repeatLabel} auto-converted to full-drop for seamless
+                            tiling.
+                          </p>
+                        )}
+                        {heightAdjusted && (
+                          <p className="text-xs text-[#6b7280] mt-1">
+                            Height adjusted from {targetH}&quot; to{' '}
+                            {calc.outputHeightInches.toFixed(1)}&quot; for whole repeats
+                            at correct aspect ratio.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+  
+                    {/* Commercial-ready indicator */}
+                    {(() => {
+                      const is12x12 =
+                        Math.abs(calc.outputWidthInches - 12) < 0.05 &&
+                        Math.abs(calc.outputHeightInches - 12) < 0.05;
+                      return is12x12 ? (
+                        <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md">
+                          <p className="text-xs text-emerald-800 leading-relaxed">
+                            <span className="font-semibold">Perfect 12 &times; 12</span> —
+                            this is a commercial-quality digital paper, ready to
+                            sell on Etsy, Creative Fabrica, or any marketplace.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-xs text-red-800 leading-relaxed">
+                            This export is{' '}
+                            {calc.outputWidthInches.toFixed(1)}&quot; &times;{' '}
+                            {calc.outputHeightInches.toFixed(1)}&quot; — it works
+                            great as a pattern fill in Cricut and Silhouette, but
+                            doesn&apos;t meet the 12 &times; 12 standard for
+                            selling digital papers. Try adjusting the scale with
+                            +/&minus; to find a repeat count that hits 12 &times; 12.
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+  
+                {/* Error */}
+                {error && (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                    <p className="text-xs text-orange-700">{error}</p>
+                  </div>
+                )}
+  
+                {/* Buttons */}
+                <div className="flex gap-3 pt-2">
                   <button
-                    onClick={() => handlePresetClick(SIZE_PRESETS[0])}
-                    className={`px-4 py-2 rounded-md border text-xs font-semibold transition-colors ${
-                      isPresetActive(SIZE_PRESETS[0])
-                        ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051]'
-                        : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5]'
-                    }`}
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
                     disabled={isExporting}
                   >
-                    12&times;12&quot; Standard
+                    Cancel
                   </button>
-                  <span className="text-[10px] text-[#9ca3af]">Recommended</span>
-                </div>
-
-                {/* Custom size inputs */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[#6b7280]">Custom size:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    step="0.5"
-                    value={customW}
-                    onChange={(e) => setCustomW(e.target.value)}
-                    placeholder="W"
-                    className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
-                    disabled={isExporting}
-                  />
-                  <span className="text-xs text-[#6b7280]">&times;</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    step="0.5"
-                    value={customH}
-                    onChange={(e) => setCustomH(e.target.value)}
-                    placeholder="H"
-                    className="w-16 px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#e0c26e] text-[#374151]"
-                    disabled={isExporting}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleApplyCustom();
+                  <button
+                    onClick={handleExport}
+                    disabled={isExporting || !image}
+                    className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#e0c26e' }}
+                    onMouseEnter={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#c9a94e';
                       }
                     }}
-                  />
-                  <span className="text-xs text-[#6b7280]">inches</span>
-                  <button
-                    onClick={handleApplyCustom}
-                    disabled={
-                      isExporting ||
-                      !customW ||
-                      !customH ||
-                      parseFloat(customW) <= 0 ||
-                      parseFloat(customH) <= 0
-                    }
-                    className="px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#e0c26e', color: 'white' }}
+                    onMouseLeave={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#e0c26e';
+                      }
+                    }}
                   >
-                    Apply
+                    {isExporting ? 'Exporting...' : 'Export Fill Image'}
                   </button>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              {/* DPI */}
-              <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-2 uppercase tracking-wide">
-                  Target DPI
-                </h4>
-                <p className="text-sm text-[#374151] font-medium">
-                  300 DPI{' '}
-                  <span className="text-[10px] text-[#9ca3af] font-normal ml-1">
-                    Print-quality standard
-                  </span>
-                </p>
-                <label className="flex items-center cursor-pointer mt-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedDPI === 150}
-                    onChange={() =>
-                      setSelectedDPI(selectedDPI === 150 ? 300 : 150)
-                    }
-                    className="mr-2 w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
-                    style={{ accentColor: '#e0c26e' }}
-                    disabled={isExporting}
-                  />
-                  <span className="text-[11px] text-[#9ca3af]">
-                    Use 150 DPI instead (smaller file)
-                  </span>
-                </label>
-                {calc?.isUpscaled && (
-                  <p className="text-xs text-orange-600 mt-2">
-                    Your tile is {effectiveDPI} DPI — each repeat will be
-                    upscaled at {selectedDPI} DPI. Consider using 150 DPI to
-                    avoid softening.
-                  </p>
+        {/* Social media path */}
+        {mode === 'social' && (
+          <>
+            {/* Step 1: Select sizes */}
+            {socialStep === 'select' && (
+              <div className="p-4 space-y-4 overflow-auto max-h-[calc(90vh-120px)]">
+                {!image ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-[#6b7280]">No pattern loaded. Please upload a pattern first.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Format toggle */}
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">Format</span>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio" name="social-format" value="jpg"
+                          checked={socialFormat === 'jpg'}
+                          onChange={() => setSocialFormat('jpg')}
+                          style={{ accentColor: '#e0c26e' }}
+                        />
+                        <span className="text-xs text-[#374151]">JPG</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio" name="social-format" value="png"
+                          checked={socialFormat === 'png'}
+                          onChange={() => setSocialFormat('png')}
+                          style={{ accentColor: '#e0c26e' }}
+                        />
+                        <span className="text-xs text-[#374151]">PNG</span>
+                      </label>
+                    </div>
+
+                    {/* Select All */}
+                    <div>
+                      <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
+                      <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
+                        <input
+                          ref={selectAllRef}
+                          type="checkbox"
+                          onChange={handleSelectAll}
+                          style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+                        />
+                        <span className="text-xs font-semibold text-[#294051]">Select All</span>
+                      </label>
+                      <div className="space-y-2">
+                        {SOCIAL_SIZE_PRESETS.map(preset => (
+                          <SocialSizeRow
+                            key={preset.slug}
+                            preset={preset}
+                            isChecked={checkedSizes.has(preset.slug)}
+                            onToggle={() => handleToggleSize(preset.slug)}
+                            isExporting={false}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Watermark */}
+                    <div className="border border-[#e5e7eb] rounded-md overflow-hidden">
+                      <label className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={watermark.enabled}
+                          onChange={e => { if (e.target.checked) loadWatermarkFonts(); setWatermark(w => ({ ...w, enabled: e.target.checked })); }}
+                          style={{ accentColor: '#e0c26e', width: 14, height: 14 }}
+                        />
+                        <span className="text-xs font-semibold text-[#294051]">Add Watermark</span>
+                      </label>
+                      {watermark.enabled && (
+                        <div className="px-3 pb-3 space-y-3 border-t border-[#e5e7eb] pt-3">
+                          {/* Text input */}
+                          <input
+                            type="text"
+                            value={watermark.text}
+                            onChange={e => setWatermark(w => ({ ...w, text: e.target.value }))}
+                            placeholder="Your name or brand"
+                            maxLength={60}
+                            className="w-full px-2.5 py-1.5 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#294051] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#e0c26e]"
+                          />
+
+                          {/* Font choice */}
+                          <div>
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Font</span>
+                            <div className="flex gap-2 mt-1">
+                              {WATERMARK_FONTS.map(f => (
+                                <button
+                                  key={f.value}
+                                  onClick={() => setWatermark(w => ({ ...w, font: f.value }))}
+                                  className={`flex-1 px-2 py-1.5 text-xs rounded-md border transition-colors ${
+                                    watermark.font === f.value
+                                      ? 'border-[#e0c26e] bg-[#faf3e0] text-[#294051] font-semibold'
+                                      : 'border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f5f5f5]'
+                                  }`}
+                                  style={{ fontFamily: f.css }}
+                                >
+                                  {f.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Color + Opacity + Size row */}
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center">
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Color</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={watermark.color}
+                                onChange={e => setWatermark(w => ({ ...w, color: e.target.value }))}
+                                className="w-7 h-7 rounded border border-[#e5e7eb] cursor-pointer p-0"
+                              />
+                              <span className="text-[10px] text-[#9ca3af]">{watermark.color}</span>
+                            </div>
+
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Opacity</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range" min={10} max={100} step={5}
+                                value={Math.round(watermark.opacity * 100)}
+                                onChange={e => setWatermark(w => ({ ...w, opacity: Number(e.target.value) / 100 }))}
+                                className="flex-1 accent-[#e0c26e]"
+                              />
+                              <span className="text-[10px] text-[#9ca3af] w-8 text-right">{Math.round(watermark.opacity * 100)}%</span>
+                            </div>
+
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Size</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range" min={16} max={72} step={2}
+                                value={watermark.fontSize}
+                                onChange={e => setWatermark(w => ({ ...w, fontSize: Number(e.target.value) }))}
+                                className="flex-1 accent-[#e0c26e]"
+                              />
+                              <span className="text-[10px] text-[#9ca3af] w-8 text-right">{watermark.fontSize}px</span>
+                            </div>
+                          </div>
+
+                          {/* Background box */}
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={watermark.bgEnabled}
+                                onChange={e => setWatermark(w => ({ ...w, bgEnabled: e.target.checked }))}
+                                style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+                              />
+                              <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Background</span>
+                            </label>
+                            {watermark.bgEnabled && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={watermark.bgColor}
+                                  onChange={e => setWatermark(w => ({ ...w, bgColor: e.target.value }))}
+                                  className="w-7 h-7 rounded border border-[#e5e7eb] cursor-pointer p-0"
+                                />
+                                <span className="text-[10px] text-[#9ca3af]">{watermark.bgColor}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Live preview strip */}
+                          {watermark.text.trim() && (
+                            <div
+                              className="rounded-md border border-[#e5e7eb] overflow-hidden"
+                              style={{
+                                background: `repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%) 50% / 16px 16px`,
+                              }}
+                            >
+                              <div className="flex items-center justify-center py-4 px-3">
+                                <span
+                                  style={{
+                                    fontFamily: (WATERMARK_FONTS.find(f => f.value === watermark.font) ?? WATERMARK_FONTS[0]).css,
+                                    fontSize: `${Math.min(watermark.fontSize, 48)}px`,
+                                    color: watermark.color,
+                                    opacity: watermark.opacity,
+                                    backgroundColor: watermark.bgEnabled ? watermark.bgColor : undefined,
+                                    padding: watermark.bgEnabled ? '4px 10px' : undefined,
+                                  }}
+                                >
+                                  {watermark.text}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-3 pt-1">
+                      <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => { setPreviewIndex(0); setSocialStep('preview'); }}
+                        disabled={checkedSizes.size === 0}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#e0c26e' }}
+                      >
+                        {checkedSizes.size === 0 ? 'Select a Size' : `Preview & Export`}
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
+            )}
 
-              {/* Format Toggle */}
-              <div>
-                <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                  Format
-                </h4>
-                <div className="flex gap-3">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="fill-format"
-                      value="png"
-                      checked={format === 'png'}
-                      onChange={() => setFormat('png')}
-                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      PNG (Lossless)
-                    </span>
-                  </label>
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="fill-format"
-                      value="jpg"
-                      checked={format === 'jpg'}
-                      onChange={() => setFormat('jpg')}
-                      className="mr-2 w-3 h-3 border-[#e5e7eb] focus:ring-1"
-                      style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
-                    />
-                    <span className="text-sm text-[#374151] group-hover:text-[#294051]">
-                      JPG (Smaller File)
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Output Preview with Live Canvas + Scale Buttons */}
-              {calc && (
-                <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
-                  <h4 className="text-xs font-semibold text-[#294051] mb-3 uppercase tracking-wide">
-                    Output Preview
-                  </h4>
-                  <div className="flex gap-4">
-                    {/* Preview canvas with +/- buttons */}
-                    <div className="flex-shrink-0">
-                      <canvas
-                        ref={previewCanvasRef}
-                        className="border border-[#e5e7eb] rounded bg-white"
-                        style={{ width: PREVIEW_WIDTH, imageRendering: 'auto' }}
-                      />
-                      {/* Scale adjustment buttons */}
-                      <div className="flex items-center justify-center gap-2 mt-2">
-                        <button
-                          onClick={handleScaleDown}
-                          disabled={isExporting || !canScaleDown}
-                          className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Smaller tiles, more repeats"
-                        >
-                          &minus;
-                        </button>
-                        <span className="text-[10px] text-[#6b7280] min-w-[90px] text-center">
-                          {scaledTileW.toFixed(2)}&quot; &times; {scaledTileH.toFixed(2)}&quot;
-                        </span>
-                        <button
-                          onClick={handleScaleUp}
-                          disabled={isExporting || !canScaleUp}
-                          className="w-7 h-7 flex items-center justify-center rounded-md border border-[#e5e7eb] bg-white text-[#374151] text-sm font-bold hover:bg-[#f5f5f5] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Larger tiles, fewer repeats"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-[#9ca3af] text-center mt-1">
-                        Adjust tile scale
-                      </p>
-                    </div>
-                    {/* Text info */}
-                    <div className="text-sm text-[#374151] space-y-1 min-w-0">
-                      <p>
-                        <span className="font-medium">
-                          {calc.outputWidthInches.toFixed(1)}&quot; &times; {calc.outputHeightInches.toFixed(1)}&quot;
-                        </span>{' '}
-                        <span className="text-xs text-[#6b7280]">
-                          ({calc.outputPxW} &times; {calc.outputPxH} px)
-                        </span>
-                      </p>
-                      <p>
-                        {calc.repeatsX} &times; {calc.repeatsY} whole repeats ={' '}
-                        {calc.repeatsX * calc.repeatsY} tiles
-                      </p>
-                      {calc.wasConverted && (
-                        <p className="text-xs text-emerald-700 mt-1">
-                          {repeatLabel} auto-converted to full-drop for seamless
-                          tiling.
-                        </p>
-                      )}
-                      {heightAdjusted && (
-                        <p className="text-xs text-[#6b7280] mt-1">
-                          Height adjusted from {targetH}&quot; to{' '}
-                          {calc.outputHeightInches.toFixed(1)}&quot; for whole repeats
-                          at correct aspect ratio.
-                        </p>
-                      )}
-                    </div>
+            {/* Step 2: Preview wizard */}
+            {socialStep === 'preview' && image && (() => {
+              const selectedPresets = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
+              const current = selectedPresets[previewIndex];
+              const isFirst = previewIndex === 0;
+              const isLast = previewIndex === selectedPresets.length - 1;
+              if (!current) return null;
+              return (
+                <div className="p-4 overflow-auto max-h-[calc(90vh-120px)]">
+                  {/* Progress indicator */}
+                  <div className="text-center mb-4">
+                    <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">{current.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] ml-2">{previewIndex + 1} of {selectedPresets.length}</span>
                   </div>
 
-                  {/* Commercial-ready indicator */}
-                  {(() => {
-                    const is12x12 =
-                      Math.abs(calc.outputWidthInches - 12) < 0.05 &&
-                      Math.abs(calc.outputHeightInches - 12) < 0.05;
-                    return is12x12 ? (
-                      <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md">
-                        <p className="text-xs text-emerald-800 leading-relaxed">
-                          <span className="font-semibold">Perfect 12 &times; 12</span> —
-                          this is a commercial-quality digital paper, ready to
-                          sell on Etsy, Creative Fabrica, or any marketplace.
-                        </p>
-                      </div>
+                  <SocialPreviewSlide
+                    preset={current}
+                    image={image}
+                    tileWidth={tileWidth}
+                    tileHeight={tileHeight}
+                    repeatType={repeatType}
+                    originalFilename={originalFilename}
+                    socialFormat={socialFormat}
+                    scalesRef={scalesRef}
+                    isExporting={isExporting}
+                    watermark={watermark}
+                  />
+
+                  {/* Error */}
+                  {error && (
+                    <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                      <p className="text-xs text-orange-700">{error}</p>
+                    </div>
+                  )}
+
+                  {/* Navigation */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => isFirst ? setSocialStep('select') : setPreviewIndex(i => i - 1)}
+                      disabled={isExporting}
+                      className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
+                    >
+                      ← {isFirst ? 'Back to Sizes' : 'Prev'}
+                    </button>
+                    {isLast ? (
+                      <button
+                        onClick={handleSocialExport}
+                        disabled={isExporting}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#e0c26e' }}
+                      >
+                        {isExporting ? 'Exporting...' : selectedPresets.length === 1 ? 'Export 1 Image' : `Export ${selectedPresets.length} Images`}
+                      </button>
                     ) : (
-                      <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-xs text-red-800 leading-relaxed">
-                          This export is{' '}
-                          {calc.outputWidthInches.toFixed(1)}&quot; &times;{' '}
-                          {calc.outputHeightInches.toFixed(1)}&quot; — it works
-                          great as a pattern fill in Cricut and Silhouette, but
-                          doesn&apos;t meet the 12 &times; 12 standard for
-                          selling digital papers. Try adjusting the scale with
-                          +/&minus; to find a repeat count that hits 12 &times; 12.
-                        </p>
-                      </div>
-                    );
-                  })()}
+                      <button
+                        onClick={() => setPreviewIndex(i => i + 1)}
+                        disabled={isExporting}
+                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors"
+                        style={{ backgroundColor: '#e0c26e' }}
+                      >
+                        Next →
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
-
-              {/* Error */}
-              {error && (
-                <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                  <p className="text-xs text-orange-700">{error}</p>
-                </div>
-              )}
-
-              {/* Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
-                  disabled={isExporting}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting || !image}
-                  className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#e0c26e' }}
-                  onMouseEnter={(e) => {
-                    if (!e.currentTarget.disabled) {
-                      e.currentTarget.style.backgroundColor = '#c9a94e';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!e.currentTarget.disabled) {
-                      e.currentTarget.style.backgroundColor = '#e0c26e';
-                    }
-                  }}
-                >
-                  {isExporting ? 'Exporting...' : 'Export Fill Image'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+              );
+            })()}
+          </>
+        )}
       </div>
     </div>
   );

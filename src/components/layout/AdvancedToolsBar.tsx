@@ -217,7 +217,7 @@ export default function AdvancedToolsBar({
           <ToolCard
             icon="🖼️"
             title="Pattern Fill Export"
-            description="Digital papers for Cricut & Silhouette"
+            description="Export for social media, Cricut & Silhouette"
             isPro={proAllowed}
             onClick={() => handleProToolClick(() => setIsRepeatExportOpen(true))}
             disabled={!image}
