@@ -1510,9 +1510,19 @@ export function evaluateColorHarmony(
   const hasClashes = clashingIndices.size > 0;
 
   // Band assignment — scheme-aware
+  // Check lightness spread: if colors have similar hues but very different lightness,
+  // they still read as distinct (e.g., light pink vs dark pink = high contrast tonal palette)
+  const lightnessValues = top.map(c => c.l);
+  const lightnessSpread = Math.max(...lightnessValues) - Math.min(...lightnessValues);
+
   let band: ColorHarmonyAnalysis['band'];
-  if (meanSpread < 25 && uniqueHues.length <= 2) {
+  if (meanSpread < 25 && uniqueHues.length <= 2 && lightnessSpread < 0.35) {
     band = 'too_similar';
+  } else if (meanSpread < 25 && uniqueHues.length <= 2 && lightnessSpread >= 0.35) {
+    // Close hues but strong lightness variation = intentional tonal/monochromatic palette
+    isRecognizedScheme = true;
+    effectiveScheme = 'monochromatic';
+    band = 'beautiful';
   } else if (isRecognizedScheme) {
     band = 'beautiful';
   } else if (hasClashes) {
