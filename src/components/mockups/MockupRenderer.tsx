@@ -301,16 +301,11 @@ export default function MockupRenderer({
       const baseTileHeight = visibleHeightPx / repeatsY;
       const tileAspect = tileHeight !== 0 ? tileWidth / tileHeight : 1;
 
-      const lockTileAspect = scalePreviewActive || template.id === 'wallpaper';
-      if (lockTileAspect) {
-        // Lock tile aspect to avoid squish
-        const widthFromHeight = baseTileHeight * tileAspect;
-        scaledPatternWidth = Math.min(baseTileWidth, widthFromHeight);
-        scaledPatternHeight = scaledPatternWidth / tileAspect;
-      } else {
-        scaledPatternWidth = baseTileWidth * zoomMultiplier;
-        scaledPatternHeight = baseTileHeight * zoomMultiplier;
-      }
+      // Physical dimensions already define the correct scale — don't apply viewport zoom.
+      // Lock tile aspect ratio to avoid squishing on non-square mockups.
+      const widthFromHeight = baseTileHeight * tileAspect;
+      scaledPatternWidth = Math.min(baseTileWidth, widthFromHeight);
+      scaledPatternHeight = scaledPatternWidth / tileAspect;
 
     } else {
       // Fallback: default to 2 tiles across/down without using zoom
