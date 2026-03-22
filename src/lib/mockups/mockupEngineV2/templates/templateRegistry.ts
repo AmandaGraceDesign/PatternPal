@@ -67,6 +67,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.85 },
     lighting: { enabled: true, intensity: 0.3 },
     physicalSize: { width: 20, height: 24, unit: 'in' },
+    sizeLabel: "20×24\" (50.8×61cm) Women's Skirt",
     productBase: { type: 'procedural', brightness: 200, shape: 'fabric-drape' },
   },
 
@@ -115,6 +116,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.88 },
     lighting: { enabled: true, intensity: 0.2 },
     physicalSize: { width: 60, height: 40, unit: 'in' },
+    sizeLabel: '60×40" (152.4×101.6cm) Tablecloth',
     productBase: { type: 'procedural', brightness: 220, shape: 'fabric-drape' },
   },
   'curtain': {
@@ -129,6 +131,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.85 },
     lighting: { enabled: true, intensity: 0.35 },
     physicalSize: { width: 42, height: 84, unit: 'in' },
+    sizeLabel: '42×84" (106.7×213.4cm) Curtain',
     productBase: { type: 'procedural', brightness: 200, shape: 'vertical-drape' },
   },
   'blanket': {
@@ -143,6 +146,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.87 },
     lighting: { enabled: true, intensity: 0.25 },
     physicalSize: { width: 50, height: 60, unit: 'in' },
+    sizeLabel: '50×60" (127×152.4cm) Blanket',
     productBase: { type: 'procedural', brightness: 215, shape: 'fabric-drape' },
   },
   'nursery-wall': {
@@ -157,6 +161,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.90 },
     lighting: { enabled: true, intensity: 0.15 },
     physicalSize: { width: 120, height: 96, unit: 'in' },
+    sizeLabel: '120×96" (304.8×243.8cm) Nursery Wall',
     productBase: { type: 'procedural', brightness: 240, shape: 'flat-surface' },
   },
 
@@ -188,6 +193,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.90 },
     lighting: { enabled: true, intensity: 0.2 },
     physicalSize: { width: 10, height: 13, unit: 'in' },
+    sizeLabel: '10×13" (25.4×33cm) Gift Bag',
     productBase: { type: 'procedural', brightness: 230, shape: 'flat-surface' },
   },
   'wrapping-paper-v2': {
@@ -202,6 +208,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.90 },
     lighting: { enabled: true, intensity: 0.2 },
     physicalSize: { width: 30, height: 20, unit: 'in' },
+    sizeLabel: '30×20" (76.2×50.8cm) Wrapping Paper (Flat Sheet)',
     productBase: { type: 'procedural', brightness: 240, shape: 'fabric-drape' },
   },
 
@@ -233,6 +240,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.88 },
     lighting: { enabled: true, intensity: 0.3 },
     physicalSize: { width: 20, height: 33, unit: 'in' },
+    sizeLabel: '20×33" (50.8×83.8cm) Wallpaper Roll',
     productBase: { type: 'procedural', brightness: 235, shape: 'cylindrical' },
   },
 
@@ -266,6 +274,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.82 },
     lighting: { enabled: true, intensity: 0.35 },
     physicalSize: { width: 36, height: 36, unit: 'in' },
+    sizeLabel: '36×36" (91.4×91.4cm) Silk Scarf',
     productBase: { type: 'procedural', brightness: 210, shape: 'fabric-drape' },
   },
   'phone-case': {
@@ -280,6 +289,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.90 },
     lighting: { enabled: true, intensity: 0.2 },
     physicalSize: { width: 3, height: 6, unit: 'in' },
+    sizeLabel: '3×6" (7.6×15.2cm) Phone Case',
     productBase: { type: 'procedural', brightness: 225, shape: 'radial-bulge' },
   },
   'desk-mat': {
@@ -294,6 +304,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     blend: { mode: 'multiply', opacity: 0.92 },
     lighting: { enabled: true, intensity: 0.15 },
     physicalSize: { width: 35, height: 16, unit: 'in' },
+    sizeLabel: '35×16" (88.9×40.6cm) Desk Mat',
     productBase: { type: 'procedural', brightness: 60, shape: 'flat-surface' },
   },
 };
