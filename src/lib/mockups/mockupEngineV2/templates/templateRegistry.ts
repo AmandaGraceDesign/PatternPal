@@ -2,6 +2,21 @@ import { MockupV2Template } from './types';
 
 export const mockupV2Templates: Record<string, MockupV2Template> = {
   // ─── Apparel ───
+  'onesie': {
+    id: 'onesie',
+    name: 'Baby Onesie',
+    description: 'See your pattern on a baby onesie',
+    category: 'apparel',
+    canvasSize: { width: 1024, height: 1024 },
+    patternArea: { x: 0, y: 0, width: 1024, height: 1024 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 0.9 },
+    lighting: { enabled: true, intensity: 0.25 },
+    physicalSize: { width: 10.5, height: 18, unit: 'in' },
+    sizeLabel: '10.5×18" (26.7×45.7cm) Baby Onesie',
+    productBase: { type: 'image', imagePath: '/mockups/onesie.png', maskPath: '/mockups/onesie_mask_new.png' },
+  },
   'tshirt-dress': {
     id: 'tshirt-dress',
     name: "Children's T-Shirt Dress",
@@ -55,7 +70,39 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     productBase: { type: 'procedural', brightness: 200, shape: 'fabric-drape' },
   },
 
+  // ─── Fabric ───
+  'fabric-swatch': {
+    id: 'fabric-swatch',
+    name: 'Fabric Swatch',
+    description: 'See your pattern on a fabric swatch',
+    category: 'fabric',
+    canvasSize: { width: 1024, height: 1024 },
+    patternArea: { x: 0, y: 0, width: 1024, height: 1024 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 0.9 },
+    lighting: { enabled: true, intensity: 0.25 },
+    physicalSize: { width: 12, height: 12, unit: 'in' },
+    sizeLabel: '12×12" (30.5×30.5cm) Fabric Swatch',
+    productBase: { type: 'image', imagePath: '/mockups/fabric_swatch.png', maskPath: '/mockups/fabric_swatch_mask.png' },
+  },
+
   // ─── Home Goods ───
+  'throw-pillow': {
+    id: 'throw-pillow',
+    name: 'Throw Pillow',
+    description: 'See your pattern on a throw pillow',
+    category: 'home-goods',
+    canvasSize: { width: 1024, height: 1024 },
+    patternArea: { x: 0, y: 0, width: 1024, height: 1024 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 0.9 },
+    lighting: { enabled: true, intensity: 0.25 },
+    physicalSize: { width: 18, height: 18, unit: 'in' },
+    sizeLabel: '18×18" (45.7×45.7cm) Throw Pillow',
+    productBase: { type: 'image', imagePath: '/mockups/throw_pillow.png', maskPath: '/mockups/throw_pillow_mask.png' },
+  },
   'tablecloth': {
     id: 'tablecloth',
     name: 'Tablecloth',
@@ -114,6 +161,21 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
   },
 
   // ─── Gifting ───
+  'wrapping-paper': {
+    id: 'wrapping-paper',
+    name: 'Wrapping Paper (Gift Box)',
+    description: 'See your pattern on a wrapped gift box',
+    category: 'gifting',
+    canvasSize: { width: 1024, height: 1024 },
+    patternArea: { x: 0, y: 0, width: 1024, height: 1024 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 0.9 },
+    lighting: { enabled: true, intensity: 0.25 },
+    physicalSize: { width: 8, height: 8, unit: 'in' },
+    sizeLabel: '8×8" (20.3×20.3cm) Wrapping Paper (Gift Box)',
+    productBase: { type: 'image', imagePath: '/mockups/wrapping_paper.png', maskPath: '/mockups/wrapping_paper_mask.png' },
+  },
   'gift-bag': {
     id: 'gift-bag',
     name: 'Gift Bag',
@@ -130,7 +192,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
   },
   'wrapping-paper-v2': {
     id: 'wrapping-paper-v2',
-    name: 'Wrapping Paper',
+    name: 'Wrapping Paper (Flat Sheet)',
     description: 'Wrapping paper sheet with gentle folds',
     category: 'gifting',
     canvasSize: { width: 900, height: 800 },
@@ -144,6 +206,21 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
   },
 
   // ─── Wallpaper ───
+  'wallpaper': {
+    id: 'wallpaper',
+    name: 'Wallpaper',
+    description: 'See your pattern as full-room wallpaper',
+    category: 'wallpaper',
+    canvasSize: { width: 1024, height: 1024 },
+    patternArea: { x: 0, y: 0, width: 1024, height: 1024 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 0.9 },
+    lighting: { enabled: true, intensity: 0.25 },
+    physicalSize: { width: 86, height: 60, unit: 'in' },
+    sizeLabel: '86×60" (218.4×152.4cm) Wallpaper',
+    productBase: { type: 'image', imagePath: '/mockups/wallpaper.png', maskPath: '/mockups/wallpaper_mask.png' },
+  },
   'wallpaper-roll': {
     id: 'wallpaper-roll',
     name: 'Wallpaper Roll',
@@ -157,6 +234,23 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     lighting: { enabled: true, intensity: 0.3 },
     physicalSize: { width: 20, height: 33, unit: 'in' },
     productBase: { type: 'procedural', brightness: 235, shape: 'cylindrical' },
+  },
+
+  // ─── Stationery ───
+  'journal': {
+    id: 'journal',
+    name: 'A5 Journal',
+    description: 'See your pattern on an A5 journal cover',
+    category: 'stationery',
+    canvasSize: { width: 1024, height: 1024 },
+    patternArea: { x: 0, y: 0, width: 1024, height: 1024 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 0.9 },
+    lighting: { enabled: true, intensity: 0.25 },
+    physicalSize: { width: 5.5, height: 8.5, unit: 'in' },
+    sizeLabel: '5.5×8.5" (14×21.6cm) A5 Journal',
+    productBase: { type: 'image', imagePath: '/mockups/journal.png', maskPath: '/mockups/journal_mask.png' },
   },
 
   // ─── Accessories ───
