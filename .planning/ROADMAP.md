@@ -27,11 +27,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. All 6 original mockups (onesie, fabric swatch, wallpaper, throw pillow, wrapping paper, journal) render through V2 engine with multiply blend
   3. Every template shows a human-readable sizeLabel (e.g., "13.5" x 18"") in the gallery card
   4. V2 gallery tab contains all 7 templates (6 migrated + kids dress), each renderable without errors
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Finish kids dress per-zone physical widths (MOCK-02)
-- [ ] 01-02: Migrate all 6 V1 mockups as single-zone V2 templates (MOCK-01, MOCK-03)
+- [ ] 01-01-PLAN.md — Per-zone physicalWidth for kids dress + test infrastructure (MOCK-02)
+- [ ] 01-02-PLAN.md — Migrate 6 V1 mockups + sizeLabels on all templates (MOCK-01, MOCK-03)
 
 ### Phase 2: Gallery Redesign
 **Goal**: MockupGalleryModal is a delight to use — live pattern previews, clear organization, works on mobile
