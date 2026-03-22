@@ -48,6 +48,9 @@ export interface MockupZone {
     type: DisplacementType;
   };
   blend: { mode: BlendMode; opacity: number };
+  /** Override physical width (inches) for tile scaling in this zone.
+   *  Falls back to template.physicalSize.width when absent. */
+  physicalWidth?: number;
 }
 
 export interface MockupV2Template {

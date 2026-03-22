@@ -175,11 +175,12 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       // Use a full-canvas mask image if provided, otherwise fall back to zone maskPath loading
       const maskImg = zoneMask || undefined;
 
+      const zonePhysicalWidth = zone.physicalWidth ?? template.physicalSize.width;
       const zoneResult = processZone(
         patternImage,
         zone,
         width, height,
-        template.physicalSize.width,
+        zonePhysicalWidth,
         dpi,
         repeatType,
         maskImg,
