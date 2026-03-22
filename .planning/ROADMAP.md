@@ -12,7 +12,7 @@ Three phases complete the V2 mockup system: first get all templates rendering th
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: V2 Templates Complete** - All mockup templates rendering through V2 engine with accurate sizing
+- [x] **Phase 1: V2 Templates Complete** - All mockup templates rendering through V2 engine with accurate sizing (completed 2026-03-22)
 - [ ] **Phase 2: Gallery Redesign** - MockupGalleryModal rebuilt with live previews, categories, and mobile UX
 - [ ] **Phase 3: Social Export + V1 Retirement** - Social export upgraded to V2, V1 engine deleted
 
@@ -68,6 +68,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. V2 Templates Complete | 1/2 | In Progress|  |
+| 1. V2 Templates Complete | 2/2 | Complete   | 2026-03-22 |
 | 2. Gallery Redesign | 0/1 | Not started | - |
 | 3. Social Export + V1 Retirement | 0/2 | Not started | - |

@@ -7,9 +7,9 @@
 
 ### Mockup Engine Migration
 
-- [ ] **MOCK-01**: All 6 V1 mockups (onesie, fabric swatch, wallpaper, throw pillow, wrapping paper, journal) render through V2 engine as single-zone templates
+- [x] **MOCK-01**: All 6 V1 mockups (onesie, fabric swatch, wallpaper, throw pillow, wrapping paper, journal) render through V2 engine as single-zone templates
 - [x] **MOCK-02**: Kids tshirt-dress renders with per-zone physical widths (bodice ~13.5", skirt hem ~18") for accurate tile scaling
-- [ ] **MOCK-03**: Every template has a human-readable sizeLabel displaying physical dimensions
+- [x] **MOCK-03**: Every template has a human-readable sizeLabel displaying physical dimensions
 - [ ] **MOCK-04**: V1 mockup rendering engine retired after all templates migrated
 
 ### Gallery Redesign
@@ -45,9 +45,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MOCK-01 | Phase 1 | Pending |
+| MOCK-01 | Phase 1 | Complete |
 | MOCK-02 | Phase 1 | Complete |
-| MOCK-03 | Phase 1 | Pending |
+| MOCK-03 | Phase 1 | Complete |
 | MOCK-04 | Phase 3 | Pending |
 | GALL-01 | Phase 2 | Pending |
 | GALL-02 | Phase 2 | Pending |

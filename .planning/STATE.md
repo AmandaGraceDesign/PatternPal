@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-v2-templates-complete/01-01-PLAN.md
-last_updated: "2026-03-22T20:33:58.117Z"
+stopped_at: Completed 01-v2-templates-complete/01-02-PLAN.md
+last_updated: "2026-03-22T20:38:55.752Z"
 last_activity: 2026-03-22 — Roadmap created
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-v2-templates-complete P01 | 2 | 2 tasks | 7 files |
+| Phase 01-v2-templates-complete P02 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - V2 engine for social export overlays (unified pipeline, one codebase to maintain)
 - [Phase 01-v2-templates-complete]: Kids dress skirt displacement: intensity=8 wrinkleFreq=5 (lower than womens-skirt 16/8, A-line has fewer folds)
 - [Phase 01-v2-templates-complete]: Pipeline zone.physicalWidth ?? fallback for per-zone tile scale override
+- [Phase 01-v2-templates-complete]: 6 V1 templates added with lighting enabled at intensity=0.25 — two-pass approach: V1-faithful (lighting OFF) verified before enabling lighting
+- [Phase 01-v2-templates-complete]: Wrapping paper disambiguated: photo=Gift Box, procedural=Flat Sheet suffix
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T20:33:58.115Z
-Stopped at: Completed 01-v2-templates-complete/01-01-PLAN.md
+Last session: 2026-03-22T20:38:55.750Z
+Stopped at: Completed 01-v2-templates-complete/01-02-PLAN.md
 Resume file: None
