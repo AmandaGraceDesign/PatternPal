@@ -68,6 +68,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. V2 Templates Complete | 0/2 | Not started | - |
+| 1. V2 Templates Complete | 1/2 | In Progress|  |
 | 2. Gallery Redesign | 0/1 | Not started | - |
 | 3. Social Export + V1 Retirement | 0/2 | Not started | - |
