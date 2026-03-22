@@ -177,7 +177,7 @@ export default function MockupGalleryModal({
                       {template.name}
                     </span>
                     <span className="block text-[10px] text-gray-400">
-                      {template.physicalSize.width}×{template.physicalSize.height}"
+                      {template.sizeLabel || `${template.physicalSize.width}×${template.physicalSize.height}"`}
                     </span>
                   </div>
                 </div>

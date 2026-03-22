@@ -9,31 +9,33 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     category: 'apparel',
     canvasSize: { width: 1856, height: 2304 },
     // Top-level defaults (used if zones are missing)
-    patternArea: { x: 300, y: 430, width: 1250, height: 1620 },
-    perspective: { topSqueeze: 35, bottomSqueeze: 5 },
-    displacement: { intensity: 14, wrinkleFreq: 7, type: 'fabric-drape' },
+    patternArea: { x: 430, y: 421, width: 1010, height: 1700 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
     blend: { mode: 'multiply', opacity: 0.85 },
     // Multi-zone: bodice and skirt rendered independently
+    // patternArea coords derived from actual mask white-pixel bounds
     zones: [
       {
         id: 'bodice',
         maskPath: '/mockups/v2/tshirt-dress_bodice.png',
-        patternArea: { x: 320, y: 430, width: 1160, height: 770 },
-        perspective: { topSqueeze: 10, bottomSqueeze: 0 },
-        displacement: { intensity: 2, wrinkleFreq: 3, type: 'flat-surface' },
+        patternArea: { x: 453, y: 421, width: 960, height: 896 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
         blend: { mode: 'multiply', opacity: 0.85 },
       },
       {
         id: 'skirt',
         maskPath: '/mockups/v2/tshirt-dress_skirt.png',
-        patternArea: { x: 300, y: 1150, width: 1250, height: 900 },
-        perspective: { topSqueeze: 10, bottomSqueeze: 0 },
-        displacement: { intensity: 3, wrinkleFreq: 4, type: 'fabric-drape' },
+        patternArea: { x: 430, y: 1307, width: 1007, height: 804 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
         blend: { mode: 'multiply', opacity: 0.85 },
       },
     ],
     lighting: { enabled: true, intensity: 0.25 },
-    physicalSize: { width: 14, height: 22, unit: 'in' },
+    physicalSize: { width: 13.5, height: 20.5, unit: 'in' },
+    sizeLabel: 'Size 5 Kids (13.5×20.5")',
     productBase: { type: 'image', imagePath: '/mockups/v2/tshirt-dress.png' },
   },
   'womens-skirt': {

@@ -75,6 +75,9 @@ export interface MockupV2Template {
 
   physicalSize: { width: number; height: number; unit: 'in' | 'cm' };
 
+  /** Human-readable size label shown in the mockup gallery, e.g. "Size 5 Kids (13.5×20.5\")" */
+  sizeLabel?: string;
+
   productBase:
     | {
         type: 'procedural';
