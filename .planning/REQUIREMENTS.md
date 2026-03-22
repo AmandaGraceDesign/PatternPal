@@ -45,22 +45,22 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MOCK-01 | TBD | Pending |
-| MOCK-02 | TBD | Pending |
-| MOCK-03 | TBD | Pending |
-| MOCK-04 | TBD | Pending |
-| GALL-01 | TBD | Pending |
-| GALL-02 | TBD | Pending |
-| GALL-03 | TBD | Pending |
-| GALL-04 | TBD | Pending |
-| SOCL-01 | TBD | Pending |
-| SOCL-02 | TBD | Pending |
+| MOCK-01 | Phase 1 | Pending |
+| MOCK-02 | Phase 1 | Pending |
+| MOCK-03 | Phase 1 | Pending |
+| MOCK-04 | Phase 3 | Pending |
+| GALL-01 | Phase 2 | Pending |
+| GALL-02 | Phase 2 | Pending |
+| GALL-03 | Phase 2 | Pending |
+| GALL-04 | Phase 2 | Pending |
+| SOCL-01 | Phase 3 | Pending |
+| SOCL-02 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-03-22 — traceability mapped after roadmap creation*
