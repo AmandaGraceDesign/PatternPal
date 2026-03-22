@@ -7,14 +7,34 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     name: "Children's T-Shirt Dress",
     description: 'A-line children\'s t-shirt dress with flowing fabric',
     category: 'apparel',
-    canvasSize: { width: 800, height: 1000 },
-    patternArea: { x: 200, y: 120, width: 400, height: 600 },
+    canvasSize: { width: 1856, height: 2304 },
+    // Top-level defaults (used if zones are missing)
+    patternArea: { x: 300, y: 430, width: 1250, height: 1620 },
     perspective: { topSqueeze: 35, bottomSqueeze: 5 },
     displacement: { intensity: 14, wrinkleFreq: 7, type: 'fabric-drape' },
     blend: { mode: 'multiply', opacity: 0.85 },
+    // Multi-zone: bodice and skirt rendered independently
+    zones: [
+      {
+        id: 'bodice',
+        maskPath: '/mockups/v2/tshirt-dress_bodice.png',
+        patternArea: { x: 320, y: 430, width: 1160, height: 770 },
+        perspective: { topSqueeze: 10, bottomSqueeze: 0 },
+        displacement: { intensity: 2, wrinkleFreq: 3, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 0.85 },
+      },
+      {
+        id: 'skirt',
+        maskPath: '/mockups/v2/tshirt-dress_skirt.png',
+        patternArea: { x: 300, y: 1150, width: 1250, height: 900 },
+        perspective: { topSqueeze: 10, bottomSqueeze: 0 },
+        displacement: { intensity: 3, wrinkleFreq: 4, type: 'fabric-drape' },
+        blend: { mode: 'multiply', opacity: 0.85 },
+      },
+    ],
     lighting: { enabled: true, intensity: 0.25 },
     physicalSize: { width: 14, height: 22, unit: 'in' },
-    productBase: { type: 'procedural', brightness: 210, shape: 'fabric-drape' },
+    productBase: { type: 'image', imagePath: '/mockups/v2/tshirt-dress.png' },
   },
   'womens-skirt': {
     id: 'womens-skirt',

@@ -31,6 +31,25 @@ export type MockupV2Category =
   | 'wallpaper'
   | 'fabric';
 
+/**
+ * A zone defines a region of a mockup where the pattern is applied
+ * with its own perspective, displacement, and mask settings.
+ * Multiple zones allow different garment sections (bodice, skirt)
+ * to have independent warp/fold behavior while sharing the same pattern.
+ */
+export interface MockupZone {
+  id: string;
+  maskPath: string;
+  patternArea: { x: number; y: number; width: number; height: number };
+  perspective: { topSqueeze: number; bottomSqueeze: number };
+  displacement: {
+    intensity: number;
+    wrinkleFreq: number;
+    type: DisplacementType;
+  };
+  blend: { mode: BlendMode; opacity: number };
+}
+
 export interface MockupV2Template {
   id: string;
   name: string;
@@ -39,17 +58,18 @@ export interface MockupV2Template {
 
   canvasSize: { width: number; height: number };
 
+  /** Single-zone templates use these top-level fields. */
   patternArea: { x: number; y: number; width: number; height: number };
-
   perspective: { topSqueeze: number; bottomSqueeze: number };
-
   displacement: {
     intensity: number;
     wrinkleFreq: number;
     type: DisplacementType;
   };
-
   blend: { mode: BlendMode; opacity: number };
+
+  /** Multi-zone templates define zones here. Overrides top-level patternArea/perspective/displacement/blend. */
+  zones?: MockupZone[];
 
   lighting: { enabled: boolean; intensity: number };
 

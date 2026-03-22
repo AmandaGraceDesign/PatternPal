@@ -9,8 +9,10 @@ import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
+import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
+import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
@@ -333,88 +335,105 @@ export default function AdvancedToolsBar({
         onUpgrade={() => setIsUpgradeModalOpen(true)}
       />
 
-      {selectedMockup && (
-        <MockupModal
-          isOpen={!!selectedMockup}
-          onClose={() => {
-            setSelectedMockup(null);
-            setMockupColorOverride(null);
-          }}
-          title={getMockupTemplate(selectedMockup as any)?.name}
-          subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
-          onDownload={async () => {
-            const allowed = await verifyProAccess();
-            if (!allowed) {
-              setIsUpgradeModalOpen(true);
-              return;
-            }
+      {selectedMockup && (() => {
+        const v1Template = getMockupTemplate(selectedMockup as any);
+        const v2Template = getV2Template(selectedMockup);
+        const mockupName = v1Template?.name || v2Template?.name || selectedMockup;
 
-            const mockupCanvas = document.querySelector(
-              '[data-mockup-modal] .mockup-canvas'
-            ) as HTMLCanvasElement | null;
-            if (mockupCanvas) {
-              const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
-              const link = document.createElement('a');
-              const template = getMockupTemplate(selectedMockup as any);
-              const templateSlug =
-                template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-              const baseName = originalFilename
-                ? `${originalFilename}-${templateSlug}`
-                : `mockup-${templateSlug}`;
-              const suggested = sanitizeFilename(baseName, 'mockup');
-              const userInput = window.prompt('Name your mockup file:', suggested);
-              if (!userInput) return;
-              link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
-              link.href = dataURL;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }
-          }}
-        >
-          <div className="flex flex-col gap-3">
-            {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
-              <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
-                <label className="text-xs font-medium text-[#294051]">
-                  {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
-                </label>
-                <input
-                  type="color"
-                  value={mockupColorOverride || '#ffffff'}
-                  onChange={(e) => setMockupColorOverride(e.target.value)}
-                  className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
-                />
-                {mockupColorOverride && (
-                  <button
-                    onClick={() => setMockupColorOverride(null)}
-                    className="text-xs text-[#705046] hover:text-[#294051] underline"
-                  >
-                    Reset to auto
-                  </button>
-                )}
-              </div>
-            )}
+        return (
+          <MockupModal
+            isOpen={!!selectedMockup}
+            onClose={() => {
+              setSelectedMockup(null);
+              setMockupColorOverride(null);
+            }}
+            title={mockupName}
+            subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
+            onDownload={async () => {
+              const allowed = await verifyProAccess();
+              if (!allowed) {
+                setIsUpgradeModalOpen(true);
+                return;
+              }
 
-            <div className="flex items-center justify-center bg-white rounded-lg p-4">
-              <div className="w-full max-w-2xl">
-                <MockupRenderer
-                  template={getMockupTemplate(selectedMockup as any)}
-                  patternImage={image}
-                  tileWidth={tileWidth}
-                  tileHeight={tileHeight}
-                  dpi={dpi}
-                  repeatType={repeatType}
-                  zoom={zoom}
-                  scaleFactor={scaleFactor}
-                  scalePreviewActive={scalePreviewActive}
-                  onClick={() => {}}
-                  colorOverride={mockupColorOverride}
-                />
+              const mockupCanvas = document.querySelector(
+                '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
+              ) as HTMLCanvasElement | null;
+              if (mockupCanvas) {
+                const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
+                const link = document.createElement('a');
+                const templateSlug =
+                  mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+                const baseName = originalFilename
+                  ? `${originalFilename}-${templateSlug}`
+                  : `mockup-${templateSlug}`;
+                const suggested = sanitizeFilename(baseName, 'mockup');
+                const userInput = window.prompt('Name your mockup file:', suggested);
+                if (!userInput) return;
+                link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
+                link.href = dataURL;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            }}
+          >
+            <div className="flex flex-col gap-3">
+              {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
+                <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
+                  <label className="text-xs font-medium text-[#294051]">
+                    {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
+                  </label>
+                  <input
+                    type="color"
+                    value={mockupColorOverride || '#ffffff'}
+                    onChange={(e) => setMockupColorOverride(e.target.value)}
+                    className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
+                  />
+                  {mockupColorOverride && (
+                    <button
+                      onClick={() => setMockupColorOverride(null)}
+                      className="text-xs text-[#705046] hover:text-[#294051] underline"
+                    >
+                      Reset to auto
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-center bg-white rounded-lg p-4">
+                <div className="w-full max-w-2xl">
+                  {v2Template ? (
+                    <MockupRendererV2
+                      template={v2Template}
+                      patternImage={image}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      dpi={dpi}
+                      repeatType={repeatType}
+                      onClick={() => {}}
+                    />
+                  ) : (
+                    <MockupRenderer
+                      template={getMockupTemplate(selectedMockup as any)}
+                      patternImage={image}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      dpi={dpi}
+                      repeatType={repeatType}
+                      zoom={zoom}
+                      scaleFactor={scaleFactor}
+                      scalePreviewActive={scalePreviewActive}
+                      onClick={() => {}}
+                      colorOverride={mockupColorOverride}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </MockupModal>
-      )}
+          </MockupModal>
+        );
+      })()}
 
       <UpgradeModal
         isOpen={isUpgradeModalOpen}

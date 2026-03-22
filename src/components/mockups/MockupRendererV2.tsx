@@ -15,6 +15,16 @@ interface MockupRendererV2Props {
   onClick?: () => void;
 }
 
+/** Loads an image from a URL path, returns null on failure. */
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 export default function MockupRendererV2({
   template,
   patternImage,
@@ -30,11 +40,35 @@ export default function MockupRendererV2({
   useEffect(() => {
     if (!patternImage || !canvasRef.current) return;
 
+    let cancelled = false;
     setIsRendering(true);
 
-    // Use requestAnimationFrame to avoid blocking paint
-    requestAnimationFrame(() => {
+    (async () => {
       try {
+        // Load product base image if template uses image type
+        let productBaseImage: HTMLImageElement | null = null;
+        if (template.productBase.type === 'image') {
+          productBaseImage = await loadImage(template.productBase.imagePath);
+        }
+
+        // Load single mask if defined on image product base
+        let productMaskImage: HTMLImageElement | null = null;
+        if (template.productBase.type === 'image' && template.productBase.maskPath) {
+          productMaskImage = await loadImage(template.productBase.maskPath);
+        }
+
+        // Load zone masks if template has zones
+        const zoneMasks: Record<string, HTMLImageElement> = {};
+        if (template.zones) {
+          const maskLoads = template.zones.map(async (zone) => {
+            const img = await loadImage(zone.maskPath);
+            if (img) zoneMasks[zone.id] = img;
+          });
+          await Promise.all(maskLoads);
+        }
+
+        if (cancelled) return;
+
         const resultCanvas = runPipeline({
           patternImage,
           template,
@@ -42,10 +76,13 @@ export default function MockupRendererV2({
           dpi,
           tileWidth,
           tileHeight,
+          zoneMasks: Object.keys(zoneMasks).length > 0 ? zoneMasks : undefined,
+          productBaseImage: productBaseImage || undefined,
+          productMaskImage: productMaskImage || undefined,
         });
 
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || cancelled) return;
 
         canvas.width = resultCanvas.width;
         canvas.height = resultCanvas.height;
@@ -56,9 +93,11 @@ export default function MockupRendererV2({
       } catch (err) {
         console.error('MockupRendererV2 render error:', err);
       } finally {
-        setIsRendering(false);
+        if (!cancelled) setIsRendering(false);
       }
-    });
+    })();
+
+    return () => { cancelled = true; };
   }, [patternImage, template, tileWidth, tileHeight, dpi, repeatType]);
 
   return (
