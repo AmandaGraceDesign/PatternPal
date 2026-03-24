@@ -16,6 +16,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     physicalSize: { width: 10.5, height: 18, unit: 'in' },
     sizeLabel: '10.5×18" (26.7×45.7cm) Baby Onesie',
     productBase: { type: 'image', imagePath: '/mockups/onesie.png', maskPath: '/mockups/onesie_mask_new.png' },
+    colorOverlay: { maskPath: '/mockups/onesie_mask_color.png', defaultColor: 'auto' },
   },
   'tshirt-dress': {
     id: 'tshirt-dress',
@@ -180,6 +181,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     physicalSize: { width: 8, height: 8, unit: 'in' },
     sizeLabel: '8×8" (20.3×20.3cm) Wrapping Paper (Gift Box)',
     productBase: { type: 'image', imagePath: '/mockups/wrapping_paper.png', maskPath: '/mockups/wrapping_paper_mask.png' },
+    colorOverlay: { maskPath: '/mockups/wrapping_paper_bow_mask.png', defaultColor: 'auto' },
   },
   'gift-bag': {
     id: 'gift-bag',

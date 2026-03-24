@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
+import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
@@ -11,6 +12,7 @@ import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
+import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 
@@ -357,19 +359,35 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             {/* Mockup preview */}
             <div className="flex items-center justify-center bg-white rounded-lg p-4">
               <div className="w-full max-w-2xl">
-                <MockupRenderer
-                  template={getMockupTemplate(selectedMockup as any)}
-                  patternImage={image}
-                  tileWidth={tileWidth}
-                  tileHeight={tileHeight}
-                  dpi={dpi}
-                  repeatType={repeatType}
-                  zoom={zoom}
-                  scaleFactor={scaleFactor}
-                  scalePreviewActive={scalePreviewActive}
-                  onClick={() => {}}
-                  colorOverride={mockupColorOverride}
-                />
+                {(() => {
+                  const v2Tmpl = getV2Template(selectedMockup);
+                  return v2Tmpl ? (
+                    <MockupRendererV2
+                      template={v2Tmpl}
+                      patternImage={image}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      dpi={dpi}
+                      repeatType={repeatType}
+                      onClick={() => {}}
+                      colorOverride={mockupColorOverride}
+                    />
+                  ) : (
+                    <MockupRenderer
+                      template={getMockupTemplate(selectedMockup as any)}
+                      patternImage={image}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      dpi={dpi}
+                      repeatType={repeatType}
+                      zoom={zoom}
+                      scaleFactor={scaleFactor}
+                      scalePreviewActive={scalePreviewActive}
+                      onClick={() => {}}
+                      colorOverride={mockupColorOverride}
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>

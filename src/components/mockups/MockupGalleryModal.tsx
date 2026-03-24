@@ -1,23 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import MockupRenderer from './MockupRenderer';
 import MockupRendererV2 from './MockupRendererV2';
-import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getAllV2Templates } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import UpgradeModal from '@/components/export/UpgradeModal';
-
-const MOCKUP_TYPES = ['onesie', 'fabric-swatch', 'wallpaper', 'throw-pillow', 'wrapping-paper', 'journal'] as const;
-
-// Map V1 classic mockups into their respective categories
-const V1_CATEGORY_MAP: Record<string, string> = {
-  'onesie': 'apparel',
-  'fabric-swatch': 'fabric',
-  'wallpaper': 'wallpaper',
-  'throw-pillow': 'home-goods',
-  'wrapping-paper': 'gifting',
-  'journal': 'stationery',
-};
 
 interface MockupGalleryModalProps {
   isOpen: boolean;
@@ -124,41 +110,6 @@ export default function MockupGalleryModal({
         {/* Content */}
         <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(85vh - 96px)' }}>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {/* V1 Mockups (filtered by category) */}
-            {MOCKUP_TYPES
-              .filter((mockupType) => activeCategory === 'all' || V1_CATEGORY_MAP[mockupType] === activeCategory)
-              .map((mockupType) => {
-                const template = getMockupTemplate(mockupType);
-                return (
-                  <div key={mockupType} className="relative">
-                    <MockupRenderer
-                      template={template}
-                      patternImage={image}
-                      tileWidth={tileWidth}
-                      tileHeight={tileHeight}
-                      dpi={dpi}
-                      repeatType={repeatType}
-                      zoom={zoom}
-                      scaleFactor={scaleFactor}
-                      scalePreviewActive={scalePreviewActive}
-                      onClick={() => onSelectMockup(mockupType)}
-                    />
-                    <div className="mt-1 text-center">
-                      <span className="text-xs font-medium text-[#294051]">
-                        {template?.name || mockupType}
-                      </span>
-                      {template?.physicalDimensions?.displayLabel && (
-                        <span className="block text-[10px] text-gray-400">
-                          {template.physicalDimensions.displayLabel}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            }
-
-            {/* V2 New Mockups */}
             {v2Templates
               .filter(t => activeCategory === 'all' || t.category === activeCategory)
               .map((template) => (

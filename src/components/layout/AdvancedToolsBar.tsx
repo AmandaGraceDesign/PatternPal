@@ -412,6 +412,7 @@ export default function AdvancedToolsBar({
                       dpi={dpi}
                       repeatType={repeatType}
                       onClick={() => {}}
+                      colorOverride={mockupColorOverride}
                     />
                   ) : (
                     <MockupRenderer

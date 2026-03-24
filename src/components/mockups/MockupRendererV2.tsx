@@ -13,6 +13,8 @@ interface MockupRendererV2Props {
   dpi: number;
   repeatType: RepeatType;
   onClick?: () => void;
+  /** User-chosen accent color for trim/bow. When absent, auto-detect from pattern. */
+  colorOverride?: string | null;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -33,6 +35,7 @@ export default function MockupRendererV2({
   dpi,
   repeatType,
   onClick,
+  colorOverride,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -57,6 +60,12 @@ export default function MockupRendererV2({
           productMaskImage = await loadImage(template.productBase.maskPath);
         }
 
+        // Load color overlay mask if template has one
+        let colorOverlayMaskImage: HTMLImageElement | null = null;
+        if (template.colorOverlay?.maskPath) {
+          colorOverlayMaskImage = await loadImage(template.colorOverlay.maskPath);
+        }
+
         // Load zone masks if template has zones
         const zoneMasks: Record<string, HTMLImageElement> = {};
         if (template.zones) {
@@ -79,6 +88,8 @@ export default function MockupRendererV2({
           zoneMasks: Object.keys(zoneMasks).length > 0 ? zoneMasks : undefined,
           productBaseImage: productBaseImage || undefined,
           productMaskImage: productMaskImage || undefined,
+          colorOverlayMaskImage: colorOverlayMaskImage || undefined,
+          colorOverride: colorOverride ?? undefined,
         });
 
         const canvas = canvasRef.current;
@@ -98,7 +109,7 @@ export default function MockupRendererV2({
     })();
 
     return () => { cancelled = true; };
-  }, [patternImage, template, tileWidth, tileHeight, dpi, repeatType]);
+  }, [patternImage, template, tileWidth, tileHeight, dpi, repeatType, colorOverride]);
 
   return (
     <div

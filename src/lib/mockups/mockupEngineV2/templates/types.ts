@@ -81,6 +81,16 @@ export interface MockupV2Template {
   /** Human-readable size label shown in the mockup gallery, e.g. "Size 5 Kids (13.5×20.5\")" */
   sizeLabel?: string;
 
+  /** Optional accent color overlay (e.g., onesie trim, wrapping paper bow).
+   *  Fills the masked region with a solid color (auto-detected from pattern
+   *  background or user-chosen) and composites it onto the final result. */
+  colorOverlay?: {
+    maskPath: string;
+    /** Default color when no user override is provided. If 'auto', extract
+     *  the dominant background colour from the pattern image at render time. */
+    defaultColor: string | 'auto';
+  };
+
   productBase:
     | {
         type: 'procedural';
