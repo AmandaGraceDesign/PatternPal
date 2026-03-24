@@ -14,10 +14,10 @@
 
 ### Gallery Redesign
 
-- [ ] **GALL-01**: Mockups organized by category tabs (apparel, home decor, stationery, etc.)
-- [ ] **GALL-02**: Thumbnail cards show user's actual pattern applied to mockup (live preview)
-- [ ] **GALL-03**: Cards display sizeLabel and physical dimensions clearly
-- [ ] **GALL-04**: Gallery works well on iPad and phone (44px touch targets, responsive layout)
+- [x] **GALL-01**: Mockups organized by category tabs (apparel, home decor, stationery, etc.)
+- [x] **GALL-02**: Thumbnail cards show user's actual pattern applied to mockup (live preview)
+- [x] **GALL-03**: Cards display sizeLabel and physical dimensions clearly
+- [x] **GALL-04**: Gallery works well on iPad and phone (44px touch targets, responsive layout)
 
 ### Social Media Export Integration
 
@@ -49,10 +49,10 @@
 | MOCK-02 | Phase 1 | Complete |
 | MOCK-03 | Phase 1 | Complete |
 | MOCK-04 | Phase 3 | Pending |
-| GALL-01 | Phase 2 | Pending |
-| GALL-02 | Phase 2 | Pending |
-| GALL-03 | Phase 2 | Pending |
-| GALL-04 | Phase 2 | Pending |
+| GALL-01 | Phase 2 | Complete |
+| GALL-02 | Phase 2 | Complete |
+| GALL-03 | Phase 2 | Complete |
+| GALL-04 | Phase 2 | Complete |
 | SOCL-01 | Phase 3 | Pending |
 | SOCL-02 | Phase 3 | Pending |
 
