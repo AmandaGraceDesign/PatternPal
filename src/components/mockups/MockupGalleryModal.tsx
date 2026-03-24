@@ -180,7 +180,7 @@ export default function MockupGalleryModal({
               onClick={() => setActiveCategory(cat)}
               className={`min-h-[44px] px-3 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all ${
                 activeCategory === cat
-                  ? 'bg-[#d97706] text-white shadow-[0_2px_8px_rgba(217,119,6,0.4)]'
+                  ? 'bg-[#fbbf24] text-white shadow-[0_2px_8px_rgba(251,191,36,0.4)]'
                   : 'bg-white/10 text-white/70 hover:bg-white/20'
               }`}
             >
