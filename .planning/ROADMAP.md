@@ -42,10 +42,10 @@ Plans:
   2. Every gallery card shows the user's actual uploaded pattern tiled onto the product thumbnail in real time
   3. Each card displays the sizeLabel and physical dimensions clearly (readable without tapping)
   4. Gallery is usable on iPhone and iPad — all tap targets 44px+, no horizontal scrolling, layout adapts to narrow screens
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: Redesign MockupGalleryModal with category tabs, live previews, size display, mobile layout (GALL-01, GALL-02, GALL-03, GALL-04)
+- [ ] 02-01-PLAN.md — Rewrite MockupGalleryModal with category tabs, staggered live previews, readable labels, responsive layout (GALL-01, GALL-02, GALL-03, GALL-04)
 
 ### Phase 3: Social Export + V1 Retirement
 **Goal**: Social media export uses V2 rendering throughout and the V1 engine is deleted
