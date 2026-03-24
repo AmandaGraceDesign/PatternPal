@@ -117,7 +117,7 @@ export default function PatternControlsTopBar({
       reader.onerror = () => {
         console.error('Failed to read file in controls bar:', reader.error);
         inputEl.value = '';
-        onFileUpload(file);
+        alert('Could not read that file. If it\'s stored in iCloud, Google Drive, or Dropbox, make sure it\'s downloaded locally first, then try again.');
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -150,7 +150,7 @@ export default function PatternControlsTopBar({
         onFileUpload(file, blob);
       };
       reader.onerror = () => {
-        onFileUpload(file);
+        alert('Could not read that file. If it\'s stored in iCloud, Google Drive, or Dropbox, make sure it\'s downloaded locally first, then try again.');
       };
       reader.readAsArrayBuffer(file);
     }

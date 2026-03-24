@@ -41,7 +41,7 @@ export interface MockupZone {
   id: string;
   maskPath: string;
   patternArea: { x: number; y: number; width: number; height: number };
-  perspective: { topSqueeze: number; bottomSqueeze: number };
+  perspective: { topSqueeze: number; bottomSqueeze: number; rightSqueeze?: number };
   displacement: {
     intensity: number;
     wrinkleFreq: number;
@@ -51,6 +51,10 @@ export interface MockupZone {
   /** Override physical width (inches) for tile scaling in this zone.
    *  Falls back to template.physicalSize.width when absent. */
   physicalWidth?: number;
+  /** Vertical foreshortening factor for receding surfaces (e.g. table tops).
+   *  When > 1, samples more rows from the shared tile and compresses them
+   *  vertically, showing more pattern depth in a shallow strip. */
+  foreshorten?: number;
 }
 
 export interface MockupV2Template {
@@ -63,7 +67,7 @@ export interface MockupV2Template {
 
   /** Single-zone templates use these top-level fields. */
   patternArea: { x: number; y: number; width: number; height: number };
-  perspective: { topSqueeze: number; bottomSqueeze: number };
+  perspective: { topSqueeze: number; bottomSqueeze: number; rightSqueeze?: number };
   displacement: {
     intensity: number;
     wrinkleFreq: number;
@@ -73,6 +77,11 @@ export interface MockupV2Template {
 
   /** Multi-zone templates define zones here. Overrides top-level patternArea/perspective/displacement/blend. */
   zones?: MockupZone[];
+
+  /** When set, all zones share one continuous tiled pattern across this bounding box.
+   *  Each zone extracts its sub-region from the shared tile instead of tiling independently.
+   *  Use for templates where the pattern must flow seamlessly across zones (e.g. tablecloth). */
+  sharedPatternArea?: { x: number; y: number; width: number; height: number };
 
   lighting: { enabled: boolean; intensity: number };
 

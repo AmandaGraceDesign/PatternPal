@@ -223,6 +223,7 @@ export default function Home() {
       reader.readAsArrayBuffer(file);
     }).catch((readError) => {
       console.error('Failed to read file:', readError);
+      alert('Could not read that file. If it\'s stored in iCloud, Google Drive, or Dropbox, make sure it\'s downloaded locally first, then try again.');
       return null;
     });
 
@@ -471,7 +472,7 @@ export default function Home() {
         handleFileUpload(file, blob);
       };
       reader.onerror = () => {
-        handleFileUpload(file);
+        alert('Could not read that file. If it\'s stored in iCloud, Google Drive, or Dropbox, make sure it\'s downloaded locally first, then try again.');
       };
       reader.readAsArrayBuffer(file);
     }

@@ -5,6 +5,8 @@
  *
  * topSqueeze: pixels to inset from each side at the top (0 = no squeeze)
  * bottomSqueeze: pixels to inset from each side at the bottom (0 = no squeeze)
+ * rightSqueeze: additional pixels to inset the right edge at the top, tapering
+ *   to 0 at the bottom — for surfaces that recede to the right (e.g. table top)
  */
 export function applyPerspective(
   srcCanvas: HTMLCanvasElement,
@@ -12,19 +14,21 @@ export function applyPerspective(
   width: number,
   height: number,
   topSqueeze: number,
-  bottomSqueeze: number
+  bottomSqueeze: number,
+  rightSqueeze: number = 0,
 ): void {
   destCtx.clearRect(0, 0, width, height);
 
   // Skip if no perspective needed
-  if (topSqueeze === 0 && bottomSqueeze === 0) {
+  if (topSqueeze === 0 && bottomSqueeze === 0 && rightSqueeze === 0) {
     destCtx.drawImage(srcCanvas, 0, 0);
     return;
   }
 
   // Four corners of destination quadrilateral
+  // rightSqueeze pushes the top-right corner inward (receding right edge)
   const tl = [topSqueeze, topSqueeze * 0.5];
-  const tr = [width - topSqueeze, topSqueeze * 0.5];
+  const tr = [width - topSqueeze - rightSqueeze, topSqueeze * 0.5];
   const bl = [bottomSqueeze, height - bottomSqueeze * 0.5];
   const br = [width - bottomSqueeze, height - bottomSqueeze * 0.5];
 

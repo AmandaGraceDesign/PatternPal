@@ -66,8 +66,9 @@ function processZone(
   patternImage: HTMLImageElement | HTMLCanvasElement,
   zone: {
     patternArea: { x: number; y: number; width: number; height: number };
-    perspective: { topSqueeze: number; bottomSqueeze: number };
+    perspective: { topSqueeze: number; bottomSqueeze: number; rightSqueeze?: number };
     displacement: { intensity: number; wrinkleFreq: number; type: string };
+    foreshorten?: number;
   },
   canvasWidth: number,
   canvasHeight: number,
@@ -76,6 +77,10 @@ function processZone(
   tileHeightInches: number,
   repeatType: RepeatType,
   maskImage?: HTMLImageElement,
+  /** Pre-tiled canvas covering sharedPatternArea. When provided, zone extracts its
+   *  sub-region instead of tiling independently — gives continuous pattern across zones. */
+  sharedTiledCanvas?: HTMLCanvasElement,
+  sharedPatternArea?: { x: number; y: number; width: number; height: number },
 ): HTMLCanvasElement {
   const { patternArea, perspective, displacement } = zone;
 
@@ -83,25 +88,39 @@ function processZone(
   const tileCanvas = document.createElement('canvas');
   tileCanvas.width = patternArea.width;
   tileCanvas.height = patternArea.height;
-
-  // Scale tile to physically accurate size:
-  // How many tiles fit across the mockup's physical width?
-  const repeatsX = physicalWidth / tileWidthInches;
-  // Each tile occupies this many pixels in the pattern area
-  const scaledW = Math.round(patternArea.width / repeatsX) || 1;
-  // Maintain tile aspect ratio
-  const tileAspect = tileWidthInches / tileHeightInches;
-  const scaledH = Math.round(scaledW / tileAspect) || 1;
-
-  const scaledTile = document.createElement('canvas');
-  scaledTile.width = scaledW;
-  scaledTile.height = scaledH;
-  const scaledCtx = scaledTile.getContext('2d')!;
-  scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
-
   const tileCtx = tileCanvas.getContext('2d')!;
-  const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
-  tiler.renderPreScaled(scaledTile, repeatType);
+
+  if (sharedTiledCanvas && sharedPatternArea) {
+    // Extract this zone's sub-region from the shared tile
+    const offsetX = patternArea.x - sharedPatternArea.x;
+    const offsetY = patternArea.y - sharedPatternArea.y;
+    const foreshortenFactor = zone.foreshorten ?? 1;
+    // When foreshortened, sample more vertical rows and compress into zone height
+    const sampleHeight = Math.round(patternArea.height * foreshortenFactor);
+    tileCtx.drawImage(
+      sharedTiledCanvas,
+      offsetX, offsetY, patternArea.width, sampleHeight,
+      0, 0, patternArea.width, patternArea.height
+    );
+  } else {
+    // Scale tile to physically accurate size:
+    // How many tiles fit across the mockup's physical width?
+    const repeatsX = physicalWidth / tileWidthInches;
+    // Each tile occupies this many pixels in the pattern area
+    const scaledW = Math.round(patternArea.width / repeatsX) || 1;
+    // Maintain tile aspect ratio
+    const tileAspect = tileWidthInches / tileHeightInches;
+    const scaledH = Math.round(scaledW / tileAspect) || 1;
+
+    const scaledTile = document.createElement('canvas');
+    scaledTile.width = scaledW;
+    scaledTile.height = scaledH;
+    const scaledCtx = scaledTile.getContext('2d')!;
+    scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
+
+    const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
+    tiler.renderPreScaled(scaledTile, repeatType);
+  }
 
   // --- Stage 2: Perspective Warp ---
   const perspCanvas = document.createElement('canvas');
@@ -111,7 +130,8 @@ function processZone(
   applyPerspective(
     tileCanvas, perspCtx,
     patternArea.width, patternArea.height,
-    perspective.topSqueeze, perspective.bottomSqueeze
+    perspective.topSqueeze, perspective.bottomSqueeze,
+    perspective.rightSqueeze ?? 0,
   );
 
   // --- Stage 3: Displacement ---
@@ -235,7 +255,30 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   finalCtx.drawImage(productCanvas, 0, 0);
 
   if (template.zones && template.zones.length > 0) {
-    // Multi-zone: process each zone independently and composite
+    // Pre-tile shared pattern if sharedPatternArea is defined (continuous pattern across zones)
+    let sharedTiledCanvas: HTMLCanvasElement | undefined;
+    if (template.sharedPatternArea) {
+      const spa = template.sharedPatternArea;
+      sharedTiledCanvas = document.createElement('canvas');
+      sharedTiledCanvas.width = spa.width;
+      sharedTiledCanvas.height = spa.height;
+
+      const repeatsX = template.physicalSize.width / tileWidth;
+      const scaledW = Math.round(spa.width / repeatsX) || 1;
+      const tileAspect = tileWidth / tileHeight;
+      const scaledH = Math.round(scaledW / tileAspect) || 1;
+
+      const scaledTile = document.createElement('canvas');
+      scaledTile.width = scaledW;
+      scaledTile.height = scaledH;
+      scaledTile.getContext('2d')!.drawImage(patternImage, 0, 0, scaledW, scaledH);
+
+      const sharedCtx = sharedTiledCanvas.getContext('2d')!;
+      const sharedTiler = new PatternTiler(sharedCtx, spa.width, spa.height);
+      sharedTiler.renderPreScaled(scaledTile, repeatType);
+    }
+
+    // Multi-zone: process each zone and composite
     for (const zone of template.zones) {
       const zoneMask = input.zoneMasks?.[zone.id];
       // Use a full-canvas mask image if provided, otherwise fall back to zone maskPath loading
@@ -251,6 +294,8 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         tileHeight,
         repeatType,
         maskImg,
+        sharedTiledCanvas,
+        template.sharedPatternArea,
       );
 
       // Composite this zone onto the final canvas
