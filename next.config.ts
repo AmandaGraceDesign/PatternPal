@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       "https://js.stripe.com",
       "https://challenges.cloudflare.com",
       "https://r.wdfl.co",
+      "https://www.googletagmanager.com",
+      "https://www.google-analytics.com",
+      "https://tagmanager.google.com",
     ];
 
     if (isDev) {
@@ -27,9 +30,9 @@ const nextConfig: NextConfig = {
       "frame-ancestors 'none'",
       `script-src ${scriptSrc.join(" ")}`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https://img.clerk.com",
+      "img-src 'self' data: blob: https://img.clerk.com https://www.googletagmanager.com",
       "font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai",
-      "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://*.accounts.dev https://clerk.amandagracedesign.com https://api.stripe.com https://r.stripe.com https://r.wdfl.co https://*.rewardful.com https://*.getrewardful.com",
+      "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://*.accounts.dev https://clerk.amandagracedesign.com https://api.stripe.com https://r.stripe.com https://r.wdfl.co https://*.rewardful.com https://*.getrewardful.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://buphppye.usa.stape.io",
       "frame-src https://*.clerk.com https://*.clerk.dev https://*.accounts.dev https://clerk.amandagracedesign.com https://js.stripe.com https://challenges.cloudflare.com",
       "worker-src 'self' blob:",
     ].join("; ");
