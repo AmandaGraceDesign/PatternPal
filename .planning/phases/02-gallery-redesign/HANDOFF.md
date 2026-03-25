@@ -1,65 +1,53 @@
-# Phase 2 Handoff — Gallery Redesign + Tablecloth Template
+# Tablecloth Template Handoff — UV Warp Implementation Needed
 
-**Date:** 2026-03-24
+**Date:** 2026-03-25
 **Branch:** mockup-upgrade
-**Status:** Phase 2 complete, tablecloth template in progress (tuning), Phase 3 pending
+**Status:** Tablecloth template functional but perspective warp needs UV-based approach
 
-## What Was Done (This Session)
+## What's Done
+- Photo-based tablecloth with 3 zones (top, front, corner) using shared tiling
+- Engine features: `sharedPatternArea`, `rightSqueeze`, `foreshorten` (all working)
+- Zone masks provided and wired up
+- NotReadableError fix for cloud-synced files
+- **User created Photoshop perspective warp** of a UV gradient map
 
-### Tablecloth Photo-Based Mockup Template
-- Upgraded from `procedural` to `image` base using `tablecloth.png` photo
-- **3 zones** with shared tiling (one continuous pattern across all surfaces):
-  - **top** — flat table surface with foreshortening (`foreshorten: 3`) and asymmetric perspective (`rightSqueeze: 305`)
-  - **front** — vertical drape with gentle displacement (intensity 4)
-  - **corner** — right-side hanging fabric with fabric-drape displacement
-- 3 mask PNGs provided by user: `tablecloth-top-mask.png`, `tablecloth-front-mask.png`, `tablecloth-corner-mask.png`
+## What Needs to Happen Next
 
-### New Engine Features (for tablecloth, available to all templates)
-- **`sharedPatternArea`** on `MockupV2Template` — tiles once across a union bounding box, zones extract sub-regions for continuous pattern flow
-- **`rightSqueeze`** on perspective warp — asymmetric squeeze for surfaces that recede to the right
-- **`foreshorten`** on `MockupZone` — compresses more vertical rows into a shallow zone to simulate depth on receding surfaces
-- All features are opt-in; existing templates (t-shirt dress, onesie, etc.) unaffected
+### Implement UV-map-based warp (replaces procedural perspective)
+The procedural `rightSqueeze`/`foreshorten` approach can't match the photo's perspective accurately. The user warped a UV gradient map in Photoshop that encodes the exact transformation.
 
-### NotReadableError Fix
-- Cloud-synced files (iCloud/Google Drive/Dropbox) that fail to read now show a user-facing error message instead of silently failing
-- Fixed in: `PatternControlsTopBar.tsx` (file input + drag-drop), `page.tsx` (drop handler + fallback read)
+**Key files:**
+- `public/mockups/v2/tablecloth-uvmap.png` — original flat UV gradient (R=X, G=Y, 0-255)
+- `public/mockups/v2/tablecloth-uvmap-warped.png` — Photoshop-warped UV map matching tablecloth perspective
 
-## Tablecloth Tuning Status
-The template is functional and close to final. Current values after iterative tuning:
-- Top zone: `rightSqueeze: 305` (derived from mask geometry), `foreshorten: 3`, displacement intensity 2
-- Front zone: displacement intensity 4 (vertical-drape)
-- Corner zone: displacement intensity 4 (fabric-drape), perspective squeeze 15/5
-- User approved the general look; may want further refinement of displacement/foreshorten values
+**Implementation plan:**
+1. Add `uvMapPath` to `MockupV2Template` (or `MockupZone`) type
+2. Load the warped UV map in `MockupRendererV2.tsx` (same pattern as zone masks)
+3. In `processZone` (or a new stage), replace procedural perspective warp with UV lookup:
+   - For each output pixel (x, y), read R and G from the warped UV map
+   - R/255 * sourceWidth = source X, G/255 * sourceHeight = source Y
+   - Sample the flat tiled pattern at that source coordinate
+4. The UV map covers ALL zones — could simplify to single-zone with UV warp + combined mask
+5. Remove `rightSqueeze`, `foreshorten` from tablecloth template (no longer needed)
+6. Keep zone masks for clipping, displacement for subtle wrinkles, lighting for depth
 
-## Current State
+**Reference files:**
+- `public/mockups/v2/tablecloth-grid.png` — flat grid (200px spacing, used to generate UV map)
+- `public/mockups/v2/tablecloth-top-warp.png` — user's Photoshop warp of checkerboard (visual reference)
 
-| Phase | Status | Completed |
-|-------|--------|-----------|
-| 1. V2 Templates Complete | Complete | 2026-03-22 |
-| 2. Gallery Redesign | Complete | 2026-03-24 |
-| Tablecloth Template | In progress (tuning) | - |
-| 3. Social Export + V1 Retirement | Not started | - |
-
-## What's Next
-
-### Continue: Tablecloth Fine-Tuning
-- May need displacement/foreshorten value adjustments based on visual testing
-- Consider adding custom displacement map support (Photoshop-painted grayscale) for pixel-perfect fold control — discussed but not implemented
-
-### Later: Phase 3
-- Social media export mockup overlays → V2 pipeline
-- All V2 templates in per-size overlay picker
-- Delete V1 engine files
+## Current Template State (in templateRegistry.ts)
+- Top zone: `rightSqueeze: 305`, `foreshorten: 1` (effectively disabled), displacement 2
+- Front zone: displacement 4 (vertical-drape)
+- Corner zone: displacement 4 (fabric-drape), perspective 15/5
+- All zones share `sharedPatternArea` for continuous tiling
 
 ## Test Status
 - 29/29 vitest tests pass
-- TypeScript clean (zero errors)
+- TypeScript clean
 
-## Key Files Modified This Session
-- `src/lib/mockups/mockupEngineV2/templates/types.ts` — added `sharedPatternArea`, `rightSqueeze`, `foreshorten`
-- `src/lib/mockups/mockupEngineV2/templates/templateRegistry.ts` — tablecloth template rewrite
-- `src/lib/mockups/mockupEngineV2/MockupPipeline.ts` — shared tiling, foreshorten extraction
-- `src/lib/mockups/mockupEngineV2/stages/perspectiveWarp.ts` — rightSqueeze support
-- `app/page.tsx` — NotReadableError user-facing error
-- `src/components/layout/PatternControlsTopBar.tsx` — NotReadableError user-facing error
-- `public/mockups/v2/tablecloth*.png` — base image + 3 zone masks
+## Key Files
+- `src/lib/mockups/mockupEngineV2/templates/types.ts` — zone/template types
+- `src/lib/mockups/mockupEngineV2/templates/templateRegistry.ts` — tablecloth config
+- `src/lib/mockups/mockupEngineV2/MockupPipeline.ts` — rendering pipeline
+- `src/lib/mockups/mockupEngineV2/stages/perspectiveWarp.ts` — current procedural warp (to be replaced for UV-based zones)
+- `src/components/mockups/MockupRendererV2.tsx` — asset loading + pipeline invocation
