@@ -59,17 +59,19 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
   'womens-skirt': {
     id: 'womens-skirt',
     name: "Women's Skirt",
-    description: 'A-line skirt with fabric drape',
+    description: 'A-line skirt in a field — photo-based mockup',
     category: 'apparel',
-    canvasSize: { width: 800, height: 900 },
-    patternArea: { x: 150, y: 80, width: 500, height: 700 },
-    perspective: { topSqueeze: 40, bottomSqueeze: 10 },
-    displacement: { intensity: 16, wrinkleFreq: 8, type: 'fabric-drape' },
-    blend: { mode: 'multiply', opacity: 0.85 },
-    lighting: { enabled: true, intensity: 0.3 },
+    canvasSize: { width: 3712, height: 4608 },
+    // patternArea from mask white-pixel bounds (Pillow scan)
+    patternArea: { x: 1023, y: 2113, width: 1271, height: 1570 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 8, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'source-over', opacity: 1.0 },
+    lighting: { enabled: true, intensity: 0.7 },
+    displacementMapPath: '/mockups/v2/womans-skirt-field-displacement.png',
     physicalSize: { width: 20, height: 24, unit: 'in' },
     sizeLabel: "20×24\" (50.8×61cm) Women's Skirt",
-    productBase: { type: 'procedural', brightness: 200, shape: 'fabric-drape' },
+    productBase: { type: 'image', imagePath: '/mockups/v2/womans-skirt-field.png', maskPath: '/mockups/v2/womans-skirt-field-mask.png' },
   },
 
   // ─── Fabric ───

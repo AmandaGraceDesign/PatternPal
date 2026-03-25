@@ -85,6 +85,12 @@ export interface MockupV2Template {
 
   lighting: { enabled: boolean; intensity: number };
 
+  /** Path to a photo-based displacement map (grayscale PNG, same dimensions as
+   *  canvasSize). 128 = no shift, darker/lighter = shift. When present, used
+   *  instead of procedural displacement generation. The zone's displacement
+   *  intensity still controls the strength of the effect. */
+  displacementMapPath?: string;
+
   physicalSize: { width: number; height: number; unit: 'in' | 'cm' };
 
   /** Human-readable size label shown in the mockup gallery, e.g. "Size 5 Kids (13.5×20.5\")" */

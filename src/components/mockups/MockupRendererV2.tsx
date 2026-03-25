@@ -66,6 +66,12 @@ export default function MockupRendererV2({
           colorOverlayMaskImage = await loadImage(template.colorOverlay.maskPath);
         }
 
+        // Load photo-based displacement map if template has one
+        let displacementMapImage: HTMLImageElement | null = null;
+        if (template.displacementMapPath) {
+          displacementMapImage = await loadImage(template.displacementMapPath);
+        }
+
         // Load zone masks if template has zones
         const zoneMasks: Record<string, HTMLImageElement> = {};
         if (template.zones) {
@@ -90,6 +96,7 @@ export default function MockupRendererV2({
           productMaskImage: productMaskImage || undefined,
           colorOverlayMaskImage: colorOverlayMaskImage || undefined,
           colorOverride: colorOverride ?? undefined,
+          displacementMapImage: displacementMapImage || undefined,
         });
 
         const canvas = canvasRef.current;

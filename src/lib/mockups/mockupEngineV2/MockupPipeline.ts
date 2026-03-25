@@ -55,6 +55,8 @@ export interface PipelineInput {
   colorOverlayMaskImage?: HTMLImageElement;
   /** User-chosen accent color override. When absent, auto-detect from pattern. */
   colorOverride?: string | null;
+  /** Pre-loaded photo-based displacement map (grayscale, canvas-sized). */
+  displacementMapImage?: HTMLImageElement;
 }
 
 /**
@@ -81,6 +83,9 @@ function processZone(
    *  sub-region instead of tiling independently — gives continuous pattern across zones. */
   sharedTiledCanvas?: HTMLCanvasElement,
   sharedPatternArea?: { x: number; y: number; width: number; height: number },
+  /** Photo-based displacement map (full canvas size). When provided, the zone's
+   *  sub-region is extracted instead of generating procedural displacement. */
+  displacementMapImage?: HTMLImageElement,
 ): HTMLCanvasElement {
   const { patternArea, perspective, displacement } = zone;
 
@@ -139,11 +144,21 @@ function processZone(
   dispMapCanvas.width = patternArea.width;
   dispMapCanvas.height = patternArea.height;
   const dispMapCtx = dispMapCanvas.getContext('2d')!;
-  generateDisplacementMap(
-    dispMapCtx,
-    patternArea.width, patternArea.height,
-    displacement.type as any, displacement.wrinkleFreq
-  );
+  if (displacementMapImage) {
+    // Photo-based: extract zone's sub-region from the full-canvas displacement map
+    dispMapCtx.drawImage(
+      displacementMapImage,
+      patternArea.x, patternArea.y, patternArea.width, patternArea.height,
+      0, 0, patternArea.width, patternArea.height,
+    );
+  } else {
+    // Procedural fallback
+    generateDisplacementMap(
+      dispMapCtx,
+      patternArea.width, patternArea.height,
+      displacement.type as any, displacement.wrinkleFreq
+    );
+  }
 
   const displacedCanvas = document.createElement('canvas');
   displacedCanvas.width = patternArea.width;
@@ -296,6 +311,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         maskImg,
         sharedTiledCanvas,
         template.sharedPatternArea,
+        input.displacementMapImage,
       );
 
       // Composite this zone onto the final canvas
@@ -319,6 +335,9 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       tileHeight,
       repeatType,
       singleMask,
+      undefined,
+      undefined,
+      input.displacementMapImage,
     );
 
     finalCtx.globalCompositeOperation = template.blend.mode;
