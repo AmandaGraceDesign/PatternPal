@@ -127,7 +127,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
         perspective: { topSqueeze: 0, bottomSqueeze: 0, rightSqueeze: 305 },
         displacement: { intensity: 2, wrinkleFreq: 2, type: 'flat-surface' },
         blend: { mode: 'multiply', opacity: 0.85 },
-        foreshorten: 3,
+        foreshorten: 1,
       },
       {
         id: 'front',
