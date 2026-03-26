@@ -8,6 +8,7 @@ import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 // Server-side validation in /api/checkout is the security gate
 const VALID_PROMO_CODES: Record<string, string> = {
   affiliate20: '4-month free trial applied!',
+  motifmagic: '1st month free applied!',
 };
 
 type BillingInterval = 'month' | 'year';

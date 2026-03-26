@@ -17,6 +17,7 @@ function getPriceId(plan: Plan) {
 // Key: lowercase code, Value: trial config
 const PROMO_CODES: Record<string, { trialDays: number; description: string }> = {
   affiliate20: { trialDays: 120, description: "Affiliate 4-month free trial" },
+  motifmagic: { trialDays: 30, description: "1st month free" },
 };
 
 export async function POST(req: Request) {
