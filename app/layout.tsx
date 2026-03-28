@@ -35,15 +35,15 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
           {/* Cookiebot - must load first for consent banner */}
-          <script
+          <Script
             id="Cookiebot"
             src="https://consent.cookiebot.com/uc.js"
             data-cbid="94c26468-ddf7-4bf1-88ad-aede896d7a17"
             data-blockingmode="auto"
-            type="text/javascript"
+            strategy="beforeInteractive"
           />
           {/* Consent defaults - before GTM */}
           <Script
@@ -63,7 +63,9 @@ gtag("consent", "default", {
   wait_for_update: 500,
 });
 gtag("set", "ads_data_redaction", true);
-gtag("set", "url_passthrough", true);`,
+gtag("set", "url_passthrough", true);
+gtag("js", new Date());
+gtag("config", "AW-11155883885");`,
             }}
           />
           {/* Google Tag Manager */}
@@ -81,6 +83,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          suppressHydrationWarning
         >
           <noscript>
             <iframe
