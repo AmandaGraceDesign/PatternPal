@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionButton';
 import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
+import ProTrialBanner from '@/components/upgrade/ProTrialBanner';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
 export default function TopBar() {
@@ -118,7 +119,7 @@ export default function TopBar() {
         initialPlan={upgradePlan}
       />
 
-      {isPro && <AffiliateSlideOut />}
+      {isPro ? <AffiliateSlideOut /> : <ProTrialBanner onUpgradeClick={() => setIsUpgradeModalOpen(true)} />}
 
       <WelcomeModal key={tourKey} />
     </header>
