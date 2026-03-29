@@ -32,7 +32,7 @@ export default function SeamInspectorCanvas({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Draggable floating control
-  const [controlPos, setControlPos] = useState({ x: 20, y: -1 }); // y=-1 = use bottom:20
+  const [controlPos, setControlPos] = useState({ x: 16, y: 56 }); // top-left, just below header bar
   const [isDraggingControl, setIsDraggingControl] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
   const controlDragStartRef = useRef({ x: 0, y: 0 });
@@ -101,16 +101,7 @@ export default function SeamInspectorCanvas({
     e.preventDefault();
     setIsDraggingControl(true);
     controlDragStartRef.current = { x: e.clientX, y: e.clientY };
-
-    // On first drag, measure real viewport position from DOM to switch from bottom- to top-anchored
-    // position:fixed coords are viewport-relative, matching getBoundingClientRect()
-    let startPos = { ...controlPos };
-    if (controlPos.y === -1 && controlRef.current) {
-      const controlRect = controlRef.current.getBoundingClientRect();
-      startPos = { x: controlRect.left, y: controlRect.top };
-      setControlPos(startPos);
-    }
-    controlPosStartRef.current = startPos;
+    controlPosStartRef.current = { ...controlPos };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, [controlPos]);
 
@@ -380,8 +371,7 @@ export default function SeamInspectorCanvas({
         className="fixed flex items-center gap-2.5 rounded-[10px] bg-white/[0.93] backdrop-blur-[10px] shadow-[0_2px_12px_rgba(0,0,0,0.2)] text-[#374151] text-[12px] select-none"
         style={{
           left: controlPos.x,
-          top: controlPos.y === -1 ? undefined : controlPos.y,
-          bottom: controlPos.y === -1 ? 20 : undefined,
+          top: controlPos.y,
           zIndex: 20,
         }}
         onMouseDown={(e) => e.stopPropagation()}
