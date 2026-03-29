@@ -17,8 +17,10 @@ export default function CheckoutConversion() {
     const plan = searchParams.get('plan');
     if (plan === 'yearly') {
       fireConversion('proTrialAnnual');
+      window.pintrk?.('track', 'checkout', { value: 79.92, currency: 'USD' });
     } else {
       fireConversion('proTrialMonthly');
+      window.pintrk?.('track', 'checkout', { value: 7.99, currency: 'USD' });
     }
   }, [searchParams]);
 

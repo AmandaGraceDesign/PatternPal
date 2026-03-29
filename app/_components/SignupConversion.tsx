@@ -30,6 +30,7 @@ export default function SignupConversion() {
     firedRef.current = true;
     sessionStorage.setItem(SIGNUP_FIRED_KEY, '1');
     fireConversion('freeSignup');
+    window.pintrk?.('track', 'signup', { value: 0, currency: 'USD' });
   }, [isSignedIn, user]);
 
   return null;
