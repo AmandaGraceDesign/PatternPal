@@ -78,6 +78,12 @@ export default function TopBar() {
         >
           Help
         </button>
+        <a
+          href="mailto:education@amandagracedesign.com?subject=PatternPAL%20Pro%20Feedback"
+          className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+        >
+          Feedback
+        </a>
         <SignedIn>
           {isPro && (
             <a

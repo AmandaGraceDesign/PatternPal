@@ -55,29 +55,29 @@ export default function ProTrialBanner({ onUpgradeClick }: ProTrialBannerProps) 
         visible ? 'translate-y-0' : 'translate-y-full'
       }`}
     >
-      <div className="bg-slate-800 border-t border-slate-700 px-6 py-3 flex items-center justify-between gap-4">
+      <div className="px-6 py-3 flex items-center justify-between gap-4" style={{ backgroundColor: '#e0c26e' }}>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-slate-100 font-medium">
+          <p className="text-xs text-white font-semibold">
             Try Pro free for 3 days
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+          <p className="text-[11px] text-white/70 mt-0.5 truncate">
             Unlock Seam Inspector, product mockups &amp; social export — cancel anytime.
           </p>
         </div>
 
         <button
           onClick={handleUpgrade}
-          className="shrink-0 text-xs font-medium text-white px-4 py-1.5 rounded-md transition-colors"
-          style={{ backgroundColor: '#e0c26e' }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#c9a94e')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#e0c26e')}
+          className="shrink-0 text-xs font-semibold px-4 py-1.5 rounded-md transition-colors"
+          style={{ backgroundColor: '#294051', color: '#ffffff' }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e3040')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#294051')}
         >
           Start Free Trial
         </button>
 
         <button
           onClick={handleDismiss}
-          className="shrink-0 text-slate-400 hover:text-slate-200 transition-colors p-1"
+          className="shrink-0 text-white/60 hover:text-white transition-colors p-1"
           aria-label="Dismiss"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
