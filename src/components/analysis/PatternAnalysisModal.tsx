@@ -275,7 +275,7 @@ export default function PatternAnalysisModal({
         </div>
 
         {/* Disclaimer */}
-        <p className="text-[10px] text-gray-400 text-center py-2 px-4 border-b border-gray-100">
+        <p className="text-xs text-red-500 font-medium text-center py-2 px-4 border-b border-red-100 bg-red-50">
           Results are for educational purposes — this tool may not read every pattern perfectly.
         </p>
 
@@ -438,6 +438,26 @@ export default function PatternAnalysisModal({
                   <p className="text-sm text-[#374151] leading-relaxed mb-2">
                     {compositionAnalysis.message}
                   </p>
+                  {compositionAnalysis.dominantBlobOverlay && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-medium text-[#6b7280] uppercase tracking-wide mb-1">Dominant motif</p>
+                      <img
+                        src={compositionAnalysis.dominantBlobOverlay}
+                        alt="Dominant motif highlighted on tile"
+                        className="max-w-[180px] rounded border border-[#e5e7eb]"
+                      />
+                    </div>
+                  )}
+                  {compositionAnalysis.riverOverlay && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-medium text-[#6b7280] uppercase tracking-wide mb-1">River channels</p>
+                      <img
+                        src={compositionAnalysis.riverOverlay}
+                        alt="River channels highlighted on tile"
+                        className="max-w-[180px] rounded border border-[#e5e7eb]"
+                      />
+                    </div>
+                  )}
                   <p className="text-xs text-[#6b7280] leading-relaxed italic">
                     {compositionAnalysis.contextHint}
                   </p>

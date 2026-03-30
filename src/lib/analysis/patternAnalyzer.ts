@@ -32,7 +32,12 @@ export interface CompositionAnalysis {
     coveragePercent: number;
     hasVerticalRiver: boolean;
     hasHorizontalRiver: boolean;
+    hasDiagonalRiver: boolean;
   };
+  /** Data URL of the tile with the dominant blob highlighted (red rectangle) */
+  dominantBlobOverlay?: string;
+  /** Data URL of the tile with river channels highlighted (blue stripes) */
+  riverOverlay?: string;
 }
 
 export interface ColorHarmonyAnalysis {
@@ -950,11 +955,13 @@ function generateCompositionFeedback(
   }
 
   // Append river warning to contextHint for ANY classification
-  if (scaleAlert?.hasVerticalRiver || scaleAlert?.hasHorizontalRiver) {
-    const direction = scaleAlert.hasVerticalRiver && scaleAlert.hasHorizontalRiver
-      ? 'vertical and horizontal'
-      : scaleAlert.hasVerticalRiver ? 'vertical' : 'horizontal';
-    contextHint += ` Note: a ${direction} background channel may form rivers when tiled.`;
+  if (scaleAlert?.hasVerticalRiver || scaleAlert?.hasHorizontalRiver || scaleAlert?.hasDiagonalRiver) {
+    const directions: string[] = [];
+    if (scaleAlert.hasVerticalRiver) directions.push('vertical');
+    if (scaleAlert.hasHorizontalRiver) directions.push('horizontal');
+    if (scaleAlert.hasDiagonalRiver) directions.push('diagonal');
+    const direction = directions.join(' and ');
+    contextHint += ` Note: ${direction} background channels may form rivers when tiled.`;
   }
 
   return { label, message, contextHint, band, severity };
@@ -991,14 +998,75 @@ function createForegroundMask(
 }
 
 /**
+ * Morphological erosion: shrink foreground by `radius` pixels.
+ * Breaks thin connections (stems, vines) so connected component labeling
+ * separates individual motifs instead of merging entire vine structures.
+ */
+function erodeMask(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
+  const eroded = new Uint8Array(width * height);
+  for (let y = radius; y < height - radius; y++) {
+    for (let x = radius; x < width - radius; x++) {
+      let allForeground = true;
+      for (let dy = -radius; dy <= radius && allForeground; dy++) {
+        for (let dx = -radius; dx <= radius && allForeground; dx++) {
+          if (mask[(y + dy) * width + (x + dx)] === 0) {
+            allForeground = false;
+          }
+        }
+      }
+      if (allForeground) {
+        eroded[y * width + x] = 1;
+      }
+    }
+  }
+  return eroded;
+}
+
+/**
+ * Morphological dilation: grow foreground by `radius` pixels.
+ * Used after erosion to restore blob sizes while keeping broken connections apart.
+ */
+function dilateMask(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
+  const dilated = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (mask[y * width + x] === 1) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            const ny = y + dy;
+            const nx = x + dx;
+            if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+              dilated[ny * width + nx] = 1;
+            }
+          }
+        }
+      }
+    }
+  }
+  return dilated;
+}
+
+interface BlobBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+interface BlobData {
+  sizes: Map<number, number>;
+  bounds: Map<number, BlobBounds>;
+}
+
+/**
  * Connected component labeling via Union-Find.
- * Returns blob sizes (pixel counts) keyed by root label.
+ * Returns blob sizes and bounding boxes keyed by root label.
  */
 function labelConnectedComponents(
   mask: Uint8Array,
   width: number,
   height: number
-): Map<number, number> {
+): BlobData {
   const labels = new Int32Array(width * height);
   const parent: number[] = [0]; // index 0 unused
   const rank: number[] = [0];
@@ -1052,69 +1120,99 @@ function labelConnectedComponents(
     }
   }
 
-  // Second pass: resolve labels and count sizes
+  // Second pass: resolve labels, count sizes, and track bounding boxes
   const blobSizes = new Map<number, number>();
+  const blobBounds = new Map<number, BlobBounds>();
   for (let i = 0; i < labels.length; i++) {
     if (labels[i] > 0) {
       const root = find(labels[i]);
       blobSizes.set(root, (blobSizes.get(root) || 0) + 1);
+
+      const x = i % width;
+      const y = Math.floor(i / width);
+      const existing = blobBounds.get(root);
+      if (existing) {
+        if (x < existing.minX) existing.minX = x;
+        if (x > existing.maxX) existing.maxX = x;
+        if (y < existing.minY) existing.minY = y;
+        if (y > existing.maxY) existing.maxY = y;
+      } else {
+        blobBounds.set(root, { minX: x, minY: y, maxX: x, maxY: y });
+      }
     }
   }
 
-  return blobSizes;
+  return { sizes: blobSizes, bounds: blobBounds };
 }
 
 /**
- * Compute blob metrics from blob sizes.
+ * Compute blob metrics from blob data.
  */
 function computeBlobMetrics(
-  blobSizes: Map<number, number>,
+  blobData: BlobData,
   imagePixelCount: number
 ): {
   dominantMotif: boolean;
   blobCount: number;
   largestBlobRatio: number;
   coverageRatio: number;
+  largestBlobBounds?: BlobBounds;
 } {
   const minBlobSize = Math.max(1, Math.floor(imagePixelCount * 0.001)); // 0.1% of image
-  const sizes = Array.from(blobSizes.values())
-    .filter(s => s >= minBlobSize)
-    .sort((a, b) => b - a);
+  const entries = Array.from(blobData.sizes.entries())
+    .filter(([, s]) => s >= minBlobSize)
+    .sort((a, b) => b[1] - a[1]);
 
-  if (sizes.length < 2) {
-    return { dominantMotif: false, blobCount: sizes.length, largestBlobRatio: 1, coverageRatio: 0 };
+  if (entries.length < 2) {
+    return { dominantMotif: false, blobCount: entries.length, largestBlobRatio: 1, coverageRatio: 0 };
   }
 
-  const largest = sizes[0];
-  const median = sizes[Math.floor(sizes.length / 2)];
-  const scaleRatio = median > 0 ? largest / median : 1;
+  const [largestLabel, largest] = entries[0];
+  const medianSize = entries[Math.floor(entries.length / 2)][1];
+  const scaleRatio = medianSize > 0 ? largest / medianSize : 1;
   const coverageRatio = largest / imagePixelCount;
+  // If the largest blob covers >50% of the tile, it's a dense all-over pattern
+  // where foreground elements merge together — not a true dominant motif.
+  const isDominant = scaleRatio >= 3.0 && coverageRatio >= 0.08 && coverageRatio <= 0.50;
 
   return {
-    dominantMotif: scaleRatio >= 3.0 && coverageRatio >= 0.08,
-    blobCount: sizes.length,
+    dominantMotif: isDominant,
+    blobCount: entries.length,
     largestBlobRatio: scaleRatio,
     coverageRatio,
+    largestBlobBounds: isDominant ? blobData.bounds.get(largestLabel) : undefined,
   };
+}
+
+interface RiverInfo {
+  hasVerticalRiver: boolean;
+  hasHorizontalRiver: boolean;
+  hasDiagonalRiver: boolean;
+  hasRiver: boolean;
+  /** X positions of vertical river columns */
+  verticalRiverColumns: number[];
+  /** Y positions of horizontal river rows */
+  horizontalRiverRows: number[];
+  /** Diagonal rivers: start point + direction */
+  diagonalRivers: Array<{ startX: number; startY: number; direction: 'down-right' | 'down-left' }>;
 }
 
 /**
  * Detect rivers: continuous background channels running through the pattern.
+ * Scans vertical, horizontal, and diagonal (45°/135°) paths.
  */
 function detectRivers(
   mask: Uint8Array,
   width: number,
   height: number
-): {
-  hasVerticalRiver: boolean;
-  hasHorizontalRiver: boolean;
-  hasRiver: boolean;
-} {
+): RiverInfo {
   const RIVER_THRESHOLD = 0.55;
+  const verticalRiverColumns: number[] = [];
+  const horizontalRiverRows: number[] = [];
+  const diagonalRivers: RiverInfo['diagonalRivers'] = [];
 
   // Vertical rivers: scan each column for longest background run
-  let hasVerticalRiver = false;
-  for (let x = 0; x < width && !hasVerticalRiver; x++) {
+  for (let x = 0; x < width; x++) {
     let maxRun = 0;
     let currentRun = 0;
     for (let y = 0; y < height; y++) {
@@ -1125,12 +1223,11 @@ function detectRivers(
         currentRun = 0;
       }
     }
-    if (maxRun >= height * RIVER_THRESHOLD) hasVerticalRiver = true;
+    if (maxRun >= height * RIVER_THRESHOLD) verticalRiverColumns.push(x);
   }
 
   // Horizontal rivers: scan each row for longest background run
-  let hasHorizontalRiver = false;
-  for (let y = 0; y < height && !hasHorizontalRiver; y++) {
+  for (let y = 0; y < height; y++) {
     let maxRun = 0;
     let currentRun = 0;
     for (let x = 0; x < width; x++) {
@@ -1141,15 +1238,59 @@ function detectRivers(
         currentRun = 0;
       }
     }
-    if (maxRun >= width * RIVER_THRESHOLD) hasHorizontalRiver = true;
+    if (maxRun >= width * RIVER_THRESHOLD) horizontalRiverRows.push(y);
   }
 
-  return { hasVerticalRiver, hasHorizontalRiver, hasRiver: hasVerticalRiver || hasHorizontalRiver };
+  // Diagonal rivers (45° and 135°)
+  const diagMinLength = Math.min(width, height) * 0.4;
+  function scanDiagonal(startX: number, startY: number, dx: number, dy: number): boolean {
+    let maxRun = 0;
+    let currentRun = 0;
+    let steps = 0;
+    let x = startX;
+    let y = startY;
+    while (x >= 0 && x < width && y >= 0 && y < height) {
+      steps++;
+      if (mask[y * width + x] === 0) {
+        currentRun++;
+        if (currentRun > maxRun) maxRun = currentRun;
+      } else {
+        currentRun = 0;
+      }
+      x += dx;
+      y += dy;
+    }
+    return steps >= diagMinLength && maxRun >= steps * RIVER_THRESHOLD;
+  }
+
+  for (let startX = 0; startX < width; startX++) {
+    if (scanDiagonal(startX, 0, 1, 1)) diagonalRivers.push({ startX, startY: 0, direction: 'down-right' });
+    if (scanDiagonal(startX, 0, -1, 1)) diagonalRivers.push({ startX, startY: 0, direction: 'down-left' });
+  }
+  for (let startY = 1; startY < height; startY++) {
+    if (scanDiagonal(0, startY, 1, 1)) diagonalRivers.push({ startX: 0, startY, direction: 'down-right' });
+    if (scanDiagonal(width - 1, startY, -1, 1)) diagonalRivers.push({ startX: width - 1, startY, direction: 'down-left' });
+  }
+
+  const hasVerticalRiver = verticalRiverColumns.length > 0;
+  const hasHorizontalRiver = horizontalRiverRows.length > 0;
+  const hasDiagonalRiver = diagonalRivers.length > 0;
+
+  return {
+    hasVerticalRiver,
+    hasHorizontalRiver,
+    hasDiagonalRiver,
+    hasRiver: hasVerticalRiver || hasHorizontalRiver || hasDiagonalRiver,
+    verticalRiverColumns,
+    horizontalRiverRows,
+    diagonalRivers,
+  };
 }
 
 /**
  * Analyze motif scale: detect dominant motifs and rivers.
- * Orchestrates foreground mask → connected components → blob metrics → river detection.
+ * Orchestrates foreground mask → erosion/dilation (to break stems/vines) →
+ * connected components → blob metrics → river detection.
  */
 function analyzeMotifScale(
   imageData: ImageData,
@@ -1160,28 +1301,53 @@ function analyzeMotifScale(
   blobCount: number;
   largestBlobRatio: number;
   coverageRatio: number;
-  hasVerticalRiver: boolean;
-  hasHorizontalRiver: boolean;
-  hasRiver: boolean;
-} {
+  largestBlobBounds?: BlobBounds;
+} & RiverInfo {
   const { width, height } = imageData;
   const totalPixels = width * height;
 
-  const mask = createForegroundMask(imageData, bgLuminance, bgSaturation);
+  const rawMask = createForegroundMask(imageData, bgLuminance, bgSaturation);
 
   // Quick check: if very little foreground, skip blob analysis
   let fgCount = 0;
-  for (let i = 0; i < mask.length; i++) fgCount += mask[i];
+  for (let i = 0; i < rawMask.length; i++) fgCount += rawMask[i];
   if (fgCount < totalPixels * 0.01) {
     return {
       dominantMotif: false, blobCount: 0, largestBlobRatio: 1, coverageRatio: 0,
-      hasVerticalRiver: false, hasHorizontalRiver: false, hasRiver: false,
+      hasVerticalRiver: false, hasHorizontalRiver: false, hasDiagonalRiver: false,
+      hasRiver: false, verticalRiverColumns: [], horizontalRiverRows: [], diagonalRivers: [],
     };
   }
 
-  const blobSizes = labelConnectedComponents(mask, width, height);
-  const blobMetrics = computeBlobMetrics(blobSizes, totalPixels);
-  const riverMetrics = detectRivers(mask, width, height);
+  // Morphological open (erode then dilate) to break thin connections like
+  // stems and vines, so individual motifs are labeled as separate blobs.
+  // Use iterative erosion: start with a larger radius and fall back if too
+  // much foreground is destroyed (< 30% of original remains).
+  const baseRadius = Math.max(2, Math.round(Math.min(width, height) / 80));
+  let openedMask = rawMask;
+  for (let r = baseRadius; r >= 1; r--) {
+    const eroded = erodeMask(rawMask, width, height, r);
+    let erodedFg = 0;
+    for (let i = 0; i < eroded.length; i++) erodedFg += eroded[i];
+    // If erosion preserves at least 30% of foreground, use it
+    if (erodedFg >= fgCount * 0.30) {
+      openedMask = dilateMask(eroded, width, height, r);
+      break;
+    }
+  }
+
+  const blobData = labelConnectedComponents(openedMask, width, height);
+  const blobMetrics = computeBlobMetrics(blobData, totalPixels);
+
+  // Use the raw (un-eroded) mask for river detection — rivers are background channels.
+  // But suppress for dense patterns (>40% foreground) where gaps between tightly
+  // packed motifs aren't real rivers.
+  const fgRatio = fgCount / totalPixels;
+  const riverMetrics = fgRatio <= 0.40
+    ? detectRivers(rawMask, width, height)
+    : { hasVerticalRiver: false, hasHorizontalRiver: false, hasDiagonalRiver: false,
+        hasRiver: false, verticalRiverColumns: [] as number[], horizontalRiverRows: [] as number[],
+        diagonalRivers: [] as RiverInfo['diagonalRivers'] };
 
   return { ...blobMetrics, ...riverMetrics };
 }
@@ -1230,18 +1396,126 @@ export function analyzeComposition(
   // Build scaleAlert if relevant — but suppress for well-balanced structured
   // patterns (plaid, stripes) where large blobs and background channels are
   // intentional, not problematic.
+  // Suppress dominant motif alerts for well-balanced structured patterns (plaid,
+  // stripes) but still allow river alerts through — rivers are real even in grids.
   const isStructuredBalanced = metrics.variance < 0.10 && metrics.overallBalance > 0.80;
+  const hasDominantMotif = motifScale.dominantMotif && !isStructuredBalanced;
+  // Suppress rivers for well-balanced patterns — evenly spaced gaps are intentional
+  // spacing, not problematic rivers. Only flag rivers when balance is off.
+  const hasRiverIssue = motifScale.hasRiver && metrics.overallBalance < 0.85;
   let scaleAlert: CompositionAnalysis['scaleAlert'] | undefined;
-  if ((motifScale.dominantMotif || motifScale.hasRiver) && !isStructuredBalanced) {
+  if (hasDominantMotif || hasRiverIssue) {
     scaleAlert = {
-      type: motifScale.dominantMotif && motifScale.hasRiver ? 'both'
-            : motifScale.dominantMotif ? 'dominant-motif' : 'river',
+      type: hasDominantMotif && hasRiverIssue ? 'both'
+            : hasDominantMotif ? 'dominant-motif' : 'river',
       largestBlobRatio: motifScale.largestBlobRatio,
       blobCount: motifScale.blobCount,
       coveragePercent: motifScale.coverageRatio * 100,
       hasVerticalRiver: motifScale.hasVerticalRiver,
       hasHorizontalRiver: motifScale.hasHorizontalRiver,
+      hasDiagonalRiver: motifScale.hasDiagonalRiver,
     };
+  }
+
+  // --- Dominant blob overlay (red rectangle) ---
+  let dominantBlobOverlay: string | undefined;
+  if (scaleAlert && scaleAlert.type !== 'river' && motifScale.largestBlobBounds) {
+    const bounds = motifScale.largestBlobBounds;
+    const oc = document.createElement('canvas');
+    oc.width = canvas.width;
+    oc.height = canvas.height;
+    const octx = oc.getContext('2d');
+    if (octx) {
+      octx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const pad = 4;
+      const bx = Math.max(0, bounds.minX - pad);
+      const by = Math.max(0, bounds.minY - pad);
+      const bw = Math.min(canvas.width - bx, bounds.maxX - bounds.minX + 1 + pad * 2);
+      const bh = Math.min(canvas.height - by, bounds.maxY - bounds.minY + 1 + pad * 2);
+      octx.fillStyle = 'rgba(220, 38, 38, 0.18)';
+      octx.fillRect(bx, by, bw, bh);
+      octx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
+      octx.lineWidth = 2;
+      octx.setLineDash([6, 3]);
+      octx.strokeRect(bx, by, bw, bh);
+      dominantBlobOverlay = oc.toDataURL('image/png');
+    }
+  }
+
+  // --- River overlay (blue bands) ---
+  let riverOverlay: string | undefined;
+  if (scaleAlert && motifScale.hasRiver) {
+    const rc = document.createElement('canvas');
+    rc.width = canvas.width;
+    rc.height = canvas.height;
+    const rctx = rc.getContext('2d');
+    if (rctx) {
+      rctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const riverFill = 'rgba(59, 130, 246, 0.22)';
+      const riverStroke = 'rgba(59, 130, 246, 0.7)';
+
+      // Group adjacent columns into bands for clean rendering
+      function groupAdjacent(vals: number[]): Array<[number, number]> {
+        if (vals.length === 0) return [];
+        const sorted = [...vals].sort((a, b) => a - b);
+        const bands: Array<[number, number]> = [];
+        let start = sorted[0];
+        let end = sorted[0];
+        for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i] <= end + 1) {
+            end = sorted[i];
+          } else {
+            bands.push([start, end]);
+            start = sorted[i];
+            end = sorted[i];
+          }
+        }
+        bands.push([start, end]);
+        return bands;
+      }
+
+      // Vertical river bands
+      for (const [start, end] of groupAdjacent(motifScale.verticalRiverColumns)) {
+        const bw = Math.max(3, end - start + 1);
+        rctx.fillStyle = riverFill;
+        rctx.fillRect(start, 0, bw, canvas.height);
+        rctx.strokeStyle = riverStroke;
+        rctx.lineWidth = 1.5;
+        rctx.setLineDash([6, 3]);
+        rctx.strokeRect(start, 0, bw, canvas.height);
+      }
+
+      // Horizontal river bands
+      for (const [start, end] of groupAdjacent(motifScale.horizontalRiverRows)) {
+        const bh = Math.max(3, end - start + 1);
+        rctx.fillStyle = riverFill;
+        rctx.fillRect(0, start, canvas.width, bh);
+        rctx.strokeStyle = riverStroke;
+        rctx.lineWidth = 1.5;
+        rctx.setLineDash([6, 3]);
+        rctx.strokeRect(0, start, canvas.width, bh);
+      }
+
+      // Diagonal rivers
+      rctx.strokeStyle = riverStroke;
+      rctx.lineWidth = 3;
+      rctx.setLineDash([6, 3]);
+      for (const diag of motifScale.diagonalRivers) {
+        rctx.beginPath();
+        if (diag.direction === 'down-right') {
+          const steps = Math.min(canvas.height - diag.startY, canvas.width - diag.startX);
+          rctx.moveTo(diag.startX, diag.startY);
+          rctx.lineTo(diag.startX + steps, diag.startY + steps);
+        } else {
+          const steps = Math.min(canvas.height - diag.startY, diag.startX + 1);
+          rctx.moveTo(diag.startX, diag.startY);
+          rctx.lineTo(diag.startX - steps, diag.startY + steps);
+        }
+        rctx.stroke();
+      }
+
+      riverOverlay = rc.toDataURL('image/png');
+    }
   }
 
   // Generate feedback
@@ -1259,6 +1533,8 @@ export function analyzeComposition(
     contextHint: feedback.contextHint,
     weightGrid,
     scaleAlert,
+    dominantBlobOverlay,
+    riverOverlay,
   };
 }
 
