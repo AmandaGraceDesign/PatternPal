@@ -57,10 +57,10 @@ export default function ProTrialBanner({ onUpgradeClick }: ProTrialBannerProps) 
     >
       <div className="px-6 py-3 flex items-center justify-between gap-4" style={{ backgroundColor: '#e0c26e' }}>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-white font-semibold">
+          <p className="text-sm text-[#294051] font-bold">
             Try Pro free for 3 days
           </p>
-          <p className="text-[11px] text-white/70 mt-0.5 truncate">
+          <p className="text-xs text-[#294051]/70 mt-0.5 truncate">
             Unlock Seam Inspector, product mockups &amp; social export — cancel anytime.
           </p>
         </div>
