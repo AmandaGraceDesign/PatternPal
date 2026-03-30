@@ -55,12 +55,12 @@ export default function ProTrialBanner({ onUpgradeClick }: ProTrialBannerProps) 
         visible ? 'translate-y-0' : 'translate-y-full'
       }`}
     >
-      <div className="px-6 py-3 flex items-center justify-between gap-4" style={{ backgroundColor: '#e0c26e' }}>
-        <div className="flex-1 min-w-0">
+      <div className="px-6 py-3 flex items-center justify-center gap-4" style={{ backgroundColor: '#e0c26e' }}>
+        <div className="text-center">
           <p className="text-sm text-[#294051] font-bold">
             Try Pro free for 3 days
           </p>
-          <p className="text-xs text-[#294051]/70 mt-0.5 truncate">
+          <p className="text-xs text-[#294051]/70 mt-0.5">
             Unlock Seam Inspector, product mockups &amp; social export — cancel anytime.
           </p>
         </div>
@@ -77,7 +77,7 @@ export default function ProTrialBanner({ onUpgradeClick }: ProTrialBannerProps) 
 
         <button
           onClick={handleDismiss}
-          className="shrink-0 text-white/60 hover:text-white transition-colors p-1"
+          className="absolute right-4 text-[#294051]/40 hover:text-[#294051] transition-colors p-1"
           aria-label="Dismiss"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
