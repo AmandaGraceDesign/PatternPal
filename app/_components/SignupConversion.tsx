@@ -31,6 +31,8 @@ export default function SignupConversion() {
     sessionStorage.setItem(SIGNUP_FIRED_KEY, '1');
     fireConversion('freeSignup');
     window.pintrk?.('track', 'signup', { value: 0, currency: 'USD' });
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ event: 'sign_up' });
   }, [isSignedIn, user]);
 
   return null;
