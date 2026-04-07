@@ -332,16 +332,16 @@ export default function PatternControlsTopBar({
             Zoom: {Math.round(zoom)}%
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-white whitespace-nowrap">50%</span>
+            <span className="text-xs text-white whitespace-nowrap">10%</span>
             <input
               type="range"
-              min="50"
+              min="10"
               max="200"
               step="1"
-              value={Math.max(50, Math.min(200, zoom))}
+              value={Math.max(10, Math.min(200, zoom))}
               onChange={(e) => {
                 const newZoom = parseInt(e.target.value);
-                onZoomChange(Math.max(50, Math.min(200, newZoom)));
+                onZoomChange(Math.max(10, Math.min(200, newZoom)));
               }}
               disabled={effectiveScalePreviewActive}
               className={`zoom-slider flex-1 h-1.5 rounded-lg appearance-none ${
@@ -351,7 +351,7 @@ export default function PatternControlsTopBar({
                 touchAction: 'none', // Prevent scroll interference on mobile
                 background: effectiveScalePreviewActive
                   ? 'rgba(255,255,255,0.2)'
-                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${((Math.max(50, Math.min(200, zoom)) - 50) / 150) * 100}%, rgba(255,255,255,0.2) ${((Math.max(50, Math.min(200, zoom)) - 50) / 150) * 100}%, rgba(255,255,255,0.2) 100%)`,
+                  : `linear-gradient(to right, #e0c26e 0%, #e0c26e ${((Math.max(10, Math.min(200, zoom)) - 10) / 190) * 100}%, rgba(255,255,255,0.2) ${((Math.max(10, Math.min(200, zoom)) - 10) / 190) * 100}%, rgba(255,255,255,0.2) 100%)`,
               }}
             />
             <span className="text-xs text-white whitespace-nowrap">200%</span>
