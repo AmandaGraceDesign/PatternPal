@@ -285,9 +285,19 @@ export default function PatternControlsTopBar({
             </p>
             <input
               type="number"
-              min="1"
+              min="0.5"
               step="1"
-              value={scalePreviewSize ?? Math.round(Math.max(originalTileWidth, originalTileHeight))}
+              value={scalePreviewSize ?? ''}
+              onKeyDown={(e) => {
+                // When arrows are pressed on an empty input, initialize from tile size
+                if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && scalePreviewSize === null) {
+                  e.preventDefault();
+                  const base = Math.round(Math.max(originalTileWidth, originalTileHeight));
+                  const newVal = e.key === 'ArrowUp' ? base + 1 : Math.max(1, base - 1);
+                  onScalePreviewChange(newVal);
+                  onScalePreviewActiveChange(true);
+                }
+              }}
               onChange={(e) => {
                 const value = parseFloat(e.target.value);
                 if (isNaN(value) || e.target.value === '') {
