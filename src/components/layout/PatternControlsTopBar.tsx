@@ -287,7 +287,7 @@ export default function PatternControlsTopBar({
               type="number"
               min="1"
               step="1"
-              value={scalePreviewSize ?? ''}
+              value={scalePreviewSize ?? Math.round(Math.max(originalTileWidth, originalTileHeight))}
               onChange={(e) => {
                 const value = parseFloat(e.target.value);
                 if (isNaN(value) || e.target.value === '') {
@@ -298,7 +298,7 @@ export default function PatternControlsTopBar({
                   onScalePreviewActiveChange(true);
                 }
               }}
-              placeholder={`${Math.max(originalTileWidth, originalTileHeight).toFixed(1)}"`}
+              placeholder={`${Math.max(originalTileWidth, originalTileHeight).toFixed(0)}"`}
               className="w-full px-3 py-2 text-xs bg-white/10 border border-white/20 rounded-md text-white placeholder-white/70 focus:outline-none focus:ring-1 focus:ring-[#e0c26e] focus:border-[#e0c26e]"
             />
             {isScalePreviewActive && scalePreviewSize !== null && (
