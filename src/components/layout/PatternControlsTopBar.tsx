@@ -285,8 +285,8 @@ export default function PatternControlsTopBar({
             </p>
             <input
               type="number"
-              min="0.1"
-              step="0.1"
+              min="1"
+              step="1"
               value={scalePreviewSize ?? ''}
               onChange={(e) => {
                 const value = parseFloat(e.target.value);
