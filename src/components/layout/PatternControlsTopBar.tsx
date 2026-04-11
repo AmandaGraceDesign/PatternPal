@@ -285,30 +285,20 @@ export default function PatternControlsTopBar({
             </p>
             <input
               type="number"
-              min="0.5"
+              min="1"
               step="1"
-              value={scalePreviewSize ?? ''}
-              onKeyDown={(e) => {
-                // When arrows are pressed on an empty input, initialize from tile size
-                if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && scalePreviewSize === null) {
-                  e.preventDefault();
-                  const base = Math.round(Math.max(originalTileWidth, originalTileHeight));
-                  const newVal = e.key === 'ArrowUp' ? base + 1 : Math.max(1, base - 1);
-                  onScalePreviewChange(newVal);
-                  onScalePreviewActiveChange(true);
-                }
-              }}
+              value={scalePreviewSize ?? Math.max(1, Math.round(Math.max(originalTileWidth, originalTileHeight)))}
               onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (isNaN(value) || e.target.value === '') {
+                if (e.target.value === '') {
                   onScalePreviewChange(null);
                   onScalePreviewActiveChange(false);
-                } else {
-                  onScalePreviewChange(value);
-                  onScalePreviewActiveChange(true);
+                  return;
                 }
+                const value = parseFloat(e.target.value);
+                if (isNaN(value)) return;
+                onScalePreviewChange(value);
+                onScalePreviewActiveChange(true);
               }}
-              placeholder={`${Math.max(originalTileWidth, originalTileHeight).toFixed(0)}"`}
               className="w-full px-3 py-2 text-xs bg-white/10 border border-white/20 rounded-md text-white placeholder-white/70 focus:outline-none focus:ring-1 focus:ring-[#e0c26e] focus:border-[#e0c26e]"
             />
             {isScalePreviewActive && scalePreviewSize !== null && (
