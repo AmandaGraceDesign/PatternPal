@@ -39,17 +39,11 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const handleToggleFullscreen = useCallback(() => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
     if (!isFullscreen) {
       setIsFullscreen(true);
-      // Skip native fullscreen on iOS — it shows an uncustomizable "swipe down to exit" tooltip
-      if (!isIOS) {
-        document.documentElement.requestFullscreen?.().catch(() => {
-          // Browser doesn't support fullscreen API — CSS-only fallback is already active
-        });
-      }
+      document.documentElement.requestFullscreen?.().catch(() => {
+        // Browser doesn't support fullscreen API — CSS-only fallback is already active
+      });
     } else {
       setIsFullscreen(false);
       if (document.fullscreenElement) {
@@ -515,7 +509,7 @@ export default function Home() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-[#1a1d23] p-3 sm:p-4"
+      className={`min-h-screen flex flex-col bg-[#1a1d23] ${isFullscreen ? 'p-0' : 'p-3 sm:p-4'}`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
