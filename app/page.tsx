@@ -592,7 +592,7 @@ export default function Home() {
               tileHeight={getEffectiveDimensions().height}
               dpi={dpi}
               zoom={(zoom / 100) * baseZoom}
-              onZoomChange={isScalePreviewActive && scalePreviewSize !== null ? undefined : (z: number) => setZoom(Math.max(50, Math.min(200, (z / baseZoom) * 100)))}
+              onZoomChange={isScalePreviewActive && scalePreviewSize !== null ? undefined : (z: number) => setZoom(Math.max(10, Math.min(200, (z / baseZoom) * 100)))}
               panX={panX}
               panY={panY}
               onPanChange={(x: number, y: number) => { setPanX(x); setPanY(y); }}
