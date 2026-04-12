@@ -39,11 +39,17 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const handleToggleFullscreen = useCallback(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     if (!isFullscreen) {
       setIsFullscreen(true);
-      document.documentElement.requestFullscreen?.().catch(() => {
-        // Browser doesn't support fullscreen API — CSS-only fallback is already active
-      });
+      // Skip native fullscreen on iOS — it shows an uncustomizable "swipe down to exit" tooltip
+      if (!isIOS) {
+        document.documentElement.requestFullscreen?.().catch(() => {
+          // Browser doesn't support fullscreen API — CSS-only fallback is already active
+        });
+      }
     } else {
       setIsFullscreen(false);
       if (document.fullscreenElement) {
