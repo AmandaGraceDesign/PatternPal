@@ -17,6 +17,8 @@ interface PatternPreviewCanvasProps {
   onPanChange?: (x: number, y: number) => void;
   showTileOutline: boolean;
   tileOutlineColor?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export default function PatternPreviewCanvas({
@@ -32,6 +34,8 @@ export default function PatternPreviewCanvas({
   onPanChange,
   showTileOutline,
   tileOutlineColor = '#38bdf8',
+  isFullscreen = false,
+  onToggleFullscreen,
 }: PatternPreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null); // double-buffer to eliminate zoom flash
@@ -339,55 +343,61 @@ export default function PatternPreviewCanvas({
   const verticalUnitValue = getPixelsPerUnit(rulerUnit);
 
   return (
-    <div className="flex flex-col w-full bg-[#0f172a] rounded-2xl mt-3 shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
-      <div className="flex items-center justify-end gap-2 p-2 text-xs bg-[#111827] border-b border-[#2d3340] text-white">
-        <span className="text-slate-300">Ruler unit:</span>
-        {['in', 'cm', 'px'].map((unit) => (
-          <button
-            key={unit}
-            onClick={() => setRulerUnit(unit as 'in' | 'cm' | 'px')}
-            className={`rounded border px-2 py-1 ${rulerUnit === unit ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
-          >
-            {unit}
-          </button>
-        ))}
-      </div>
-        {/* Top ruler */}
-        <div className="flex border-b border-[#3a3d44]">
-          <div className="w-[30px] h-[30px] bg-[#3a3d44] border-r border-[#3a3d44]" />
-          <div className="flex-1 overflow-hidden">
-            {image ? (
-              <Ruler
-                orientation="horizontal"
-                length={canvasSize.width}
-                scale={1}
-                unit={rulerUnit}
-                pixelsPerUnit={horizontalUnitValue}
-              />
-            ) : (
-              <div className="h-[30px] bg-[#3a3d44]" />
-            )}
-          </div>
+    <div className={`flex flex-col w-full bg-[#0f172a] ${isFullscreen ? 'h-full' : 'rounded-2xl mt-3 shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]'}`}>
+      {!isFullscreen && (
+        <div className="flex items-center justify-end gap-2 p-2 text-xs bg-[#111827] border-b border-[#2d3340] text-white">
+          <span className="text-slate-300">Ruler unit:</span>
+          {['in', 'cm', 'px'].map((unit) => (
+            <button
+              key={unit}
+              onClick={() => setRulerUnit(unit as 'in' | 'cm' | 'px')}
+              className={`rounded border px-2 py-1 ${rulerUnit === unit ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
+            >
+              {unit}
+            </button>
+          ))}
         </div>
+      )}
+        {/* Top ruler */}
+        {!isFullscreen && (
+          <div className="flex border-b border-[#3a3d44]">
+            <div className="w-[30px] h-[30px] bg-[#3a3d44] border-r border-[#3a3d44]" />
+            <div className="flex-1 overflow-hidden">
+              {image ? (
+                <Ruler
+                  orientation="horizontal"
+                  length={canvasSize.width}
+                  scale={1}
+                  unit={rulerUnit}
+                  pixelsPerUnit={horizontalUnitValue}
+                />
+              ) : (
+                <div className="h-[30px] bg-[#3a3d44]" />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Canvas with left ruler */}
-        <div className="flex">
-          <div className="w-[30px] overflow-hidden border-r border-[#3a3d44]">
-            {image ? (
-              <Ruler
-                orientation="vertical"
-                length={canvasSize.height}
-                scale={1}
-                unit={rulerUnit}
-                pixelsPerUnit={verticalUnitValue}
-              />
-            ) : (
-              <div className="w-[30px] bg-[#3a3d44]" />
-            )}
-          </div>
+        <div className={`flex ${isFullscreen ? 'flex-1' : ''}`}>
+          {!isFullscreen && (
+            <div className="w-[30px] overflow-hidden border-r border-[#3a3d44]">
+              {image ? (
+                <Ruler
+                  orientation="vertical"
+                  length={canvasSize.height}
+                  scale={1}
+                  unit={rulerUnit}
+                  pixelsPerUnit={verticalUnitValue}
+                />
+              ) : (
+                <div className="w-[30px] bg-[#3a3d44]" />
+              )}
+            </div>
+          )}
           <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-hidden bg-[#0f172a] relative"
+            className={`flex-1 overflow-hidden bg-[#0f172a] relative ${isFullscreen ? 'h-full' : ''}`}
             style={{
               touchAction: 'pan-x pan-y', // single-finger scrolls the page; pinch handled via non-passive listeners
               cursor: isPanning ? 'grabbing' : 'grab',
@@ -401,6 +411,32 @@ export default function PatternPreviewCanvas({
               ref={canvasRef}
               className="block"
             />
+            {/* Fullscreen toggle button */}
+            {onToggleFullscreen && (
+              <button
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                className={`${isFullscreen ? 'fixed' : 'absolute'} top-3 right-3 z-10 w-9 h-9 rounded-lg flex items-center justify-center transition-opacity hover:opacity-100`}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.75)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(0, 0, 0, 0.12)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
+                  opacity: 0.85,
+                }}
+              >
+                {isFullscreen ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 14h6v6m10-10h-6V4m0 6l7-7M3 21l7-7" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                  </svg>
+                )}
+              </button>
+            )}
           </div>
         </div>
     </div>

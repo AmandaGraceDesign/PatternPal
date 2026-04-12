@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
@@ -34,6 +34,34 @@ export default function Home() {
   // Scale Preview State
   const [scalePreviewSize, setScalePreviewSize] = useState<number | null>(null);
   const [isScalePreviewActive, setIsScalePreviewActive] = useState<boolean>(false);
+
+  // Fullscreen State
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      document.documentElement.requestFullscreen?.().catch(() => {
+        // Browser doesn't support fullscreen API — CSS-only fallback is already active
+      });
+    } else {
+      setIsFullscreen(false);
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.();
+      }
+    }
+  }, [isFullscreen]);
+
+  // Sync state when user exits browser fullscreen via Esc
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, [isFullscreen]);
 
   // Calculate scaled dimensions based on longest side input
   const getScaledDimensions = (longestSide: number) => {
@@ -486,9 +514,9 @@ export default function Home() {
       onDrop={handleDrop}
     >
       {/* Floating App Container */}
-      <div className="flex flex-col flex-1 min-h-0 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]">
+      <div className={`flex flex-col flex-1 min-h-0 ${isFullscreen ? '' : 'rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3)]'}`}>
       {/* Top Bar */}
-      <TopBar />
+      {!isFullscreen && <TopBar />}
       <Suspense fallback={null}>
         <ResumeSignupFromQuery />
         <CheckoutConversion />
@@ -496,7 +524,7 @@ export default function Home() {
       <SignupConversion />
 
       {/* Pattern Controls Bar */}
-      <PatternControlsTopBar
+      {!isFullscreen && <PatternControlsTopBar
         repeatType={repeatType}
         tileWidth={tileWidth}
         tileHeight={tileHeight}
@@ -528,24 +556,29 @@ export default function Home() {
         effectiveTileHeight={getEffectiveDimensions().height}
         effectiveScaleFactor={getEffectiveDimensions().scaleFactor}
         effectiveScalePreviewActive={isScalePreviewActive && scalePreviewSize !== null}
-      />
+      />}
 
       {/* Main Content Area: Full-width Canvas */}
-      <div className="relative">
+      <div className={`relative ${isFullscreen ? 'flex-1' : ''}`}>
         <div
-          className="workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 rounded-b-2xl"
-          style={{ minHeight: '100%' }}
+          className={isFullscreen
+            ? 'h-full flex flex-col'
+            : 'workspaceWell px-2 pt-2 pb-6 sm:px-3 sm:pt-4 sm:pb-8 lg:px-4 lg:pt-5 lg:pb-10 rounded-b-2xl'
+          }
+          style={isFullscreen ? undefined : { minHeight: '100%' }}
         >
-          <div className="flex justify-center items-start px-1 sm:px-2 mt-1 mb-4 sm:mt-2 sm:mb-6">
-            <div className="w-full max-w-5xl flex items-center gap-4">
-              <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
-              <p className="text-sm sm:text-base tracking-[0.2em] text-[rgba(255,255,255,0.66)] uppercase shrink-0">
-                PATTERN PREVIEW
-              </p>
-              <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
+          {!isFullscreen && (
+            <div className="flex justify-center items-start px-1 sm:px-2 mt-1 mb-4 sm:mt-2 sm:mb-6">
+              <div className="w-full max-w-5xl flex items-center gap-4">
+                <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
+                <p className="text-sm sm:text-base tracking-[0.2em] text-[rgba(255,255,255,0.66)] uppercase shrink-0">
+                  PATTERN PREVIEW
+                </p>
+                <div className="flex-1 h-px shrink-0 bg-[rgba(255,255,255,0.08)]" aria-hidden />
+              </div>
             </div>
-          </div>
-          <div className="flex justify-center items-start" style={{ padding: '0 20px' }}>
+          )}
+          <div className={isFullscreen ? 'flex-1' : 'flex justify-center items-start'} style={isFullscreen ? undefined : { padding: '0 20px' }}>
             <PatternPreviewCanvas
               image={image}
               repeatType={repeatType}
@@ -559,6 +592,8 @@ export default function Home() {
               onPanChange={(x: number, y: number) => { setPanX(x); setPanY(y); }}
               showTileOutline={showTileOutline}
               tileOutlineColor={tileOutlineColor}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={handleToggleFullscreen}
             />
           </div>
         </div>

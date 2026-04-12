@@ -31,7 +31,7 @@ Try the browser's native Fullscreen API (`requestFullscreen()`) for a truly imme
 
 ## Button Design
 
-- **Position:** Top-right corner of the canvas area, floating overlay
+- **Position:** Top-right corner of the canvas area, floating overlay (`position: absolute` on the canvas wrapper). Stays fixed in place regardless of pan/zoom — the pattern moves underneath it
 - **Size:** 36×36px, border-radius 8px
 - **Style:** Frosted glass — `background: rgba(255,255,255,0.60)`, `backdrop-filter: blur(8px)`, `border: 1px solid rgba(0,0,0,0.12)`, `box-shadow: 0 1px 3px rgba(0,0,0,0.15)`
 - **Icon:** Dark stroke (`#333`), 16×16, stroke-width 2.5, no fill
