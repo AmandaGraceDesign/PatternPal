@@ -12,6 +12,7 @@ import MockupRenderer from '@/components/mockups/MockupRenderer';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
+import { downloadCanvasAsImage } from '@/lib/utils/downloadCanvas';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
@@ -353,8 +354,6 @@ export default function AdvancedToolsBar({
               '[data-mockup-modal] .mockup-canvas'
             ) as HTMLCanvasElement | null;
             if (mockupCanvas) {
-              const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
-              const link = document.createElement('a');
               const template = getMockupTemplate(selectedMockup as any);
               const templateSlug =
                 template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
@@ -364,11 +363,8 @@ export default function AdvancedToolsBar({
               const suggested = sanitizeFilename(baseName, 'mockup');
               const userInput = window.prompt('Name your mockup file:', suggested);
               if (!userInput) return;
-              link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
-              link.href = dataURL;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+              const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
+              await downloadCanvasAsImage(mockupCanvas, filename);
             }
           }}
         >
