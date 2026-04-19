@@ -39,10 +39,16 @@ export async function downloadCanvasAsImage(
   const finalFilename = ensureExtension(filename, mimeType);
   const blob = await canvasToBlob(canvas, mimeType, quality);
 
-  if (isIOS() && typeof navigator.canShare === 'function') {
+  if (isIOS() && typeof navigator.share === 'function') {
     try {
       const file = new File([blob], finalFilename, { type: mimeType });
-      if (navigator.canShare({ files: [file] })) {
+      // Only skip if canShare explicitly rejects files; otherwise try share
+      // and fall back on error. This forces the native iOS share sheet
+      // (centered) instead of Chrome-on-iOS's bottom download bar.
+      const canShareFiles =
+        typeof navigator.canShare !== 'function' ||
+        navigator.canShare({ files: [file] });
+      if (canShareFiles) {
         await navigator.share({ files: [file], title: finalFilename });
         return;
       }
