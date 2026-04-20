@@ -29,7 +29,8 @@ export default function SignupConversion() {
 
     firedRef.current = true;
     sessionStorage.setItem(SIGNUP_FIRED_KEY, '1');
-    fireConversion('freeSignup');
+    const email = user.primaryEmailAddress?.emailAddress ?? null;
+    fireConversion('freeSignup', { email });
     window.pintrk?.('track', 'signup', { value: 0, currency: 'USD' });
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ event: 'sign_up' });

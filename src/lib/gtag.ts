@@ -8,6 +8,7 @@ export const CONVERSION_IDS = {
 
 export function fireConversion(
   type: 'freeSignup' | 'proTrialMonthly' | 'proTrialAnnual',
+  userData?: { email?: string | null; phone?: string | null },
 ) {
   if (typeof window === 'undefined' || !window.gtag) return
 
@@ -15,6 +16,13 @@ export function fireConversion(
     freeSignup:      { value: 0,     currency: 'USD' },
     proTrialMonthly: { value: 7.99,  currency: 'USD' },
     proTrialAnnual:  { value: 79.92, currency: 'USD' },
+  }
+
+  if (userData?.email || userData?.phone) {
+    const payload: Record<string, string> = {}
+    if (userData.email) payload.email = userData.email.trim().toLowerCase()
+    if (userData.phone) payload.phone_number = userData.phone.trim()
+    window.gtag('set', 'user_data', payload)
   }
 
   window.gtag('event', 'conversion', {
