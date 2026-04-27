@@ -40,7 +40,19 @@ export default function TopBar() {
   }, [isLoaded, isSignedIn, openSignUp]);
 
   const handleHelp = () => {
-    window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
+    const body = [
+      'Hi Mandy,',
+      '',
+      'Quick details that help me troubleshoot fast:',
+      '• Device: iPad / desktop / laptop?',
+      '• Browser: Safari / Chrome / Firefox / DuckDuckGo / other?',
+      '• If possible, attach the file you were testing — your artwork is 100% safe with me. I\'ll only use it to reproduce the issue, and I\'ll never share, store, or repurpose it.',
+      '',
+      '[Tell me what\'s happening]',
+      '',
+      'Thanks!',
+    ].join('\n');
+    window.location.href = `mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support&body=${encodeURIComponent(body)}`;
   };
 
   return (
