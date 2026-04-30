@@ -1,3 +1,21 @@
+// Maximum per-side pixel dimension for uploaded patterns.
+// Chosen so half-drop / half-brick conversion (which doubles one side)
+// stays under Chromium's 16,384px canvas limit. At 300 DPI this is a 27" tile.
+export const MAX_PATTERN_DIMENSION = 8192;
+
+export function validateImageDimensions(image: HTMLImageElement): void {
+  if (
+    image.naturalWidth > MAX_PATTERN_DIMENSION ||
+    image.naturalHeight > MAX_PATTERN_DIMENSION
+  ) {
+    throw new Error(
+      `Your image is ${image.naturalWidth} × ${image.naturalHeight} pixels. ` +
+      `Patternpal supports patterns up to ${MAX_PATTERN_DIMENSION} × ${MAX_PATTERN_DIMENSION} pixels ` +
+      `(a 27" tile at 300 DPI). Please resize and re-import.`
+    );
+  }
+}
+
 // Extract DPI from image file metadata
 export async function extractDpiFromFile(file: File | Blob): Promise<number | null> {
   return new Promise((resolve) => {

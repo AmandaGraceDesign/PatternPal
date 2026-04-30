@@ -5,7 +5,7 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
-import { extractDpiFromFile, validateSvgSafety } from '@/lib/utils/imageUtils';
+import { extractDpiFromFile, validateSvgSafety, validateImageDimensions } from '@/lib/utils/imageUtils';
 import ResumeSignupFromQuery from './_components/ResumeSignupFromQuery';
 import CheckoutConversion from './_components/CheckoutConversion';
 import SignupConversion from './_components/SignupConversion';
@@ -182,6 +182,14 @@ export default function Home() {
           const img = new Image();
           const objectUrl = URL.createObjectURL(blob);
           img.onload = () => {
+            try {
+              validateImageDimensions(img);
+            } catch (error) {
+              URL.revokeObjectURL(objectUrl);
+              setIsLoading(false);
+              alert(error instanceof Error ? error.message : 'Image is too large.');
+              return;
+            }
             URL.revokeObjectURL(objectUrl);
             const finalDpi = detectedDpi || 96;
             const detectedWidth = img.naturalWidth / finalDpi;
@@ -340,6 +348,15 @@ export default function Home() {
         console.log('Image loaded:', img.naturalWidth, 'x', img.naturalHeight);
       }
 
+      try {
+        validateImageDimensions(img);
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        setIsLoading(false);
+        alert(error instanceof Error ? error.message : 'Image is too large.');
+        return;
+      }
+
       const finalDpi = detectedDpi;
       if (process.env.NODE_ENV === 'development') {
         console.log('Using DPI:', finalDpi);
@@ -453,6 +470,14 @@ export default function Home() {
         const img = new Image();
         const objectUrl = URL.createObjectURL(blob);
         img.onload = () => {
+          try {
+            validateImageDimensions(img);
+          } catch (error) {
+            URL.revokeObjectURL(objectUrl);
+            setIsLoading(false);
+            alert(error instanceof Error ? error.message : 'Image is too large.');
+            return;
+          }
           URL.revokeObjectURL(objectUrl);
           const finalDpi = detectedDpi || 96;
           const detectedWidth = img.naturalWidth / finalDpi;
