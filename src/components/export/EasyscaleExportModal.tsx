@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { generateScaledExport, ScaledExportConfig } from '@/lib/utils/exportScaled';
 import { calculateOriginalSize, detectOriginalDPI } from '@/lib/utils/imageScaler';
+import { getConvertToFullDropBlockReason } from '@/lib/utils/convertToFullDrop';
 
 interface EasyscaleExportModalProps {
   isOpen: boolean;
@@ -50,6 +51,16 @@ export default function EasyscaleExportModal({
   const [convertToFD, setConvertToFD] = useState(false);
 
   const showConvertToggle = repeatType !== 'full-drop';
+  const convertBlockReason = image && showConvertToggle
+    ? getConvertToFullDropBlockReason(image.naturalWidth, image.naturalHeight, mapRepeatType(repeatType))
+    : null;
+  const convertDisabled = convertBlockReason !== null;
+
+  // If the toggle becomes disabled (e.g. user re-imports a larger tile), make
+  // sure we don't keep `convertToFD` checked from a prior session.
+  useEffect(() => {
+    if (convertDisabled && convertToFD) setConvertToFD(false);
+  }, [convertDisabled, convertToFD]);
 
   // Calculate the maximum exportable size (in inches) without upscaling
   // When converting to full-drop, the user's selected size refers to the
@@ -517,21 +528,26 @@ export default function EasyscaleExportModal({
               {/* Convert to Full Drop */}
               {showConvertToggle && (
                 <div>
-                  <label className="flex items-center cursor-pointer">
+                  <label
+                    className={`flex items-center ${convertDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                    title={convertBlockReason ?? undefined}
+                  >
                     <input
                       type="checkbox"
-                      checked={convertToFD}
+                      checked={convertToFD && !convertDisabled}
                       onChange={(e) => setConvertToFD(e.target.checked)}
                       className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
                       style={{ accentColor: '#e0c26e' }}
-                      disabled={isExporting}
+                      disabled={isExporting || convertDisabled}
                     />
                     <span className="text-sm text-[#374151]">
                       Convert to Full Drop
                     </span>
                   </label>
                   <p className="text-xs text-[#6b7280] mt-1 ml-6">
-                    Tiles your {repeatType === 'half-drop' ? 'half-drop' : 'half-brick'} pattern into a full-drop tile for POD sites that only accept full-drop repeats.
+                    {convertBlockReason
+                      ? convertBlockReason
+                      : `Tiles your ${repeatType === 'half-drop' ? 'half-drop' : 'half-brick'} pattern into a full-drop tile for POD sites that only accept full-drop repeats.`}
                   </p>
                 </div>
               )}

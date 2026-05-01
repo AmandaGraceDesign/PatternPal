@@ -1,7 +1,10 @@
 // Maximum per-side pixel dimension for uploaded patterns.
-// Chosen so half-drop / half-brick conversion (which doubles one side)
-// stays under Chromium's 16,384px canvas limit. At 300 DPI this is a 27" tile.
-export const MAX_PATTERN_DIMENSION = 8192;
+// Browser canvases (Chromium) cap at 16,384px per side; we leave a small margin
+// so direct natural-size renders (main canvas, seam inspector, full-drop export)
+// stay safely below the ceiling. Half-drop / half-brick conversion doubles one
+// side and is gated separately at the conversion call site, not at upload.
+export const MAX_PATTERN_DIMENSION = 15000;
+export const BROWSER_CANVAS_LIMIT = 16384;
 
 export function validateImageDimensions(image: HTMLImageElement): void {
   if (
@@ -10,8 +13,8 @@ export function validateImageDimensions(image: HTMLImageElement): void {
   ) {
     throw new Error(
       `Your image is ${image.naturalWidth} × ${image.naturalHeight} pixels. ` +
-      `Patternpal supports patterns up to ${MAX_PATTERN_DIMENSION} × ${MAX_PATTERN_DIMENSION} pixels ` +
-      `(a 27" tile at 300 DPI). Please resize and re-import.`
+      `Patternpal supports patterns up to ${MAX_PATTERN_DIMENSION} × ${MAX_PATTERN_DIMENSION} pixels. ` +
+      `Please resize and re-import.`
     );
   }
 }
