@@ -72,6 +72,18 @@ export default function MockupRendererV2({
           displacementMapImage = await loadImage(template.displacementMapPath);
         }
 
+        // Load shadow overlay if template has one
+        let shadowImage: HTMLImageElement | null = null;
+        if (template.shadowPath) {
+          shadowImage = await loadImage(template.shadowPath);
+        }
+
+        // Load highlight overlay if template has one
+        let highlightImage: HTMLImageElement | null = null;
+        if (template.highlightPath) {
+          highlightImage = await loadImage(template.highlightPath);
+        }
+
         // Load zone masks if template has zones
         const zoneMasks: Record<string, HTMLImageElement> = {};
         if (template.zones) {
@@ -97,6 +109,8 @@ export default function MockupRendererV2({
           colorOverlayMaskImage: colorOverlayMaskImage || undefined,
           colorOverride: colorOverride ?? undefined,
           displacementMapImage: displacementMapImage || undefined,
+          shadowImage: shadowImage || undefined,
+          highlightImage: highlightImage || undefined,
         });
 
         const canvas = canvasRef.current;

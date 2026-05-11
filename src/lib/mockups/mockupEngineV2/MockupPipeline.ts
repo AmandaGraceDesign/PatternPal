@@ -57,6 +57,10 @@ export interface PipelineInput {
   colorOverride?: string | null;
   /** Pre-loaded photo-based displacement map (grayscale, canvas-sized). */
   displacementMapImage?: HTMLImageElement;
+  /** Pre-loaded shadow overlay (RGBA, canvas-sized). Composited multiply on top. */
+  shadowImage?: HTMLImageElement;
+  /** Pre-loaded highlight overlay (RGBA, canvas-sized). Composited soft-light on top. */
+  highlightImage?: HTMLImageElement;
 }
 
 /**
@@ -71,6 +75,8 @@ function processZone(
     perspective: { topSqueeze: number; bottomSqueeze: number; rightSqueeze?: number };
     displacement: { intensity: number; wrinkleFreq: number; type: string };
     foreshorten?: number;
+    patternAngle?: number;
+    patternOffset?: { x: number; y: number };
   },
   canvasWidth: number,
   canvasHeight: number,
@@ -123,8 +129,31 @@ function processZone(
     const scaledCtx = scaledTile.getContext('2d')!;
     scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
 
-    const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
-    tiler.renderPreScaled(scaledTile, repeatType);
+    const angleDeg = zone.patternAngle ?? 0;
+    const offsetX = zone.patternOffset?.x ?? 0;
+    const offsetY = zone.patternOffset?.y ?? 0;
+    if (angleDeg !== 0) {
+      // Tile to an oversized canvas (sqrt(2)x + offset padding) so rotation +
+      // optional pre-rotation pattern shift both have full coverage, then draw
+      // the rotated result into the patternArea-sized tileCanvas.
+      const offsetPad = Math.max(Math.abs(offsetX), Math.abs(offsetY));
+      const over = Math.ceil(Math.SQRT2 * Math.max(patternArea.width, patternArea.height) + 2 * offsetPad);
+      const oversized = document.createElement('canvas');
+      oversized.width = over;
+      oversized.height = over;
+      const overCtx = oversized.getContext('2d')!;
+      const overTiler = new PatternTiler(overCtx, over, over);
+      overTiler.renderPreScaled(scaledTile, repeatType);
+
+      tileCtx.save();
+      tileCtx.translate(patternArea.width / 2, patternArea.height / 2);
+      tileCtx.rotate((angleDeg * Math.PI) / 180);
+      tileCtx.drawImage(oversized, -over / 2 + offsetX, -over / 2 + offsetY);
+      tileCtx.restore();
+    } else {
+      const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
+      tiler.renderPreScaled(scaledTile, repeatType);
+    }
   }
 
   // --- Stage 2: Perspective Warp ---
@@ -446,7 +475,9 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   }
 
   // --- Lighting overlay ---
-  if (lighting.enabled && lighting.intensity > 0) {
+  // Suppressed when an explicit highlight overlay is provided — the highlight PNG
+  // already encodes the photo's lighting intent, so we don't want to double-light.
+  if (lighting.enabled && lighting.intensity > 0 && !input.highlightImage) {
     const lightCanvas = document.createElement('canvas');
     lightCanvas.width = width;
     lightCanvas.height = height;
@@ -471,6 +502,24 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
     finalCtx.globalCompositeOperation = 'soft-light';
     finalCtx.globalAlpha = lighting.intensity;
     finalCtx.drawImage(lightCanvas, 0, 0);
+    finalCtx.globalCompositeOperation = 'source-over';
+    finalCtx.globalAlpha = 1;
+  }
+
+  // --- Shadow overlay (multiply, top of stack) ---
+  if (input.shadowImage) {
+    finalCtx.globalCompositeOperation = 'multiply';
+    finalCtx.globalAlpha = template.shadowOpacity ?? 1.0;
+    finalCtx.drawImage(input.shadowImage, 0, 0, width, height);
+    finalCtx.globalCompositeOperation = 'source-over';
+    finalCtx.globalAlpha = 1;
+  }
+
+  // --- Highlight overlay (soft-light, top of stack) ---
+  if (input.highlightImage) {
+    finalCtx.globalCompositeOperation = 'soft-light';
+    finalCtx.globalAlpha = template.highlightOpacity ?? 1.0;
+    finalCtx.drawImage(input.highlightImage, 0, 0, width, height);
     finalCtx.globalCompositeOperation = 'source-over';
     finalCtx.globalAlpha = 1;
   }

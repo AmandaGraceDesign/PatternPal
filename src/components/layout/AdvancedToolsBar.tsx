@@ -379,10 +379,14 @@ export default function AdvancedToolsBar({
             }}
           >
             <div className="flex flex-col gap-3">
-              {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper') && (
+              {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper' || !!v2Template?.colorOverlay) && (
                 <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
                   <label className="text-xs font-medium text-[#294051]">
-                    {selectedMockup === 'wrapping-paper' ? 'Bow Color:' : 'Onesie Trim Color:'}
+                    {selectedMockup === 'wrapping-paper' ? 'Bow Color:'
+                      : selectedMockup === 'onesie' ? 'Onesie Trim Color:'
+                      : selectedMockup === 'curtain' ? 'Wall Color:'
+                      : selectedMockup === 'picnic-blanket' ? 'Border Color:'
+                      : 'Accent Color:'}
                   </label>
                   <input
                     type="color"
