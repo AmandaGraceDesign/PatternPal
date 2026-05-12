@@ -61,6 +61,14 @@ export interface PipelineInput {
   shadowImage?: HTMLImageElement;
   /** Pre-loaded highlight overlay (RGBA, canvas-sized). Composited soft-light on top. */
   highlightImage?: HTMLImageElement;
+  /** Runtime override for shadow opacity. Wins over template.shadowOpacity. */
+  shadowOpacityOverride?: number;
+  /** Runtime override for highlight opacity. Wins over template.highlightOpacity. */
+  highlightOpacityOverride?: number;
+  /** Runtime toggle for shadow layer. When false, shadow is skipped entirely. Default true. */
+  shadowEnabled?: boolean;
+  /** Runtime toggle for highlight layer. When false, highlight is skipped entirely. Default true. */
+  highlightEnabled?: boolean;
 }
 
 /**
@@ -507,18 +515,18 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   }
 
   // --- Shadow overlay (multiply, top of stack) ---
-  if (input.shadowImage) {
+  if (input.shadowImage && input.shadowEnabled !== false) {
     finalCtx.globalCompositeOperation = 'multiply';
-    finalCtx.globalAlpha = template.shadowOpacity ?? 1.0;
+    finalCtx.globalAlpha = input.shadowOpacityOverride ?? template.shadowOpacity ?? 0.5;
     finalCtx.drawImage(input.shadowImage, 0, 0, width, height);
     finalCtx.globalCompositeOperation = 'source-over';
     finalCtx.globalAlpha = 1;
   }
 
   // --- Highlight overlay (soft-light, top of stack) ---
-  if (input.highlightImage) {
+  if (input.highlightImage && input.highlightEnabled !== false) {
     finalCtx.globalCompositeOperation = 'soft-light';
-    finalCtx.globalAlpha = template.highlightOpacity ?? 1.0;
+    finalCtx.globalAlpha = input.highlightOpacityOverride ?? template.highlightOpacity ?? 0.5;
     finalCtx.drawImage(input.highlightImage, 0, 0, width, height);
     finalCtx.globalCompositeOperation = 'source-over';
     finalCtx.globalAlpha = 1;

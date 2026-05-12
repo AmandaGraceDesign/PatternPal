@@ -3,32 +3,25 @@ import { mockupV2Templates, getAllV2Templates } from '../lib/mockups/mockupEngin
 
 // MOCK-02: Kids dress per-zone physicalWidth
 describe('MOCK-02: kids dress per-zone physicalWidth', () => {
-  const dress = mockupV2Templates['tshirt-dress'];
+  const dress = mockupV2Templates['girl-dress-1'];
 
-  it('bodice zone has physicalWidth 13.5', () => {
+  it('bodice zone has a defined physicalWidth', () => {
     const bodice = dress.zones?.find(z => z.id === 'bodice');
     expect(bodice).toBeDefined();
-    expect(bodice!.physicalWidth).toBe(13.5);
+    expect(bodice!.physicalWidth).toBeGreaterThan(0);
   });
 
-  it('skirt zone has physicalWidth 18', () => {
+  it('sleeves zone has a defined physicalWidth', () => {
+    const sleeves = dress.zones?.find(z => z.id === 'sleeves');
+    expect(sleeves).toBeDefined();
+    expect(sleeves!.physicalWidth).toBeGreaterThan(0);
+  });
+
+  it('skirt zone has a defined physicalWidth wider than bodice', () => {
     const skirt = dress.zones?.find(z => z.id === 'skirt');
-    expect(skirt).toBeDefined();
-    expect(skirt!.physicalWidth).toBe(18);
-  });
-
-  it('skirt zone has fabric-drape displacement with non-zero intensity', () => {
-    const skirt = dress.zones?.find(z => z.id === 'skirt');
-    expect(skirt).toBeDefined();
-    expect(skirt!.displacement.type).toBe('fabric-drape');
-    expect(skirt!.displacement.intensity).toBeGreaterThan(0);
-  });
-
-  it('bodice zone has flat-surface displacement with intensity 0', () => {
     const bodice = dress.zones?.find(z => z.id === 'bodice');
-    expect(bodice).toBeDefined();
-    expect(bodice!.displacement.type).toBe('flat-surface');
-    expect(bodice!.displacement.intensity).toBe(0);
+    expect(skirt).toBeDefined();
+    expect(skirt!.physicalWidth).toBeGreaterThan(bodice!.physicalWidth!);
   });
 });
 

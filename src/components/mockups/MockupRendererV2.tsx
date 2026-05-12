@@ -15,6 +15,14 @@ interface MockupRendererV2Props {
   onClick?: () => void;
   /** User-chosen accent color for trim/bow. When absent, auto-detect from pattern. */
   colorOverride?: string | null;
+  /** Runtime override for shadow overlay opacity (0..1). When absent, uses template default. */
+  shadowOpacityOverride?: number | null;
+  /** Runtime override for highlight overlay opacity (0..1). When absent, uses template default. */
+  highlightOpacityOverride?: number | null;
+  /** Runtime toggle for shadow layer. When false, shadow is skipped entirely. */
+  shadowEnabled?: boolean;
+  /** Runtime toggle for highlight layer. When false, highlight is skipped entirely. */
+  highlightEnabled?: boolean;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -36,6 +44,10 @@ export default function MockupRendererV2({
   repeatType,
   onClick,
   colorOverride,
+  shadowOpacityOverride,
+  highlightOpacityOverride,
+  shadowEnabled,
+  highlightEnabled,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -111,6 +123,10 @@ export default function MockupRendererV2({
           displacementMapImage: displacementMapImage || undefined,
           shadowImage: shadowImage || undefined,
           highlightImage: highlightImage || undefined,
+          shadowOpacityOverride: shadowOpacityOverride ?? undefined,
+          highlightOpacityOverride: highlightOpacityOverride ?? undefined,
+          shadowEnabled: shadowEnabled,
+          highlightEnabled: highlightEnabled,
         });
 
         const canvas = canvasRef.current;
@@ -130,7 +146,7 @@ export default function MockupRendererV2({
     })();
 
     return () => { cancelled = true; };
-  }, [patternImage, template, tileWidth, tileHeight, dpi, repeatType, colorOverride]);
+  }, [patternImage, template, tileWidth, tileHeight, dpi, repeatType, colorOverride, shadowOpacityOverride, highlightOpacityOverride, shadowEnabled, highlightEnabled]);
 
   return (
     <div

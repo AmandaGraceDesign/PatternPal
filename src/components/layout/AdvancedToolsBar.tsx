@@ -116,6 +116,10 @@ export default function AdvancedToolsBar({
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
+  const [shadowEnabled, setShadowEnabled] = useState(true);
+  const [highlightEnabled, setHighlightEnabled] = useState(true);
+  const [shadowOpacityPercent, setShadowOpacityPercent] = useState(50);
+  const [highlightOpacityPercent, setHighlightOpacityPercent] = useState(50);
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
   const [colorHarmonyAnalysis, setColorHarmonyAnalysis] = useState<ColorHarmonyAnalysis | null>(null);
@@ -318,6 +322,10 @@ export default function AdvancedToolsBar({
           setIsMockupsOpen(false);
           setSelectedMockup(null);
           setMockupColorOverride(null);
+          setShadowEnabled(true);
+          setHighlightEnabled(true);
+          setShadowOpacityPercent(50);
+          setHighlightOpacityPercent(50);
         }}
         onSelectMockup={(type) => {
           setSelectedMockup(type);
@@ -405,6 +413,67 @@ export default function AdvancedToolsBar({
                 </div>
               )}
 
+              {/* Shadow / Highlight opacity controls (only for templates with those layers) */}
+              {(() => {
+                const hasShadow = !!v2Template?.shadowPath;
+                const hasHighlight = !!v2Template?.highlightPath;
+                if (!hasShadow && !hasHighlight) return null;
+                return (
+                  <div className="flex flex-wrap items-center justify-center gap-5 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
+                    {hasShadow && (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={shadowEnabled}
+                          onChange={(e) => setShadowEnabled(e.target.checked)}
+                          className="cursor-pointer"
+                        />
+                        <span className="font-medium">Shadow</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={shadowOpacityPercent}
+                          disabled={!shadowEnabled}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (Number.isFinite(n)) setShadowOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
+                          }}
+                          className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
+                        />
+                        <span className="opacity-60">%</span>
+                      </label>
+                    )}
+                    {hasHighlight && (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={highlightEnabled}
+                          onChange={(e) => setHighlightEnabled(e.target.checked)}
+                          className="cursor-pointer"
+                        />
+                        <span className="font-medium">Highlight</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={highlightOpacityPercent}
+                          disabled={!highlightEnabled}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (Number.isFinite(n)) setHighlightOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
+                          }}
+                          className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
+                        />
+                        <span className="opacity-60">%</span>
+                      </label>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
                 <div className="w-full max-w-2xl">
                   {v2Template ? (
@@ -417,6 +486,10 @@ export default function AdvancedToolsBar({
                       repeatType={repeatType}
                       onClick={() => {}}
                       colorOverride={mockupColorOverride}
+                      shadowOpacityOverride={shadowOpacityPercent / 100}
+                      highlightOpacityOverride={highlightOpacityPercent / 100}
+                      shadowEnabled={shadowEnabled}
+                      highlightEnabled={highlightEnabled}
                     />
                   ) : (
                     <MockupRenderer
