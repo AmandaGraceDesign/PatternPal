@@ -1,3 +1,32 @@
+import { BROWSER_CANVAS_LIMIT } from './imageUtils';
+
+/**
+ * Returns a browser-limit error message if converting a tile of (W, H) to
+ * full-drop via the given repeat type would exceed Chromium's canvas ceiling,
+ * or null if conversion is safe. Used both as a guard inside convertToFullDrop
+ * and to disable "Convert to full-drop" toggles in export modals.
+ */
+export function getConvertToFullDropBlockReason(
+  W: number,
+  H: number,
+  repeatType: string, // 'halfdrop' | 'halfbrick' | 'fulldrop'
+): string | null {
+  const requiredW = repeatType === 'halfdrop' ? W * 2 : W;
+  const requiredH = repeatType === 'halfbrick' ? H * 2 : H;
+  if (requiredW <= BROWSER_CANVAS_LIMIT && requiredH <= BROWSER_CANVAS_LIMIT) {
+    return null;
+  }
+  return (
+    `Browser limit: canvases max out at ${BROWSER_CANVAS_LIMIT.toLocaleString()} px per side, ` +
+    `and converting a ${repeatType === 'halfdrop' ? 'half-drop' : 'half-brick'} ` +
+    `${repeatType === 'halfdrop' ? 'doubles the width' : 'doubles the height'} of your tile. ` +
+    `Your ${W.toLocaleString()} × ${H.toLocaleString()} tile would need a ` +
+    `${requiredW.toLocaleString()} × ${requiredH.toLocaleString()} canvas — just past the ceiling. ` +
+    `You can still export this as ${repeatType === 'halfdrop' ? 'half-drop' : 'half-brick'}, or resize the tile to ` +
+    `${Math.floor(BROWSER_CANVAS_LIMIT / 2).toLocaleString()} px or smaller to enable conversion.`
+  );
+}
+
 /**
  * Convert a half-drop or half-brick tile into a full-drop tile.
  *
@@ -15,6 +44,9 @@ export function convertToFullDrop(
 ): HTMLCanvasElement {
   const W = image.naturalWidth;
   const H = image.naturalHeight;
+
+  const blockReason = getConvertToFullDropBlockReason(W, H, repeatType);
+  if (blockReason) throw new Error(blockReason);
 
   if (repeatType === 'halfdrop') {
     const canvas = document.createElement('canvas');

@@ -15,6 +15,7 @@ import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
+import { downloadCanvasAsImage } from '@/lib/utils/downloadCanvas';
 
 interface ActionsSidebarProps {
   image: HTMLImageElement | null;
@@ -321,8 +322,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               '[data-mockup-modal] .mockup-canvas'
             ) as HTMLCanvasElement | null;
             if (mockupCanvas) {
-              const dataURL = mockupCanvas.toDataURL('image/png', 1.0);
-              const link = document.createElement('a');
               const template = getMockupTemplate(selectedMockup as any);
               const templateSlug =
                 template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
@@ -332,11 +331,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               const suggested = sanitizeFilename(baseName, 'mockup');
               const userInput = window.prompt('Name your mockup file:', suggested);
               if (!userInput) return;
-              link.download = `${sanitizeFilename(userInput, 'mockup')}.png`;
-              link.href = dataURL;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+              const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
+              await downloadCanvasAsImage(mockupCanvas, filename);
             }
           }}
         >

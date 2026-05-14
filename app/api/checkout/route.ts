@@ -17,6 +17,7 @@ function getPriceId(plan: Plan) {
 // Key: lowercase code, Value: trial config
 const PROMO_CODES: Record<string, { trialDays: number; description: string }> = {
   affiliate20: { trialDays: 120, description: "Affiliate 4-month free trial" },
+  motifmagic: { trialDays: 30, description: "1st month free" },
 };
 
 export async function POST(req: Request) {
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/?checkout=success&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancel`,
       customer_email: email ?? undefined,
       client_reference_id: referral || userId,

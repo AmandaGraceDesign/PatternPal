@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionButton';
 import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
+import ProTrialBanner from '@/components/upgrade/ProTrialBanner';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
 export default function TopBar() {
@@ -39,7 +40,19 @@ export default function TopBar() {
   }, [isLoaded, isSignedIn, openSignUp]);
 
   const handleHelp = () => {
-    window.location.href = 'mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support';
+    const body = [
+      'Hi Mandy,',
+      '',
+      'Quick details that help me troubleshoot fast:',
+      '• Device: iPad / desktop / laptop?',
+      '• Browser: Safari / Chrome / Firefox / DuckDuckGo / other?',
+      '• If possible, attach the file you were testing — your artwork is 100% safe with me. I\'ll only use it to reproduce the issue, and I\'ll never share, store, or repurpose it.',
+      '',
+      '[Tell me what\'s happening]',
+      '',
+      'Thanks!',
+    ].join('\n');
+    window.location.href = `mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support&body=${encodeURIComponent(body)}`;
   };
 
   return (
@@ -77,6 +90,12 @@ export default function TopBar() {
         >
           Help
         </button>
+        <a
+          href="mailto:education@amandagracedesign.com?subject=PatternPAL%20Pro%20Feedback"
+          className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+        >
+          Feedback
+        </a>
         <SignedIn>
           {isPro && (
             <a
@@ -118,7 +137,7 @@ export default function TopBar() {
         initialPlan={upgradePlan}
       />
 
-      {isPro && <AffiliateSlideOut />}
+      {isPro ? <AffiliateSlideOut /> : <ProTrialBanner onUpgradeClick={() => setIsUpgradeModalOpen(true)} />}
 
       <WelcomeModal key={tourKey} />
     </header>
