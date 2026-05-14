@@ -35,6 +35,21 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
+/**
+ * Module-level cache of in-flight and resolved image loads, keyed by URL.
+ * Templates re-render frequently (every scale, opacity, or color tweak); without
+ * this cache each render re-decodes every PNG (some 10-15 MB), which dominates
+ * render time. The cache holds the Promise so concurrent callers de-dupe too.
+ */
+const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+function cachedLoadImage(src: string): Promise<HTMLImageElement | null> {
+  const existing = imageCache.get(src);
+  if (existing) return existing;
+  const p = loadImage(src);
+  imageCache.set(src, p);
+  return p;
+}
+
 export default function MockupRendererV2({
   template,
   patternImage,
@@ -60,50 +75,37 @@ export default function MockupRendererV2({
 
     (async () => {
       try {
-        // Load product base image if template uses image type
-        let productBaseImage: HTMLImageElement | null = null;
-        if (template.productBase.type === 'image') {
-          productBaseImage = await loadImage(template.productBase.imagePath);
-        }
+        // Load all template assets in parallel (cached after first load).
+        const productImagePath = template.productBase.type === 'image' ? template.productBase.imagePath : null;
+        const productMaskPath = template.productBase.type === 'image' ? template.productBase.maskPath ?? null : null;
+        const colorMaskPath = template.colorOverlay?.maskPath ?? null;
+        const displacementPath = template.displacementMapPath ?? null;
+        const shadowPath = template.shadowPath ?? null;
+        const highlightPath = template.highlightPath ?? null;
 
-        // Load single mask if defined on image product base
-        let productMaskImage: HTMLImageElement | null = null;
-        if (template.productBase.type === 'image' && template.productBase.maskPath) {
-          productMaskImage = await loadImage(template.productBase.maskPath);
-        }
+        const [
+          productBaseImage,
+          productMaskImage,
+          colorOverlayMaskImage,
+          displacementMapImage,
+          shadowImage,
+          highlightImage,
+          zoneMaskResults,
+        ] = await Promise.all([
+          productImagePath ? cachedLoadImage(productImagePath) : Promise.resolve(null),
+          productMaskPath ? cachedLoadImage(productMaskPath) : Promise.resolve(null),
+          colorMaskPath ? cachedLoadImage(colorMaskPath) : Promise.resolve(null),
+          displacementPath ? cachedLoadImage(displacementPath) : Promise.resolve(null),
+          shadowPath ? cachedLoadImage(shadowPath) : Promise.resolve(null),
+          highlightPath ? cachedLoadImage(highlightPath) : Promise.resolve(null),
+          template.zones
+            ? Promise.all(template.zones.map(async (zone) => ({ id: zone.id, img: await cachedLoadImage(zone.maskPath) })))
+            : Promise.resolve([] as Array<{ id: string; img: HTMLImageElement | null }>),
+        ]);
 
-        // Load color overlay mask if template has one
-        let colorOverlayMaskImage: HTMLImageElement | null = null;
-        if (template.colorOverlay?.maskPath) {
-          colorOverlayMaskImage = await loadImage(template.colorOverlay.maskPath);
-        }
-
-        // Load photo-based displacement map if template has one
-        let displacementMapImage: HTMLImageElement | null = null;
-        if (template.displacementMapPath) {
-          displacementMapImage = await loadImage(template.displacementMapPath);
-        }
-
-        // Load shadow overlay if template has one
-        let shadowImage: HTMLImageElement | null = null;
-        if (template.shadowPath) {
-          shadowImage = await loadImage(template.shadowPath);
-        }
-
-        // Load highlight overlay if template has one
-        let highlightImage: HTMLImageElement | null = null;
-        if (template.highlightPath) {
-          highlightImage = await loadImage(template.highlightPath);
-        }
-
-        // Load zone masks if template has zones
         const zoneMasks: Record<string, HTMLImageElement> = {};
-        if (template.zones) {
-          const maskLoads = template.zones.map(async (zone) => {
-            const img = await loadImage(zone.maskPath);
-            if (img) zoneMasks[zone.id] = img;
-          });
-          await Promise.all(maskLoads);
+        for (const { id, img } of zoneMaskResults) {
+          if (img) zoneMasks[id] = img;
         }
 
         if (cancelled) return;

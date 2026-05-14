@@ -19,6 +19,16 @@ import { useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useEffect } from 'react';
 
+/** Debounces a value — returns the input only after it has stopped changing for `delay` ms. */
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 interface AdvancedToolsBarProps {
   image: HTMLImageElement | null;
   dpi: number;
@@ -120,6 +130,16 @@ export default function AdvancedToolsBar({
   const [highlightEnabled, setHighlightEnabled] = useState(true);
   const [shadowOpacityPercent, setShadowOpacityPercent] = useState(50);
   const [highlightOpacityPercent, setHighlightOpacityPercent] = useState(50);
+  const [mockupScaleOverride, setMockupScaleOverride] = useState<number | null>(null);
+
+  const effectiveTileWidth = mockupScaleOverride ?? tileWidth;
+  const tileAspect = tileWidth > 0 ? tileHeight / tileWidth : 1;
+  const effectiveTileHeight = mockupScaleOverride !== null ? mockupScaleOverride * tileAspect : tileHeight;
+
+  // Debounced versions are what the (expensive) mockup pipeline actually consumes.
+  // The input field still binds to the un-debounced value, so typing feels instant.
+  const renderTileWidth = useDebouncedValue(effectiveTileWidth, 150);
+  const renderTileHeight = useDebouncedValue(effectiveTileHeight, 150);
   const [contrastAnalysis, setContrastAnalysis] = useState<ContrastAnalysis | null>(null);
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
   const [colorHarmonyAnalysis, setColorHarmonyAnalysis] = useState<ColorHarmonyAnalysis | null>(null);
@@ -354,9 +374,10 @@ export default function AdvancedToolsBar({
             onClose={() => {
               setSelectedMockup(null);
               setMockupColorOverride(null);
+              setMockupScaleOverride(null);
             }}
             title={mockupName}
-            subtitle={`Based on ${tileWidth.toFixed(1)} × ${tileHeight.toFixed(1)} inch repeat`}
+            subtitle={`Based on ${effectiveTileWidth.toFixed(1)} × ${effectiveTileHeight.toFixed(1)} inch repeat`}
             onDownload={async () => {
               const allowed = await verifyProAccess();
               if (!allowed) {
@@ -387,88 +408,128 @@ export default function AdvancedToolsBar({
             }}
           >
             <div className="flex flex-col gap-3">
-              {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper' || !!v2Template?.colorOverlay) && (
-                <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
-                  <label className="text-xs font-medium text-[#294051]">
-                    {selectedMockup === 'wrapping-paper' ? 'Bow Color:'
-                      : selectedMockup === 'onesie' ? 'Onesie Trim Color:'
-                      : selectedMockup === 'curtain' ? 'Wall Color:'
-                      : selectedMockup === 'picnic-blanket' ? 'Border Color:'
-                      : 'Accent Color:'}
-                  </label>
-                  <input
-                    type="color"
-                    value={mockupColorOverride || '#ffffff'}
-                    onChange={(e) => setMockupColorOverride(e.target.value)}
-                    className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
-                  />
-                  {mockupColorOverride && (
-                    <button
-                      onClick={() => setMockupColorOverride(null)}
-                      className="text-xs text-[#705046] hover:text-[#294051] underline"
-                    >
-                      Reset to auto
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Shadow / Highlight opacity controls (only for templates with those layers) */}
               {(() => {
+                const showColor = selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper' || !!v2Template?.colorOverlay;
                 const hasShadow = !!v2Template?.shadowPath;
                 const hasHighlight = !!v2Template?.highlightPath;
-                if (!hasShadow && !hasHighlight) return null;
+                const colorLabel = selectedMockup === 'wrapping-paper' ? 'Bow:'
+                  : selectedMockup === 'onesie' ? 'Onesie Trim:'
+                  : selectedMockup === 'curtain' ? 'Wall:'
+                  : selectedMockup === 'picnic-blanket' ? 'Border:'
+                  : 'Accent:';
+                const divider = <span className="hidden sm:block w-px h-5 bg-[#92afa5]/30" aria-hidden="true" />;
                 return (
-                  <div className="flex flex-wrap items-center justify-center gap-5 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
-                    {hasShadow && (
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={shadowEnabled}
-                          onChange={(e) => setShadowEnabled(e.target.checked)}
-                          className="cursor-pointer"
-                        />
-                        <span className="font-medium">Shadow</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={shadowOpacityPercent}
-                          disabled={!shadowEnabled}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (Number.isFinite(n)) setShadowOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
-                          }}
-                          className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
-                        />
-                        <span className="opacity-60">%</span>
-                      </label>
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
+                    {/* Scale */}
+                    <label className="flex items-center gap-2">
+                      <span className="font-medium">Scale:</span>
+                      <input
+                        type="number"
+                        min={0.5}
+                        max={120}
+                        step={0.5}
+                        value={Number.isFinite(effectiveTileWidth) ? Number(effectiveTileWidth.toFixed(2)) : 0}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n) && n > 0) setMockupScaleOverride(n);
+                        }}
+                        className="w-16 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums"
+                      />
+                      <span className="opacity-60">in</span>
+                      {mockupScaleOverride !== null && Math.abs(mockupScaleOverride - tileWidth) > 0.01 && (
+                        <button
+                          onClick={() => setMockupScaleOverride(null)}
+                          className="text-[#705046] hover:text-[#294051] underline"
+                          title={`Reset to ${tileWidth.toFixed(1)}"`}
+                        >
+                          reset
+                        </button>
+                      )}
+                    </label>
+
+                    {/* Color override */}
+                    {showColor && (
+                      <>
+                        {divider}
+                        <label className="flex items-center gap-2">
+                          <span className="font-medium">{colorLabel}</span>
+                          <input
+                            type="color"
+                            value={mockupColorOverride || '#ffffff'}
+                            onChange={(e) => setMockupColorOverride(e.target.value)}
+                            className="w-8 h-7 rounded border border-[#92afa5]/30 cursor-pointer"
+                          />
+                          {mockupColorOverride && (
+                            <button
+                              onClick={() => setMockupColorOverride(null)}
+                              className="text-[#705046] hover:text-[#294051] underline"
+                              title="Reset to auto"
+                            >
+                              reset
+                            </button>
+                          )}
+                        </label>
+                      </>
                     )}
+
+                    {/* Shadow */}
+                    {hasShadow && (
+                      <>
+                        {divider}
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={shadowEnabled}
+                            onChange={(e) => setShadowEnabled(e.target.checked)}
+                            className="cursor-pointer"
+                          />
+                          <span className="font-medium">Shadow</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={shadowOpacityPercent}
+                            disabled={!shadowEnabled}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (Number.isFinite(n)) setShadowOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
+                            }}
+                            className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
+                          />
+                          <span className="opacity-60">%</span>
+                        </label>
+                      </>
+                    )}
+
+                    {/* Highlight */}
                     {hasHighlight && (
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={highlightEnabled}
-                          onChange={(e) => setHighlightEnabled(e.target.checked)}
-                          className="cursor-pointer"
-                        />
-                        <span className="font-medium">Highlight</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={highlightOpacityPercent}
-                          disabled={!highlightEnabled}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (Number.isFinite(n)) setHighlightOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
-                          }}
-                          className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
-                        />
-                        <span className="opacity-60">%</span>
-                      </label>
+                      <>
+                        {divider}
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={highlightEnabled}
+                            onChange={(e) => setHighlightEnabled(e.target.checked)}
+                            className="cursor-pointer"
+                          />
+                          <span className="font-medium">Highlight</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={highlightOpacityPercent}
+                            disabled={!highlightEnabled}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (Number.isFinite(n)) setHighlightOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
+                            }}
+                            className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
+                          />
+                          <span className="opacity-60">%</span>
+                        </label>
+                      </>
                     )}
                   </div>
                 );
@@ -480,8 +541,8 @@ export default function AdvancedToolsBar({
                     <MockupRendererV2
                       template={v2Template}
                       patternImage={image}
-                      tileWidth={tileWidth}
-                      tileHeight={tileHeight}
+                      tileWidth={renderTileWidth}
+                      tileHeight={renderTileHeight}
                       dpi={dpi}
                       repeatType={repeatType}
                       onClick={() => {}}
@@ -495,8 +556,8 @@ export default function AdvancedToolsBar({
                     <MockupRenderer
                       template={getMockupTemplate(selectedMockup as any)}
                       patternImage={image}
-                      tileWidth={tileWidth}
-                      tileHeight={tileHeight}
+                      tileWidth={renderTileWidth}
+                      tileHeight={renderTileHeight}
                       dpi={dpi}
                       repeatType={repeatType}
                       zoom={zoom}
