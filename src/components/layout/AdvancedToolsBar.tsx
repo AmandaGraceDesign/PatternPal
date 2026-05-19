@@ -13,6 +13,7 @@ import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
+import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadCanvasAsImage } from '@/lib/utils/downloadCanvas';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
@@ -413,6 +414,10 @@ export default function AdvancedToolsBar({
                   : selectedMockup === 'curtain' ? 'Wall:'
                   : selectedMockup === 'picnic-blanket' ? 'Border:'
                   : 'Accent:';
+                const defaultColor = v2Template?.colorOverlay?.defaultColor;
+                const effectiveAuto = (defaultColor && defaultColor !== 'auto')
+                  ? defaultColor
+                  : (image ? extractDominantColor(image) : '#ffffff');
                 const divider = <span className="hidden sm:block w-px h-5 bg-[#92afa5]/30" aria-hidden="true" />;
                 return (
                   <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
@@ -451,7 +456,7 @@ export default function AdvancedToolsBar({
                           <span className="font-medium">{colorLabel}</span>
                           <input
                             type="color"
-                            value={mockupColorOverride || '#ffffff'}
+                            value={mockupColorOverride || effectiveAuto}
                             onChange={(e) => setMockupColorOverride(e.target.value)}
                             className="w-8 h-7 rounded border border-[#92afa5]/30 cursor-pointer"
                           />

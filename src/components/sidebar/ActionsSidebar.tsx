@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
@@ -13,6 +13,7 @@ import UpgradeModal from '@/components/export/UpgradeModal';
 import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
+import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadCanvasAsImage } from '@/lib/utils/downloadCanvas';
@@ -338,7 +339,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         >
           <div className="flex flex-col gap-3">
             {/* Color picker for any mockup with a color overlay region */}
-            {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper' || !!getV2Template(selectedMockup)?.colorOverlay) && (
+            {(selectedMockup === 'onesie' || selectedMockup === 'wrapping-paper' || !!getV2Template(selectedMockup)?.colorOverlay) && (() => {
+              const v2 = getV2Template(selectedMockup);
+              const defaultColor = v2?.colorOverlay?.defaultColor;
+              const effectiveAuto = (defaultColor && defaultColor !== 'auto')
+                ? defaultColor
+                : (image ? extractDominantColor(image) : '#ffffff');
+              return (
               <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
                 <label className="text-xs font-medium text-[#294051]">
                   {selectedMockup === 'wrapping-paper' ? 'Bow Color:'
@@ -349,7 +356,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 </label>
                 <input
                   type="color"
-                  value={mockupColorOverride || '#ffffff'}
+                  value={mockupColorOverride || effectiveAuto}
                   onChange={(e) => setMockupColorOverride(e.target.value)}
                   className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
                 />
@@ -362,7 +369,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                   </button>
                 )}
               </div>
-            )}
+              );
+            })()}
 
             {/* Shadow / Highlight opacity controls (only for templates with those layers) */}
             {(() => {

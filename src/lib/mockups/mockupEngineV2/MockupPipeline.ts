@@ -6,7 +6,7 @@ import { generateDisplacementMap, applyDisplacement } from './stages/displacemen
 import { generateProductBase, compositeResult } from './stages/blendComposite';
 
 /** Extract dominant background color from a pattern image (same approach as V1). */
-function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement): string {
+export function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement): string {
   const sampleSize = 48;
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = sampleSize;
@@ -36,6 +36,55 @@ function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement): string
   }
   if (best.count === 0) return '#ffffff';
   return '#' + [best.r, best.g, best.b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.startsWith('#') ? hex.slice(1) : hex;
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  return {
+    r: parseInt(full.slice(0, 2), 16) || 0,
+    g: parseInt(full.slice(2, 4), 16) || 0,
+    b: parseInt(full.slice(4, 6), 16) || 0,
+  };
+}
+
+/** RGB → HSL. h in degrees [0,360), s and l in [0,1]. */
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0);
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+/** HSL → RGB. h in degrees, s and l in [0,1]. */
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  const hn = ((h % 360) + 360) % 360 / 360;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return { r: v, g: v, b: v };
+  }
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return {
+    r: Math.round(hue2rgb(p, q, hn + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, hn) * 255),
+    b: Math.round(hue2rgb(p, q, hn - 1 / 3) * 255),
+  };
 }
 
 export interface PipelineInput {
@@ -387,8 +436,13 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   finalCtx.globalAlpha = 1;
 
   // --- Color overlay (accent regions like trim, bows) ---
-  // Applied BEFORE lighting so the accent color gets the same lighting treatment
-  // as the rest of the mockup (matches V1 compositing order).
+  // Photoshop-style "Hue/Saturation with Colorize + lightness offset":
+  // 1. Take the chosen color's target H, S, L.
+  // 2. Sample the masked region's average L from the underlying photo.
+  // 3. For each masked pixel: force H and S to target, shift L by
+  //    (target_L − region_avg_L). L variance (texture/folds) is preserved.
+  // Avoids 'multiply' (muddy darkening) and 'color' blend (fluorescent
+  // blowout on bright neutrals) by recomputing the pixel in HSL space.
   if (template.colorOverlay && input.colorOverlayMaskImage) {
     const overlayMask = input.colorOverlayMaskImage;
     const accentColor = input.colorOverride
@@ -396,90 +450,72 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         ? extractDominantColor(patternImage)
         : template.colorOverlay.defaultColor);
 
-    // Convert overlay mask to alpha mask, handling both formats
+    const targetRgb = hexToRgb(accentColor);
+    const targetHsl = rgbToHsl(targetRgb.r, targetRgb.g, targetRgb.b);
+    // Lightness-aware saturation roll-off: bright targets (pastels) get
+    // desaturated so they don't render as neon trim. Dark targets keep
+    // full saturation, so the dark-olive-on-cream case still pops.
+    const effectiveS = targetHsl.s * (1 - 0.7 * Math.max(0, targetHsl.l - 0.4));
+
+    // Rasterize overlay mask at canvas size
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = width;
     maskCanvas.height = height;
     const maskCtx = maskCanvas.getContext('2d')!;
     maskCtx.drawImage(overlayMask, 0, 0, width, height);
-    const maskData = maskCtx.getImageData(0, 0, width, height);
-    const md = maskData.data;
-    // Detect: alpha-based mask (>10% transparent) vs B/W mask
-    const overlayTotal = md.length / 4;
+    const maskRaw = maskCtx.getImageData(0, 0, width, height).data;
+
+    // Detect alpha-based vs B/W mask format
     let overlayTransparent = 0;
-    for (let i = 3; i < md.length; i += 4) {
-      if (md[i] < 10) overlayTransparent++;
+    for (let i = 3; i < maskRaw.length; i += 4) {
+      if (maskRaw[i] < 10) overlayTransparent++;
     }
-    const isOverlayAlphaMask = overlayTransparent / overlayTotal > 0.1;
-    for (let i = 0; i < md.length; i += 4) {
-      let finalAlpha: number;
-      if (isOverlayAlphaMask) {
-        // Alpha mask: opaque areas ARE the accent region
-        finalAlpha = md[i + 3];
-      } else {
-        // B/W mask: white areas ARE the accent region
-        finalAlpha = Math.round((md[i] + md[i + 1] + md[i + 2]) / 3);
-      }
-      md[i] = 0; md[i + 1] = 0; md[i + 2] = 0;
-      md[i + 3] = finalAlpha;
+    const isOverlayAlphaMask = overlayTransparent / (maskRaw.length / 4) > 0.1;
+
+    // Underlying photo pixels feed both the avg-L sample and the per-pixel L
+    const prodRaw = productCtx.getImageData(0, 0, width, height).data;
+
+    // Pass 1: weighted average L of the masked region from the photo
+    let totalL = 0, totalWeight = 0;
+    for (let i = 0; i < maskRaw.length; i += 4) {
+      const maskAlpha = isOverlayAlphaMask
+        ? maskRaw[i + 3]
+        : (maskRaw[i] + maskRaw[i + 1] + maskRaw[i + 2]) / 3;
+      if (maskAlpha < 10) continue;
+      const { l } = rgbToHsl(prodRaw[i], prodRaw[i + 1], prodRaw[i + 2]);
+      const w = maskAlpha / 255;
+      totalL += l * w;
+      totalWeight += w;
     }
-    maskCtx.putImageData(maskData, 0, 0);
+    const avgL = totalWeight > 0 ? totalL / totalWeight : 0.5;
+    const lOffset = targetHsl.l - avgL;
 
-    // Extract shading from product base for realism (contrast-boosted luminance)
-    const shadingLayer = document.createElement('canvas');
-    shadingLayer.width = width;
-    shadingLayer.height = height;
-    const shadingCtx = shadingLayer.getContext('2d')!;
-    shadingCtx.drawImage(productCanvas, 0, 0);
-    const shadingData = shadingCtx.getImageData(0, 0, width, height);
-    const sd = shadingData.data;
-    const contrast = 1.15;
-    for (let i = 0; i < sd.length; i += 4) {
-      const lum = (sd[i] + sd[i + 1] + sd[i + 2]) / 3;
-      const boosted = Math.min(255, Math.max(0, (lum - 128) * contrast + 128));
-      sd[i] = boosted;
-      sd[i + 1] = boosted;
-      sd[i + 2] = boosted;
+    // Pass 2: build the recolored layer
+    const colorizedCanvas = document.createElement('canvas');
+    colorizedCanvas.width = width;
+    colorizedCanvas.height = height;
+    const colorizedCtx = colorizedCanvas.getContext('2d')!;
+    const out = colorizedCtx.createImageData(width, height);
+    const od = out.data;
+    for (let i = 0; i < maskRaw.length; i += 4) {
+      const maskAlpha = isOverlayAlphaMask
+        ? maskRaw[i + 3]
+        : (maskRaw[i] + maskRaw[i + 1] + maskRaw[i + 2]) / 3;
+      if (maskAlpha < 1) continue;
+      const { l } = rgbToHsl(prodRaw[i], prodRaw[i + 1], prodRaw[i + 2]);
+      const newL = Math.max(0, Math.min(1, l + lOffset));
+      const { r, g, b } = hslToRgb(targetHsl.h, effectiveS, newL);
+      od[i] = r;
+      od[i + 1] = g;
+      od[i + 2] = b;
+      od[i + 3] = Math.round(maskAlpha);
     }
-    shadingCtx.putImageData(shadingData, 0, 0);
-    // Clip shading to accent region
-    shadingCtx.globalCompositeOperation = 'destination-in';
-    shadingCtx.drawImage(maskCanvas, 0, 0);
+    colorizedCtx.putImageData(out, 0, 0);
 
-    // Build color layer: accent color × shading, masked to accent region
-    const colorLayer = document.createElement('canvas');
-    colorLayer.width = width;
-    colorLayer.height = height;
-    const colorCtx = colorLayer.getContext('2d')!;
-    colorCtx.fillStyle = accentColor;
-    colorCtx.fillRect(0, 0, width, height);
-    colorCtx.globalCompositeOperation = 'multiply';
-    colorCtx.drawImage(shadingLayer, 0, 0);
-    colorCtx.globalCompositeOperation = 'destination-in';
-    colorCtx.drawImage(maskCanvas, 0, 0);
-
-    // Composite color layer onto final canvas — source-over replaces the
-    // photo in the accent region with the shaded accent color
-    // Multiply blends accent color into the photo — preserves shadows/folds
-    // naturally instead of replacing the photo entirely
-    finalCtx.globalCompositeOperation = 'multiply';
-    finalCtx.globalAlpha = 1;
-    finalCtx.drawImage(colorLayer, 0, 0);
-
-    // Gentle soft-light pass from original photo to restore subtle highlights
-    const photoHighlightLayer = document.createElement('canvas');
-    photoHighlightLayer.width = width;
-    photoHighlightLayer.height = height;
-    const phCtx = photoHighlightLayer.getContext('2d')!;
-    phCtx.drawImage(productCanvas, 0, 0);
-    phCtx.globalCompositeOperation = 'destination-in';
-    phCtx.drawImage(maskCanvas, 0, 0);
-
-    finalCtx.globalCompositeOperation = 'soft-light';
-    finalCtx.globalAlpha = 0.3;
-    finalCtx.drawImage(photoHighlightLayer, 0, 0);
+    // Replace the photo's pixels in the accent region
     finalCtx.globalCompositeOperation = 'source-over';
     finalCtx.globalAlpha = 1;
+    finalCtx.drawImage(colorizedCanvas, 0, 0);
   }
 
   // --- Lighting overlay ---
