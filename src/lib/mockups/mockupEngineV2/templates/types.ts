@@ -75,6 +75,17 @@ export interface MockupV2Template {
 
   canvasSize: { width: number; height: number };
 
+  /** When set, every zone tiles the pattern at this density (canvas pixels per
+   *  real inch of fabric). Overrides per-zone `physicalWidth` for tile-size
+   *  calculation, so multi-zone templates that show the same fabric across
+   *  different garment pieces (e.g. duvet+pillow, tie body+knot) print the
+   *  pattern at one consistent visual scale.
+   *
+   *  Anchor on the dominant zone: e.g., for a duvet+pillow, compute
+   *  `duvetZone.patternArea.width / duvetZone.physicalWidth` and use that.
+   *  Per-zone `physicalWidth` stays as documentation but no longer drives scale. */
+  canvasPxPerInch?: number;
+
   /** Single-zone templates use these top-level fields. */
   patternArea: { x: number; y: number; width: number; height: number };
   perspective: { topSqueeze: number; bottomSqueeze: number; rightSqueeze?: number };

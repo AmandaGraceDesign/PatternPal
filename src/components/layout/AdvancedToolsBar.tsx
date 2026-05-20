@@ -130,9 +130,9 @@ export default function AdvancedToolsBar({
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
   // Per-layer arrays — index 0 = primary, 1+ = template.additionalShadowPaths / additionalHighlightPaths.
   const [shadowEnableds, setShadowEnableds] = useState<boolean[]>([true]);
-  const [shadowOpacityPercents, setShadowOpacityPercents] = useState<number[]>([50]);
+  const [shadowOpacityPercents, setShadowOpacityPercents] = useState<number[]>([30]);
   const [highlightEnableds, setHighlightEnableds] = useState<boolean[]>([true]);
-  const [highlightOpacityPercents, setHighlightOpacityPercents] = useState<number[]>([50]);
+  const [highlightOpacityPercents, setHighlightOpacityPercents] = useState<number[]>([30]);
   const [colorOverlayEnabled, setColorOverlayEnabled] = useState(true);
   const [mockupScaleOverride, setMockupScaleOverride] = useState<number | null>(null);
 
@@ -143,9 +143,9 @@ export default function AdvancedToolsBar({
     const shadowCount = 1 + (v2?.additionalShadowPaths?.length ?? 0);
     const highlightCount = 1 + (v2?.additionalHighlightPaths?.length ?? 0);
     setShadowEnableds(Array(shadowCount).fill(true));
-    setShadowOpacityPercents(Array(shadowCount).fill(50));
+    setShadowOpacityPercents(Array(shadowCount).fill(30));
     setHighlightEnableds(Array(highlightCount).fill(true));
-    setHighlightOpacityPercents(Array(highlightCount).fill(50));
+    setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(true);
   }, [selectedMockup]);
 
@@ -361,8 +361,8 @@ export default function AdvancedToolsBar({
           setMockupColorOverride(null);
           setShadowEnableds([true]);
           setHighlightEnableds([true]);
-          setShadowOpacityPercents([50]);
-          setHighlightOpacityPercents([50]);
+          setShadowOpacityPercents([30]);
+          setHighlightOpacityPercents([30]);
           setColorOverlayEnabled(true);
         }}
         onSelectMockup={(type) => {
@@ -538,7 +538,7 @@ export default function AdvancedToolsBar({
                             min={0}
                             max={100}
                             step={1}
-                            value={shadowOpacityPercents[i] ?? 50}
+                            value={shadowOpacityPercents[i] ?? 30}
                             disabled={!enabled}
                             onChange={(e) => {
                               const n = Number(e.target.value);
@@ -568,7 +568,7 @@ export default function AdvancedToolsBar({
                             min={0}
                             max={100}
                             step={1}
-                            value={highlightOpacityPercents[i] ?? 50}
+                            value={highlightOpacityPercents[i] ?? 30}
                             disabled={!enabled}
                             onChange={(e) => {
                               const n = Number(e.target.value);
@@ -597,9 +597,9 @@ export default function AdvancedToolsBar({
                       onClick={() => {}}
                       colorOverride={mockupColorOverride}
                       shadowEnabled={shadowEnableds[0] ?? true}
-                      shadowOpacityOverride={(shadowOpacityPercents[0] ?? 50) / 100}
+                      shadowOpacityOverride={(shadowOpacityPercents[0] ?? 30) / 100}
                       highlightEnabled={highlightEnableds[0] ?? true}
-                      highlightOpacityOverride={(highlightOpacityPercents[0] ?? 50) / 100}
+                      highlightOpacityOverride={(highlightOpacityPercents[0] ?? 30) / 100}
                       additionalShadowEnableds={shadowEnableds.slice(1)}
                       additionalShadowOpacityOverrides={shadowOpacityPercents.slice(1).map(p => p / 100)}
                       additionalHighlightEnableds={highlightEnableds.slice(1)}

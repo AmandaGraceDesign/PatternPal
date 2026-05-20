@@ -41,6 +41,12 @@ export function scaleTemplate(template: MockupV2Template, factor: number): Mocku
   if (template.sharedPatternArea) {
     scaled.sharedPatternArea = scaleRect(template.sharedPatternArea, factor);
   }
+  // canvasPxPerInch is canvas-pixels-per-inch. When the canvas shrinks by `factor`,
+  // the density shrinks by the same factor to keep the effective physical-inches
+  // computation invariant for every zone.
+  if (template.canvasPxPerInch !== undefined) {
+    scaled.canvasPxPerInch = template.canvasPxPerInch * factor;
+  }
   return scaled;
 }
 

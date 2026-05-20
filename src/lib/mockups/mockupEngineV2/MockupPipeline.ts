@@ -381,7 +381,10 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       sharedTiledCanvas.width = spa.width;
       sharedTiledCanvas.height = spa.height;
 
-      const repeatsX = template.physicalSize.width / tileWidth;
+      const sharedPhysicalWidth = template.canvasPxPerInch
+        ? spa.width / template.canvasPxPerInch
+        : template.physicalSize.width;
+      const repeatsX = sharedPhysicalWidth / tileWidth;
       const scaledW = Math.round(spa.width / repeatsX) || 1;
       const tileAspect = tileWidth / tileHeight;
       const scaledH = Math.round(scaledW / tileAspect) || 1;
@@ -402,7 +405,12 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       // Use a full-canvas mask image if provided, otherwise fall back to zone maskPath loading
       const maskImg = zoneMask || undefined;
 
-      const zonePhysicalWidth = zone.physicalWidth ?? template.physicalSize.width;
+      // When canvasPxPerInch is set, derive the zone's effective physical width
+      // from the canvas-wide density so every zone tiles the pattern at the same
+      // visual scale. Per-zone physicalWidth is otherwise honoured.
+      const zonePhysicalWidth = template.canvasPxPerInch
+        ? zone.patternArea.width / template.canvasPxPerInch
+        : (zone.physicalWidth ?? template.physicalSize.width);
       const zoneResult = processZone(
         patternImage,
         zone,
@@ -582,7 +590,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   // Primary and additional shadow layers are toggled INDEPENDENTLY so multi-region
   // templates (e.g. mens-tie / jacket) can show/hide each shadow region separately.
   {
-    const shadowDefault = template.shadowOpacity ?? 0.5;
+    const shadowDefault = template.shadowOpacity ?? 0.3;
     if (input.shadowImage && input.shadowEnabled !== false) {
       finalCtx.globalCompositeOperation = 'multiply';
       finalCtx.globalAlpha = input.shadowOpacityOverride ?? shadowDefault;
@@ -605,7 +613,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
 
   // --- Highlight overlay (soft-light, top of stack) ---
   {
-    const highlightDefault = template.highlightOpacity ?? 0.5;
+    const highlightDefault = template.highlightOpacity ?? 0.3;
     if (input.highlightImage && input.highlightEnabled !== false) {
       finalCtx.globalCompositeOperation = 'soft-light';
       finalCtx.globalAlpha = input.highlightOpacityOverride ?? highlightDefault;
