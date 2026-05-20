@@ -88,12 +88,15 @@ export interface PipelineInput {
   additionalHighlightEnableds?: boolean[];
   /** Runtime toggle for color overlay layer. When false, color overlay is skipped. Default true. */
   colorOverlayEnabled?: boolean;
-  /** Runtime offset added to every zone's existing patternOffset.
-   *  Used by the modal's drag-to-position feature. Units: pattern-space pixels
-   *  (i.e. canvas-internal px). For multi-zone templates the same delta is
-   *  applied to every zone so the pattern shifts together. */
-  patternOffsetOverride?: { x: number; y: number };
+  /** Per-zone runtime offsets added to each zone's existing patternOffset.
+   *  Used by the modal's drag-to-position feature. Keyed by `zone.id` for
+   *  multi-zone templates; single-zone templates use the synthetic key
+   *  `__root__`. Units: pattern-space pixels (canvas-internal px). */
+  patternOffsetOverrides?: Record<string, { x: number; y: number }>;
 }
+
+/** Synthetic key used for single-zone templates that have no `template.zones`. */
+export const ROOT_ZONE_KEY = '__root__';
 
 /**
  * Processes a single zone through the pipeline:
@@ -388,8 +391,8 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         sharedTiledCanvas,
         template.sharedPatternArea,
         input.displacementMapImage,
-        input.patternOffsetOverride?.x,
-        input.patternOffsetOverride?.y,
+        input.patternOffsetOverrides?.[zone.id]?.x,
+        input.patternOffsetOverrides?.[zone.id]?.y,
       );
 
       // Composite this zone onto the final canvas
@@ -417,8 +420,8 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       undefined,
       undefined,
       input.displacementMapImage,
-      input.patternOffsetOverride?.x,
-      input.patternOffsetOverride?.y,
+      input.patternOffsetOverrides?.[ROOT_ZONE_KEY]?.x,
+      input.patternOffsetOverrides?.[ROOT_ZONE_KEY]?.y,
     );
 
     finalCtx.globalCompositeOperation = template.blend.mode;

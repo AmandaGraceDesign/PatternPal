@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { runPipeline } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
+import { runPipeline, ROOT_ZONE_KEY } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import type { MockupV2Template } from '@/lib/mockups/mockupEngineV2/templates/types';
 import type { RepeatType } from '@/lib/tiling/PatternTiler';
 
@@ -87,28 +87,34 @@ export default function MockupRendererV2({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isRendering, setIsRendering] = useState(false);
 
-  // Drag-to-position: pattern offset is updated live during drag, which
-  // triggers a real pipeline re-render so only the pattern inside the
-  // mockup mask shifts (NOT the whole canvas). The pipeline takes
-  // ~50-200ms per render so the user sees slight lag, but the visual
-  // is correct (vs. CSS-translating the whole canvas, which would
-  // misleadingly slide the entire mockup/product image around).
-  const [patternOffset, setPatternOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Drag-to-position: each zone has its own offset, updated live during
+  // drag. Pointerdown hit-tests the zone masks to figure out which zone
+  // the user clicked — only that zone shifts. (Without hit-testing, the
+  // knot mask and the tie body mask would both shift together because
+  // the pipeline applies the offset per-zone, but every drag would
+  // update every zone.) The pipeline re-renders on every offset change
+  // (~50-200ms), so users see slight lag but the visual is correct.
+  const [patternOffsets, setPatternOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{
     clientX: number;
     clientY: number;
     pointerId: number;
+    zoneKey: string;
     startOffsetX: number;
     startOffsetY: number;
   } | null>(null);
   const wasDragRef = useRef(false);
+  // Cache of loaded zone masks, populated after the render-effect resolves.
+  // Used by pointerdown hit-testing without re-loading the masks.
+  const zoneMasksRef = useRef<Record<string, HTMLImageElement>>({});
 
-  // Reset position when the template changes (different mockup selected).
+  // Reset all zone offsets when the template changes (different mockup selected).
   useEffect(() => {
-    setPatternOffset({ x: 0, y: 0 });
+    setPatternOffsets({});
     setIsDragging(false);
     dragStartRef.current = null;
+    zoneMasksRef.current = {};
   }, [template]);
 
   useEffect(() => {
@@ -160,6 +166,8 @@ export default function MockupRendererV2({
         for (const { id, img } of zoneMaskResults) {
           if (img) zoneMasks[id] = img;
         }
+        // Stash for hit-testing on pointerdown.
+        zoneMasksRef.current = zoneMasks;
 
         if (cancelled) return;
 
@@ -191,9 +199,7 @@ export default function MockupRendererV2({
           additionalHighlightEnableds,
           additionalHighlightOpacityOverrides,
           colorOverlayEnabled,
-          patternOffsetOverride: (patternOffset.x !== 0 || patternOffset.y !== 0)
-            ? patternOffset
-            : undefined,
+          patternOffsetOverrides: Object.keys(patternOffsets).length > 0 ? patternOffsets : undefined,
         });
 
         const canvas = canvasRef.current;
@@ -217,7 +223,7 @@ export default function MockupRendererV2({
     patternImage, template, tileWidth, tileHeight, dpi, repeatType,
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
-    patternOffset.x, patternOffset.y,
+    JSON.stringify(patternOffsets),
     // Stringify array deps so identical contents don't trigger extra renders
     // even when the parent rebuilds the array on each render.
     JSON.stringify(additionalShadowEnableds),
@@ -226,15 +232,66 @@ export default function MockupRendererV2({
     JSON.stringify(additionalHighlightOpacityOverrides),
   ]);
 
+  /** Sample a mask at a canvas-space (cx, cy) coord. Returns a 0-255
+   *  'pattern presence' score, handling both B/W (white = pattern) and
+   *  alpha (transparent = pattern) mask conventions in one shot. */
+  const sampleMask = (mask: HTMLImageElement, cx: number, cy: number, canvasW: number, canvasH: number): number => {
+    const maskW = mask.naturalWidth || mask.width;
+    const maskH = mask.naturalHeight || mask.height;
+    if (!maskW || !maskH) return 0;
+    const mx = Math.max(0, Math.min(maskW - 1, Math.floor((cx / canvasW) * maskW)));
+    const my = Math.max(0, Math.min(maskH - 1, Math.floor((cy / canvasH) * maskH)));
+    const c = document.createElement('canvas');
+    c.width = 1;
+    c.height = 1;
+    const ctx = c.getContext('2d');
+    if (!ctx) return 0;
+    ctx.drawImage(mask, mx, my, 1, 1, 0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    const luminance = (d[0] + d[1] + d[2]) / 3;
+    const inverseAlpha = 255 - d[3];
+    return Math.max(luminance, inverseAlpha);
+  };
+
+  /** Figure out which zone owns the pixel at the click point.
+   *  Returns ROOT_ZONE_KEY for single-zone templates. */
+  const pickZoneAt = (cssX: number, cssY: number): string | null => {
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    if (!canvas || !rect || rect.width <= 0) return null;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const cx = (cssX - rect.left) * scaleX;
+    const cy = (cssY - rect.top) * scaleY;
+
+    if (!template.zones || template.zones.length === 0) {
+      return ROOT_ZONE_KEY;
+    }
+    // Iterate REVERSE so the last-drawn (topmost) zone wins.
+    for (let i = template.zones.length - 1; i >= 0; i--) {
+      const zone = template.zones[i];
+      const mask = zoneMasksRef.current[zone.id];
+      if (!mask) continue;
+      const score = sampleMask(mask, cx, cy, canvas.width, canvas.height);
+      if (score > 128) return zone.id;
+    }
+    // No mask hit — fall back to the first zone so drag still does something.
+    return template.zones[0]?.id ?? null;
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Only primary button / touch / pen — ignore right-click etc.
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const zoneKey = pickZoneAt(e.clientX, e.clientY);
+    if (!zoneKey) return;
+    const current = patternOffsets[zoneKey] ?? { x: 0, y: 0 };
     dragStartRef.current = {
       clientX: e.clientX,
       clientY: e.clientY,
       pointerId: e.pointerId,
-      startOffsetX: patternOffset.x,
-      startOffsetY: patternOffset.y,
+      zoneKey,
+      startOffsetX: current.x,
+      startOffsetY: current.y,
     };
     wasDragRef.current = false;
     setIsDragging(true);
@@ -251,18 +308,19 @@ export default function MockupRendererV2({
     }
     if (!wasDragRef.current) return;
 
-    // Convert CSS-space delta to pattern-space (canvas-internal) pixels and
-    // update the real offset live — the pipeline will re-render so the
-    // pattern shifts inside the mask (the mockup product image stays put).
+    // Convert CSS-space delta to pattern-space (canvas-internal) px and
+    // update ONLY the zone that was clicked.
     const canvas = canvasRef.current;
     const rect = canvas?.getBoundingClientRect();
     if (!canvas || !rect || rect.width <= 0) return;
     const scale = canvas.width / rect.width;
     const maxOffset = template.canvasSize.width;
-    setPatternOffset({
-      x: Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetX + cssDx * scale)),
-      y: Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetY + cssDy * scale)),
-    });
+    const nextX = Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetX + cssDx * scale));
+    const nextY = Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetY + cssDy * scale));
+    setPatternOffsets(prev => ({
+      ...prev,
+      [start.zoneKey]: { x: nextX, y: nextY },
+    }));
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
