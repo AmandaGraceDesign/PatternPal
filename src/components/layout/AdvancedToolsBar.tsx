@@ -605,6 +605,7 @@ export default function AdvancedToolsBar({
                       additionalHighlightEnableds={highlightEnableds.slice(1)}
                       additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
                       colorOverlayEnabled={colorOverlayEnabled}
+                      dragEnabled
                     />
                   ) : (
                     <MockupRenderer

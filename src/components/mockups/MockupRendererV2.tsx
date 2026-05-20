@@ -33,6 +33,9 @@ interface MockupRendererV2Props {
   additionalHighlightOpacityOverrides?: number[];
   /** Runtime toggle for color overlay. When false, color overlay layer is skipped. */
   colorOverlayEnabled?: boolean;
+  /** When true, pointer drag on the canvas shifts the pattern tiles (drag-to-position).
+   *  Default false so gallery thumbnails keep their plain click behaviour. */
+  dragEnabled?: boolean;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -78,9 +81,25 @@ export default function MockupRendererV2({
   additionalHighlightEnableds,
   additionalHighlightOpacityOverrides,
   colorOverlayEnabled,
+  dragEnabled = false,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isRendering, setIsRendering] = useState(false);
+
+  // Drag-to-position: committed offset triggers a real pipeline re-render;
+  // liveDelta is applied as a CSS transform during drag for 60fps feedback.
+  const [committedOffset, setCommittedOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [liveDelta, setLiveDelta] = useState<{ x: number; y: number } | null>(null);
+  const dragStartRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
+  const wasDragRef = useRef(false);
+
+  // Reset position when the template changes (different mockup selected).
+  useEffect(() => {
+    setCommittedOffset({ x: 0, y: 0 });
+    setLiveDelta(null);
+    dragStartRef.current = null;
+  }, [template]);
 
   useEffect(() => {
     if (!patternImage || !canvasRef.current) return;
@@ -162,6 +181,9 @@ export default function MockupRendererV2({
           additionalHighlightEnableds,
           additionalHighlightOpacityOverrides,
           colorOverlayEnabled,
+          patternOffsetOverride: (committedOffset.x !== 0 || committedOffset.y !== 0)
+            ? committedOffset
+            : undefined,
         });
 
         const canvas = canvasRef.current;
@@ -185,6 +207,7 @@ export default function MockupRendererV2({
     patternImage, template, tileWidth, tileHeight, dpi, repeatType,
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
+    committedOffset.x, committedOffset.y,
     // Stringify array deps so identical contents don't trigger extra renders
     // even when the parent rebuilds the array on each render.
     JSON.stringify(additionalShadowEnableds),
@@ -193,20 +216,93 @@ export default function MockupRendererV2({
     JSON.stringify(additionalHighlightOpacityOverrides),
   ]);
 
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only primary button / touch / pen — ignore right-click etc.
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    dragStartRef.current = { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId };
+    wasDragRef.current = false;
+    setLiveDelta({ x: 0, y: 0 });
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (!start || start.pointerId !== e.pointerId) return;
+    const dx = e.clientX - start.clientX;
+    const dy = e.clientY - start.clientY;
+    if (!wasDragRef.current && Math.abs(dx) + Math.abs(dy) > 5) {
+      wasDragRef.current = true;
+    }
+    setLiveDelta({ x: dx, y: dy });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (!start || start.pointerId !== e.pointerId) return;
+    const cssDx = e.clientX - start.clientX;
+    const cssDy = e.clientY - start.clientY;
+    dragStartRef.current = null;
+    try {
+      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (wasDragRef.current) {
+      // Convert CSS-space drag to pattern-space (canvas-internal) pixels.
+      const canvas = canvasRef.current;
+      const rect = canvas?.getBoundingClientRect();
+      if (canvas && rect && rect.width > 0) {
+        const scale = canvas.width / rect.width;
+        // Clamp committed offset to ±template canvas width to bound the
+        // oversized canvas allocation in the rotation/offset branch.
+        const maxOffset = template.canvasSize.width;
+        setCommittedOffset(prev => ({
+          x: Math.max(-maxOffset, Math.min(maxOffset, prev.x + cssDx * scale)),
+          y: Math.max(-maxOffset, Math.min(maxOffset, prev.y + cssDy * scale)),
+        }));
+      }
+      setLiveDelta(null);
+    } else {
+      // Treated as a click — fire parent onClick (gallery thumbnail behaviour).
+      setLiveDelta(null);
+      onClick?.();
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (!start || start.pointerId !== e.pointerId) return;
+    dragStartRef.current = null;
+    setLiveDelta(null);
+  };
+
   return (
     <div
-      className="relative cursor-pointer"
-      onClick={onClick}
+      ref={wrapperRef}
+      className={dragEnabled ? 'relative' : 'relative cursor-pointer'}
+      onClick={dragEnabled ? undefined : onClick}
       onContextMenu={(e) => e.preventDefault()}
+      onPointerDown={dragEnabled ? handlePointerDown : undefined}
+      onPointerMove={dragEnabled ? handlePointerMove : undefined}
+      onPointerUp={dragEnabled ? handlePointerUp : undefined}
+      onPointerCancel={dragEnabled ? handlePointerCancel : undefined}
+      style={dragEnabled ? {
+        touchAction: 'none',
+        cursor: liveDelta ? 'grabbing' : 'grab',
+      } : undefined}
     >
       <canvas
         ref={canvasRef}
         className="w-full rounded-lg"
-        style={{ display: 'block' }}
+        style={{
+          display: 'block',
+          transform: dragEnabled && liveDelta ? `translate(${liveDelta.x}px, ${liveDelta.y}px)` : undefined,
+          willChange: dragEnabled && liveDelta ? 'transform' : undefined,
+          userSelect: dragEnabled ? 'none' : undefined,
+        }}
         onDragStart={(e) => e.preventDefault()}
       />
       {isRendering && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg pointer-events-none">
           <span className="text-white text-sm">Rendering...</span>
         </div>
       )}

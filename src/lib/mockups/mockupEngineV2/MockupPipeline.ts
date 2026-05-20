@@ -88,6 +88,11 @@ export interface PipelineInput {
   additionalHighlightEnableds?: boolean[];
   /** Runtime toggle for color overlay layer. When false, color overlay is skipped. Default true. */
   colorOverlayEnabled?: boolean;
+  /** Runtime offset added to every zone's existing patternOffset.
+   *  Used by the modal's drag-to-position feature. Units: pattern-space pixels
+   *  (i.e. canvas-internal px). For multi-zone templates the same delta is
+   *  applied to every zone so the pattern shifts together. */
+  patternOffsetOverride?: { x: number; y: number };
 }
 
 /**
@@ -119,6 +124,9 @@ function processZone(
   /** Photo-based displacement map (full canvas size). When provided, the zone's
    *  sub-region is extracted instead of generating procedural displacement. */
   displacementMapImage?: HTMLImageElement,
+  /** Runtime drag offset added to zone.patternOffset (pattern-space px). */
+  overrideOffsetX = 0,
+  overrideOffsetY = 0,
 ): HTMLCanvasElement {
   const { patternArea, perspective, displacement } = zone;
 
@@ -157,8 +165,8 @@ function processZone(
     scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
 
     const angleDeg = zone.patternAngle ?? 0;
-    const offsetX = zone.patternOffset?.x ?? 0;
-    const offsetY = zone.patternOffset?.y ?? 0;
+    const offsetX = (zone.patternOffset?.x ?? 0) + overrideOffsetX;
+    const offsetY = (zone.patternOffset?.y ?? 0) + overrideOffsetY;
     if (angleDeg !== 0) {
       // Tile to an oversized canvas (sqrt(2)x + offset padding) so rotation +
       // optional pre-rotation pattern shift both have full coverage, then draw
@@ -380,6 +388,8 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         sharedTiledCanvas,
         template.sharedPatternArea,
         input.displacementMapImage,
+        input.patternOffsetOverride?.x,
+        input.patternOffsetOverride?.y,
       );
 
       // Composite this zone onto the final canvas
@@ -407,6 +417,8 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       undefined,
       undefined,
       input.displacementMapImage,
+      input.patternOffsetOverride?.x,
+      input.patternOffsetOverride?.y,
     );
 
     finalCtx.globalCompositeOperation = template.blend.mode;
