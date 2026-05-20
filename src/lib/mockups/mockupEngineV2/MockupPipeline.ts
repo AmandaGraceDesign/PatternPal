@@ -5,6 +5,58 @@ import { applyPerspective } from './stages/perspectiveWarp';
 import { generateDisplacementMap, applyDisplacement } from './stages/displacementMap';
 import { generateProductBase, compositeResult } from './stages/blendComposite';
 
+/**
+ * Cache of mask images converted to alpha-RGBA form, keyed by the source image.
+ *
+ * Masks are stored in two conventions in the project:
+ *   • B/W: white = pattern area      (luminance → alpha)
+ *   • Alpha: transparent = pattern area  (alpha → 255 - alpha)
+ *
+ * Both processZone and the color-overlay block need to figure out which
+ * convention a mask uses and then run a per-pixel loop to convert it. That
+ * loop is one of the heaviest things in the whole pipeline on full-res
+ * (3000×4500) canvases. The mask itself doesn't change render-to-render, so
+ * we convert once and cache the result. Subsequent renders just drawImage
+ * from the cached canvas (hardware-accelerated).
+ *
+ * Keyed by the HTMLImageElement so different templates that happen to share
+ * the same PNG (via the renderer's image cache) reuse the same converted
+ * canvas. WeakMap so the cache evicts naturally when the source image is GC'd.
+ */
+const alphaMaskCache = new WeakMap<HTMLImageElement, HTMLCanvasElement>();
+
+function getAlphaMaskCanvas(mask: HTMLImageElement): HTMLCanvasElement {
+  const cached = alphaMaskCache.get(mask);
+  if (cached) return cached;
+
+  const w = mask.naturalWidth || mask.width;
+  const h = mask.naturalHeight || mask.height;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.drawImage(mask, 0, 0);
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const md = imageData.data;
+  const total = md.length / 4;
+  let transparent = 0;
+  for (let i = 3; i < md.length; i += 4) {
+    if (md[i] < 10) transparent++;
+  }
+  const isAlphaMask = transparent / total > 0.1;
+  for (let i = 0; i < md.length; i += 4) {
+    const originalAlpha = md[i + 3];
+    const luminance = md[i] * 0.299 + md[i + 1] * 0.587 + md[i + 2] * 0.114;
+    md[i] = 255;
+    md[i + 1] = 255;
+    md[i + 2] = 255;
+    md[i + 3] = isAlphaMask ? 255 - originalAlpha : Math.round(luminance);
+  }
+  ctx.putImageData(imageData, 0, 0);
+  alphaMaskCache.set(mask, c);
+  return c;
+}
+
 /** Extract dominant background color from a pattern image (same approach as V1). */
 export function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement): string {
   const sampleSize = 48;
@@ -251,60 +303,32 @@ function processZone(
 
   // --- Stage 4: Mask Clip (if mask provided) ---
   if (maskImage) {
-    // Extract the portion of the mask that corresponds to this zone's pattern area
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = patternArea.width;
-    maskCanvas.height = patternArea.height;
-    const maskCtx = maskCanvas.getContext('2d')!;
-    // If mask matches canvas size, extract the zone's sub-region.
-    // If mask is a different size (e.g. 832 vs 1024), scale the full mask to fit.
-    const maskW = maskImage.naturalWidth || maskImage.width;
-    const maskH = maskImage.naturalHeight || maskImage.height;
-    if (maskW >= patternArea.x + patternArea.width && maskH >= patternArea.y + patternArea.height) {
-      maskCtx.drawImage(
-        maskImage,
-        patternArea.x, patternArea.y, patternArea.width, patternArea.height,
-        0, 0, patternArea.width, patternArea.height
+    // The mask's alpha-form is cached on the source image (see getAlphaMaskCanvas).
+    // We just drawImage the relevant sub-region into this zone's pattern area.
+    const alphaMask = getAlphaMaskCanvas(maskImage);
+    const maskW = alphaMask.width;
+    const maskH = alphaMask.height;
+    // Map zone's canvas-space patternArea to mask coords. When the template is
+    // rendered at full canvas size, maskW==canvasWidth and the ratio is 1.
+    // When the template has been scaled down (gallery thumbnails), the mask is
+    // still full-res, so we proportionally scale the src rect to extract the
+    // correct region.
+    const ratioX = maskW / canvasWidth;
+    const ratioY = maskH / canvasHeight;
+    const srcW = patternArea.width * ratioX;
+    const srcH = patternArea.height * ratioY;
+    displacedCtx.globalCompositeOperation = 'destination-in';
+    if (srcW <= maskW && srcH <= maskH) {
+      // Extract the zone's sub-region from the full-canvas mask.
+      displacedCtx.drawImage(
+        alphaMask,
+        patternArea.x * ratioX, patternArea.y * ratioY, srcW, srcH,
+        0, 0, patternArea.width, patternArea.height,
       );
     } else {
-      // Mask is smaller or differently sized — scale full mask to pattern area
-      maskCtx.drawImage(maskImage, 0, 0, patternArea.width, patternArea.height);
+      // Mask is differently sized — scale the whole mask to fit the pattern area.
+      displacedCtx.drawImage(alphaMask, 0, 0, patternArea.width, patternArea.height);
     }
-
-    // Convert mask to alpha mask, handling both formats:
-    // - B/W masks (onesie, tshirt-dress zones): white = pattern area → use luminance as alpha
-    // - Alpha masks (fabric-swatch, pillow, journal): transparent = pattern area → invert alpha
-    // Detection: if >10% of pixels are fully transparent, it's an alpha-based mask.
-    // B/W masks may have a few anti-aliased edge pixels but the bulk is opaque.
-    const maskData = maskCtx.getImageData(0, 0, patternArea.width, patternArea.height);
-    const md = maskData.data;
-    const totalPixels = md.length / 4;
-    let transparentCount = 0;
-    for (let i = 3; i < md.length; i += 4) {
-      if (md[i] < 10) transparentCount++;
-    }
-    const isAlphaMask = transparentCount / totalPixels > 0.1;
-    for (let i = 0; i < md.length; i += 4) {
-      const originalAlpha = md[i + 3];
-      let finalAlpha: number;
-      if (isAlphaMask) {
-        // Alpha mask: transparent = show pattern, opaque = hide pattern → invert
-        finalAlpha = 255 - originalAlpha;
-      } else {
-        // B/W mask: white = show pattern, black = hide → use luminance
-        const luminance = md[i] * 0.299 + md[i + 1] * 0.587 + md[i + 2] * 0.114;
-        finalAlpha = Math.round(luminance);
-      }
-      md[i] = 255;
-      md[i + 1] = 255;
-      md[i + 2] = 255;
-      md[i + 3] = finalAlpha;
-    }
-    maskCtx.putImageData(maskData, 0, 0);
-
-    // Apply alpha mask to clip pattern
-    displacedCtx.globalCompositeOperation = 'destination-in';
-    displacedCtx.drawImage(maskCanvas, 0, 0);
     displacedCtx.globalCompositeOperation = 'source-over';
   }
 
