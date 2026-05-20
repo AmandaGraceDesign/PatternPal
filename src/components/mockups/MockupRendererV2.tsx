@@ -87,17 +87,27 @@ export default function MockupRendererV2({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isRendering, setIsRendering] = useState(false);
 
-  // Drag-to-position: committed offset triggers a real pipeline re-render;
-  // liveDelta is applied as a CSS transform during drag for 60fps feedback.
-  const [committedOffset, setCommittedOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [liveDelta, setLiveDelta] = useState<{ x: number; y: number } | null>(null);
-  const dragStartRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
+  // Drag-to-position: pattern offset is updated live during drag, which
+  // triggers a real pipeline re-render so only the pattern inside the
+  // mockup mask shifts (NOT the whole canvas). The pipeline takes
+  // ~50-200ms per render so the user sees slight lag, but the visual
+  // is correct (vs. CSS-translating the whole canvas, which would
+  // misleadingly slide the entire mockup/product image around).
+  const [patternOffset, setPatternOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  } | null>(null);
   const wasDragRef = useRef(false);
 
   // Reset position when the template changes (different mockup selected).
   useEffect(() => {
-    setCommittedOffset({ x: 0, y: 0 });
-    setLiveDelta(null);
+    setPatternOffset({ x: 0, y: 0 });
+    setIsDragging(false);
     dragStartRef.current = null;
   }, [template]);
 
@@ -181,8 +191,8 @@ export default function MockupRendererV2({
           additionalHighlightEnableds,
           additionalHighlightOpacityOverrides,
           colorOverlayEnabled,
-          patternOffsetOverride: (committedOffset.x !== 0 || committedOffset.y !== 0)
-            ? committedOffset
+          patternOffsetOverride: (patternOffset.x !== 0 || patternOffset.y !== 0)
+            ? patternOffset
             : undefined,
         });
 
@@ -207,7 +217,7 @@ export default function MockupRendererV2({
     patternImage, template, tileWidth, tileHeight, dpi, repeatType,
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
-    committedOffset.x, committedOffset.y,
+    patternOffset.x, patternOffset.y,
     // Stringify array deps so identical contents don't trigger extra renders
     // even when the parent rebuilds the array on each render.
     JSON.stringify(additionalShadowEnableds),
@@ -219,60 +229,60 @@ export default function MockupRendererV2({
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Only primary button / touch / pen — ignore right-click etc.
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    dragStartRef.current = { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId };
+    dragStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      pointerId: e.pointerId,
+      startOffsetX: patternOffset.x,
+      startOffsetY: patternOffset.y,
+    };
     wasDragRef.current = false;
-    setLiveDelta({ x: 0, y: 0 });
+    setIsDragging(true);
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const start = dragStartRef.current;
     if (!start || start.pointerId !== e.pointerId) return;
-    const dx = e.clientX - start.clientX;
-    const dy = e.clientY - start.clientY;
-    if (!wasDragRef.current && Math.abs(dx) + Math.abs(dy) > 5) {
+    const cssDx = e.clientX - start.clientX;
+    const cssDy = e.clientY - start.clientY;
+    if (!wasDragRef.current && Math.abs(cssDx) + Math.abs(cssDy) > 5) {
       wasDragRef.current = true;
     }
-    setLiveDelta({ x: dx, y: dy });
+    if (!wasDragRef.current) return;
+
+    // Convert CSS-space delta to pattern-space (canvas-internal) pixels and
+    // update the real offset live — the pipeline will re-render so the
+    // pattern shifts inside the mask (the mockup product image stays put).
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    if (!canvas || !rect || rect.width <= 0) return;
+    const scale = canvas.width / rect.width;
+    const maxOffset = template.canvasSize.width;
+    setPatternOffset({
+      x: Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetX + cssDx * scale)),
+      y: Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetY + cssDy * scale)),
+    });
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const start = dragStartRef.current;
     if (!start || start.pointerId !== e.pointerId) return;
-    const cssDx = e.clientX - start.clientX;
-    const cssDy = e.clientY - start.clientY;
     dragStartRef.current = null;
+    setIsDragging(false);
     try {
       (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
     } catch {}
 
-    if (wasDragRef.current) {
-      // Convert CSS-space drag to pattern-space (canvas-internal) pixels.
-      const canvas = canvasRef.current;
-      const rect = canvas?.getBoundingClientRect();
-      if (canvas && rect && rect.width > 0) {
-        const scale = canvas.width / rect.width;
-        // Clamp committed offset to ±template canvas width to bound the
-        // oversized canvas allocation in the rotation/offset branch.
-        const maxOffset = template.canvasSize.width;
-        setCommittedOffset(prev => ({
-          x: Math.max(-maxOffset, Math.min(maxOffset, prev.x + cssDx * scale)),
-          y: Math.max(-maxOffset, Math.min(maxOffset, prev.y + cssDy * scale)),
-        }));
-      }
-      setLiveDelta(null);
-    } else {
-      // Treated as a click — fire parent onClick (gallery thumbnail behaviour).
-      setLiveDelta(null);
-      onClick?.();
-    }
+    // If pointer barely moved, treat as a click — fire parent onClick.
+    if (!wasDragRef.current) onClick?.();
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
     const start = dragStartRef.current;
     if (!start || start.pointerId !== e.pointerId) return;
     dragStartRef.current = null;
-    setLiveDelta(null);
+    setIsDragging(false);
   };
 
   return (
@@ -287,7 +297,7 @@ export default function MockupRendererV2({
       onPointerCancel={dragEnabled ? handlePointerCancel : undefined}
       style={dragEnabled ? {
         touchAction: 'none',
-        cursor: liveDelta ? 'grabbing' : 'grab',
+        cursor: isDragging ? 'grabbing' : 'grab',
       } : undefined}
     >
       <canvas
@@ -295,8 +305,6 @@ export default function MockupRendererV2({
         className="w-full rounded-lg"
         style={{
           display: 'block',
-          transform: dragEnabled && liveDelta ? `translate(${liveDelta.x}px, ${liveDelta.y}px)` : undefined,
-          willChange: dragEnabled && liveDelta ? 'transform' : undefined,
           userSelect: dragEnabled ? 'none' : undefined,
         }}
         onDragStart={(e) => e.preventDefault()}
