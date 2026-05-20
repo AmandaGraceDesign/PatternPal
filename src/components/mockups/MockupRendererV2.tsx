@@ -112,6 +112,12 @@ export default function MockupRendererV2({
     startOffsetY: number;
   } | null>(null);
   const wasDragRef = useRef(false);
+  // rAF coalescing for pointermove → setState. Without this, a single drag
+  // gesture fires 60+ pointermoves/sec, each scheduling a setState + render
+  // effect + pipeline cancel. Coalescing to one update per animation frame
+  // matches the display refresh and is essentially free for the user.
+  const pendingDragOffsetRef = useRef<{ zoneKey: string; x: number; y: number } | null>(null);
+  const dragRafIdRef = useRef<number | null>(null);
   // Cache of loaded zone masks, populated after the render-effect resolves.
   // Used by pointerdown hit-testing without re-loading the masks.
   const zoneMasksRef = useRef<Record<string, HTMLImageElement>>({});
@@ -122,6 +128,11 @@ export default function MockupRendererV2({
     setIsDragging(false);
     dragStartRef.current = null;
     zoneMasksRef.current = {};
+    if (dragRafIdRef.current !== null) {
+      cancelAnimationFrame(dragRafIdRef.current);
+      dragRafIdRef.current = null;
+    }
+    pendingDragOffsetRef.current = null;
   }, [template]);
 
   useEffect(() => {
@@ -332,10 +343,29 @@ export default function MockupRendererV2({
     const maxOffset = template.canvasSize.width;
     const nextX = Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetX + cssDx * scale));
     const nextY = Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetY + cssDy * scale));
-    setPatternOffsets(prev => ({
-      ...prev,
-      [start.zoneKey]: { x: nextX, y: nextY },
-    }));
+
+    // Coalesce — overwrite the pending target and schedule one rAF.
+    pendingDragOffsetRef.current = { zoneKey: start.zoneKey, x: nextX, y: nextY };
+    if (dragRafIdRef.current === null) {
+      dragRafIdRef.current = requestAnimationFrame(() => {
+        dragRafIdRef.current = null;
+        const pending = pendingDragOffsetRef.current;
+        if (!pending) return;
+        setPatternOffsets(prev => ({ ...prev, [pending.zoneKey]: { x: pending.x, y: pending.y } }));
+      });
+    }
+  };
+
+  const flushPendingDrag = () => {
+    if (dragRafIdRef.current !== null) {
+      cancelAnimationFrame(dragRafIdRef.current);
+      dragRafIdRef.current = null;
+    }
+    const pending = pendingDragOffsetRef.current;
+    if (pending) {
+      pendingDragOffsetRef.current = null;
+      setPatternOffsets(prev => ({ ...prev, [pending.zoneKey]: { x: pending.x, y: pending.y } }));
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -347,6 +377,9 @@ export default function MockupRendererV2({
       (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
     } catch {}
 
+    // Make sure the final offset gets applied even if rAF is still pending.
+    flushPendingDrag();
+
     // If pointer barely moved, treat as a click — fire parent onClick.
     if (!wasDragRef.current) onClick?.();
   };
@@ -356,6 +389,11 @@ export default function MockupRendererV2({
     if (!start || start.pointerId !== e.pointerId) return;
     dragStartRef.current = null;
     setIsDragging(false);
+    if (dragRafIdRef.current !== null) {
+      cancelAnimationFrame(dragRafIdRef.current);
+      dragRafIdRef.current = null;
+    }
+    pendingDragOffsetRef.current = null;
   };
 
   return (
