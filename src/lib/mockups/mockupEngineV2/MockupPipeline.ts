@@ -59,16 +59,35 @@ export interface PipelineInput {
   displacementMapImage?: HTMLImageElement;
   /** Pre-loaded shadow overlay (RGBA, canvas-sized). Composited multiply on top. */
   shadowImage?: HTMLImageElement;
+  /** Pre-loaded extra shadow overlays stacked on top of shadowImage, each at multiply. */
+  additionalShadowImages?: HTMLImageElement[];
+  /** Per-additional-shadow opacities (parallel array). */
+  additionalShadowOpacities?: number[];
   /** Pre-loaded highlight overlay (RGBA, canvas-sized). Composited soft-light on top. */
   highlightImage?: HTMLImageElement;
+  /** Pre-loaded extra highlight overlays stacked on top of highlightImage, each at soft-light. */
+  additionalHighlightImages?: HTMLImageElement[];
+  /** Per-additional-highlight opacities (parallel array). */
+  additionalHighlightOpacities?: number[];
   /** Runtime override for shadow opacity. Wins over template.shadowOpacity. */
   shadowOpacityOverride?: number;
   /** Runtime override for highlight opacity. Wins over template.highlightOpacity. */
   highlightOpacityOverride?: number;
-  /** Runtime toggle for shadow layer. When false, shadow is skipped entirely. Default true. */
+  /** Runtime toggle for primary shadow layer. When false, that layer is skipped. Default true. */
   shadowEnabled?: boolean;
-  /** Runtime toggle for highlight layer. When false, highlight is skipped entirely. Default true. */
+  /** Runtime toggle for primary highlight layer. When false, that layer is skipped. Default true. */
   highlightEnabled?: boolean;
+  /** Per-additional-shadow opacity overrides (parallel to additionalShadowImages).
+   *  Falls back to additionalShadowOpacities → shadowOpacity default. */
+  additionalShadowOpacityOverrides?: number[];
+  /** Per-additional-shadow toggles (parallel to additionalShadowImages). When false, that layer is skipped. */
+  additionalShadowEnableds?: boolean[];
+  /** Per-additional-highlight opacity overrides (parallel to additionalHighlightImages). */
+  additionalHighlightOpacityOverrides?: number[];
+  /** Per-additional-highlight toggles (parallel to additionalHighlightImages). */
+  additionalHighlightEnableds?: boolean[];
+  /** Runtime toggle for color overlay layer. When false, color overlay is skipped. Default true. */
+  colorOverlayEnabled?: boolean;
 }
 
 /**
@@ -158,6 +177,18 @@ function processZone(
       tileCtx.rotate((angleDeg * Math.PI) / 180);
       tileCtx.drawImage(oversized, -over / 2 + offsetX, -over / 2 + offsetY);
       tileCtx.restore();
+    } else if (offsetX !== 0 || offsetY !== 0) {
+      // No rotation, but a phase shift is wanted (e.g. knot zone vs tie body).
+      // Tile to a padded oversized canvas, then draw it shifted into the zone.
+      const offsetPad = Math.max(Math.abs(offsetX), Math.abs(offsetY));
+      const overW = patternArea.width + 2 * offsetPad;
+      const overH = patternArea.height + 2 * offsetPad;
+      const oversized = document.createElement('canvas');
+      oversized.width = overW;
+      oversized.height = overH;
+      const overTiler = new PatternTiler(oversized.getContext('2d')!, overW, overH);
+      overTiler.renderPreScaled(scaledTile, repeatType);
+      tileCtx.drawImage(oversized, -offsetPad + offsetX, -offsetPad + offsetY);
     } else {
       const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
       tiler.renderPreScaled(scaledTile, repeatType);
@@ -365,6 +396,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         patternArea: template.patternArea,
         perspective: template.perspective,
         displacement: template.displacement,
+        patternAngle: template.patternAngle,
       },
       width, height,
       template.physicalSize.width,
@@ -389,7 +421,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   // --- Color overlay (accent regions like trim, bows) ---
   // Applied BEFORE lighting so the accent color gets the same lighting treatment
   // as the rest of the mockup (matches V1 compositing order).
-  if (template.colorOverlay && input.colorOverlayMaskImage) {
+  if (template.colorOverlay && input.colorOverlayMaskImage && input.colorOverlayEnabled !== false) {
     const overlayMask = input.colorOverlayMaskImage;
     const accentColor = input.colorOverride
       ?? (template.colorOverlay.defaultColor === 'auto'
@@ -478,7 +510,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   // --- Lighting overlay ---
   // Suppressed when an explicit highlight overlay is provided — the highlight PNG
   // already encodes the photo's lighting intent, so we don't want to double-light.
-  if (lighting.enabled && lighting.intensity > 0 && !input.highlightImage) {
+  if (lighting.enabled && lighting.intensity > 0 && !input.highlightImage && !input.additionalHighlightImages?.length) {
     const lightCanvas = document.createElement('canvas');
     lightCanvas.width = width;
     lightCanvas.height = height;
@@ -508,19 +540,49 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   }
 
   // --- Shadow overlay (multiply, top of stack) ---
-  if (input.shadowImage && input.shadowEnabled !== false) {
-    finalCtx.globalCompositeOperation = 'multiply';
-    finalCtx.globalAlpha = input.shadowOpacityOverride ?? template.shadowOpacity ?? 0.5;
-    finalCtx.drawImage(input.shadowImage, 0, 0, width, height);
+  // Primary and additional shadow layers are toggled INDEPENDENTLY so multi-region
+  // templates (e.g. mens-tie / jacket) can show/hide each shadow region separately.
+  {
+    const shadowDefault = template.shadowOpacity ?? 0.5;
+    if (input.shadowImage && input.shadowEnabled !== false) {
+      finalCtx.globalCompositeOperation = 'multiply';
+      finalCtx.globalAlpha = input.shadowOpacityOverride ?? shadowDefault;
+      finalCtx.drawImage(input.shadowImage, 0, 0, width, height);
+    }
+    if (input.additionalShadowImages) {
+      for (let i = 0; i < input.additionalShadowImages.length; i++) {
+        if (input.additionalShadowEnableds?.[i] === false) continue;
+        const op = input.additionalShadowOpacityOverrides?.[i]
+          ?? input.additionalShadowOpacities?.[i]
+          ?? shadowDefault;
+        finalCtx.globalCompositeOperation = 'multiply';
+        finalCtx.globalAlpha = op;
+        finalCtx.drawImage(input.additionalShadowImages[i], 0, 0, width, height);
+      }
+    }
     finalCtx.globalCompositeOperation = 'source-over';
     finalCtx.globalAlpha = 1;
   }
 
   // --- Highlight overlay (soft-light, top of stack) ---
-  if (input.highlightImage && input.highlightEnabled !== false) {
-    finalCtx.globalCompositeOperation = 'soft-light';
-    finalCtx.globalAlpha = input.highlightOpacityOverride ?? template.highlightOpacity ?? 0.5;
-    finalCtx.drawImage(input.highlightImage, 0, 0, width, height);
+  {
+    const highlightDefault = template.highlightOpacity ?? 0.5;
+    if (input.highlightImage && input.highlightEnabled !== false) {
+      finalCtx.globalCompositeOperation = 'soft-light';
+      finalCtx.globalAlpha = input.highlightOpacityOverride ?? highlightDefault;
+      finalCtx.drawImage(input.highlightImage, 0, 0, width, height);
+    }
+    if (input.additionalHighlightImages) {
+      for (let i = 0; i < input.additionalHighlightImages.length; i++) {
+        if (input.additionalHighlightEnableds?.[i] === false) continue;
+        const op = input.additionalHighlightOpacityOverrides?.[i]
+          ?? input.additionalHighlightOpacities?.[i]
+          ?? highlightDefault;
+        finalCtx.globalCompositeOperation = 'soft-light';
+        finalCtx.globalAlpha = op;
+        finalCtx.drawImage(input.additionalHighlightImages[i], 0, 0, width, height);
+      }
+    }
     finalCtx.globalCompositeOperation = 'source-over';
     finalCtx.globalAlpha = 1;
   }

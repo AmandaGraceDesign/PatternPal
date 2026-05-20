@@ -61,8 +61,9 @@ export interface MockupZone {
   patternAngle?: number;
   /** Pixel shift applied to the tiled pattern within this zone before perspective
    *  warp. Use to phase-shift one zone's tiling so it doesn't line up perfectly
-   *  with an adjacent zone (e.g. a folded-back scarf corner showing a different
-   *  part of the print). Currently honoured only when patternAngle !== 0. */
+   *  with an adjacent zone (e.g. a folded-back scarf corner, or a tie knot
+   *  showing a different part of the print than the body). Honoured with or
+   *  without patternAngle. */
   patternOffset?: { x: number; y: number };
 }
 
@@ -83,6 +84,10 @@ export interface MockupV2Template {
     type: DisplacementType;
   };
   blend: { mode: BlendMode; opacity: number };
+
+  /** Rotation angle in degrees applied to the tiled pattern in single-zone templates.
+   *  Positive = clockwise. Ignored when `zones` is set (use MockupZone.patternAngle instead). */
+  patternAngle?: number;
 
   /** Multi-zone templates define zones here. Overrides top-level patternArea/perspective/displacement/blend. */
   zones?: MockupZone[];
@@ -111,6 +116,16 @@ export interface MockupV2Template {
   shadowPath?: string;
   /** Opacity for the shadow overlay. Default 1.0. */
   shadowOpacity?: number;
+  /** Extra shadow overlay PNGs stacked on top of shadowPath, each at multiply blend.
+   *  Used when a scene has multiple shadow regions (e.g. tie + jacket). */
+  additionalShadowPaths?: string[];
+  /** Per-additional-shadow opacity (parallel to additionalShadowPaths). Falls back
+   *  to shadowOpacity when an entry is missing. */
+  additionalShadowOpacities?: number[];
+  /** Display label for the primary shadow slider. Default "Shadow". */
+  shadowLabel?: string;
+  /** Display labels for additional shadow sliders (parallel to additionalShadowPaths). */
+  additionalShadowLabels?: string[];
 
   /** Optional highlight overlay (RGBA PNG, canvas-sized). Composited on top of
    *  the finished pattern+base composite using `soft-light` blend (fixed). Use
@@ -119,6 +134,16 @@ export interface MockupV2Template {
   highlightPath?: string;
   /** Opacity for the highlight overlay. Default 1.0. */
   highlightOpacity?: number;
+  /** Extra highlight overlay PNGs stacked on top of highlightPath, each at soft-light blend. */
+  additionalHighlightPaths?: string[];
+  /** Per-additional-highlight opacity (parallel to additionalHighlightPaths). */
+  additionalHighlightOpacities?: number[];
+  /** Display label for the primary highlight slider. Default "Highlight". */
+  highlightLabel?: string;
+  /** Display labels for additional highlight sliders. */
+  additionalHighlightLabels?: string[];
+  /** Display label for the color overlay toggle. Default "Accent color". */
+  colorOverlayLabel?: string;
 
   /** Optional accent color overlay (e.g., onesie trim, wrapping paper bow).
    *  Fills the masked region with a solid color (auto-detected from pattern

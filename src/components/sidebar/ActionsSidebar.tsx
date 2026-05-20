@@ -39,10 +39,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
-  const [shadowEnabled, setShadowEnabled] = useState(true);
-  const [highlightEnabled, setHighlightEnabled] = useState(true);
-  const [shadowOpacityPercent, setShadowOpacityPercent] = useState(50);
-  const [highlightOpacityPercent, setHighlightOpacityPercent] = useState(50);
+  // Per-layer arrays: index 0 is the PRIMARY shadow/highlight, indices 1+ are
+  // template.additionalShadowPaths / additionalHighlightPaths (e.g. tie + jacket).
+  const [shadowEnableds, setShadowEnableds] = useState<boolean[]>([true]);
+  const [shadowOpacityPercents, setShadowOpacityPercents] = useState<number[]>([50]);
+  const [highlightEnableds, setHighlightEnableds] = useState<boolean[]>([true]);
+  const [highlightOpacityPercents, setHighlightOpacityPercents] = useState<number[]>([50]);
+  const [colorOverlayEnabled, setColorOverlayEnabled] = useState(true);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
@@ -86,6 +89,21 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
       console.error('Failed to open customer portal', error);
     }
   };
+
+  // When the selected mockup changes, resize the per-layer arrays to match the
+  // template's shadow/highlight layer count (primary + additionals) and reset
+  // all toggles/opacities to their defaults.
+  useEffect(() => {
+    if (!selectedMockup) return;
+    const v2 = getV2Template(selectedMockup);
+    const shadowCount = 1 + (v2?.additionalShadowPaths?.length ?? 0);
+    const highlightCount = 1 + (v2?.additionalHighlightPaths?.length ?? 0);
+    setShadowEnableds(Array(shadowCount).fill(true));
+    setShadowOpacityPercents(Array(shadowCount).fill(50));
+    setHighlightEnableds(Array(highlightCount).fill(true));
+    setHighlightOpacityPercents(Array(highlightCount).fill(50));
+    setColorOverlayEnabled(true);
+  }, [selectedMockup]);
 
   // Create canvas from image for seam analysis
   useEffect(() => {
@@ -305,10 +323,11 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
           onClose={() => {
             setSelectedMockup(null);
             setMockupColorOverride(null);
-            setShadowEnabled(true);
-            setHighlightEnabled(true);
-            setShadowOpacityPercent(50);
-            setHighlightOpacityPercent(50);
+            setShadowEnableds([true]);
+            setHighlightEnableds([true]);
+            setShadowOpacityPercents([50]);
+            setHighlightOpacityPercents([50]);
+            setColorOverlayEnabled(true);
           }}
           title={getMockupTemplate(selectedMockup as any)?.name}
           subtitle={`Based on ${tileWidth.toFixed(1)} \u00d7 ${tileHeight.toFixed(1)} inch repeat`}
@@ -345,20 +364,34 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               const effectiveAuto = (defaultColor && defaultColor !== 'auto')
                 ? defaultColor
                 : (image ? extractDominantColor(image) : '#ffffff');
+              const overlayLabel = v2?.colorOverlayLabel
+                ?? (selectedMockup === 'wrapping-paper' ? 'Bow Color'
+                  : selectedMockup === 'onesie' ? 'Onesie Trim Color'
+                  : selectedMockup === 'curtain' ? 'Wall Color'
+                  : selectedMockup === 'picnic-blanket' ? 'Border Color'
+                  : 'Accent Color');
+              // V2 templates may have colorOverlay; allow toggling it off entirely.
+              const canToggle = !!v2?.colorOverlay;
               return (
               <div className="flex items-center justify-center gap-2 p-2 bg-[#ffe4e7] rounded-md">
+                {canToggle && (
+                  <input
+                    type="checkbox"
+                    checked={colorOverlayEnabled}
+                    onChange={(e) => setColorOverlayEnabled(e.target.checked)}
+                    className="cursor-pointer"
+                    aria-label={`Enable ${overlayLabel}`}
+                  />
+                )}
                 <label className="text-xs font-medium text-[#294051]">
-                  {selectedMockup === 'wrapping-paper' ? 'Bow Color:'
-                    : selectedMockup === 'onesie' ? 'Onesie Trim Color:'
-                    : selectedMockup === 'curtain' ? 'Wall Color:'
-                    : selectedMockup === 'picnic-blanket' ? 'Border Color:'
-                    : 'Accent Color:'}
+                  {overlayLabel}:
                 </label>
                 <input
                   type="color"
                   value={mockupColorOverride || effectiveAuto}
                   onChange={(e) => setMockupColorOverride(e.target.value)}
-                  className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer"
+                  disabled={canToggle && !colorOverlayEnabled}
+                  className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 />
                 {mockupColorOverride && (
                   <button
@@ -372,64 +405,86 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               );
             })()}
 
-            {/* Shadow / Highlight opacity controls (only for templates with those layers) */}
+            {/* Shadow / Highlight opacity controls (only for templates with those layers).
+                Renders one row per shadow/highlight layer the template defines — so multi-region
+                templates like mens-tie expose independent "Tie shadow" / "Jacket shadow" controls. */}
             {(() => {
               const v2Tmpl = getV2Template(selectedMockup);
               const hasShadow = !!v2Tmpl?.shadowPath;
               const hasHighlight = !!v2Tmpl?.highlightPath;
               if (!hasShadow && !hasHighlight) return null;
+              const shadowLabels = [
+                v2Tmpl?.shadowLabel ?? 'Shadow',
+                ...(v2Tmpl?.additionalShadowLabels ?? []),
+              ];
+              const highlightLabels = [
+                v2Tmpl?.highlightLabel ?? 'Highlight',
+                ...(v2Tmpl?.additionalHighlightLabels ?? []),
+              ];
+              const setShadowAt = (i: number, enabled: boolean) => {
+                setShadowEnableds(prev => prev.map((v, idx) => (idx === i ? enabled : v)));
+              };
+              const setShadowOpAt = (i: number, percent: number) => {
+                setShadowOpacityPercents(prev => prev.map((v, idx) => (idx === i ? percent : v)));
+              };
+              const setHighlightAt = (i: number, enabled: boolean) => {
+                setHighlightEnableds(prev => prev.map((v, idx) => (idx === i ? enabled : v)));
+              };
+              const setHighlightOpAt = (i: number, percent: number) => {
+                setHighlightOpacityPercents(prev => prev.map((v, idx) => (idx === i ? percent : v)));
+              };
               return (
                 <div className="flex flex-wrap items-center justify-center gap-5 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
-                  {hasShadow && (
-                    <label className="flex items-center gap-2">
+                  {hasShadow && shadowEnableds.map((enabled, i) => (
+                    <label key={`shadow-${i}`} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={shadowEnabled}
-                        onChange={(e) => setShadowEnabled(e.target.checked)}
+                        checked={enabled}
+                        onChange={(e) => setShadowAt(i, e.target.checked)}
                         className="cursor-pointer"
                       />
-                      <span className="font-medium">Shadow</span>
+                      <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
                       <input
                         type="number"
                         min={0}
                         max={100}
                         step={1}
-                        value={shadowOpacityPercent}
-                        disabled={!shadowEnabled}
+                        value={shadowOpacityPercents[i] ?? 50}
+                        disabled={!enabled}
                         onChange={(e) => {
                           const n = Number(e.target.value);
-                          if (Number.isFinite(n)) setShadowOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
+                          if (Number.isFinite(n)) setShadowOpAt(i, Math.max(0, Math.min(100, Math.round(n))));
                         }}
                         className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       <span className="opacity-60">%</span>
                     </label>
-                  )}
-                  {hasHighlight && (
-                    <label className="flex items-center gap-2">
+                  ))}
+                  {hasHighlight && highlightEnableds.map((enabled, i) => (
+                    <label key={`highlight-${i}`} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={highlightEnabled}
-                        onChange={(e) => setHighlightEnabled(e.target.checked)}
+                        checked={enabled}
+                        onChange={(e) => setHighlightAt(i, e.target.checked)}
                         className="cursor-pointer"
                       />
-                      <span className="font-medium">Highlight</span>
+                      <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
                       <input
                         type="number"
                         min={0}
                         max={100}
                         step={1}
-                        value={highlightOpacityPercent}
-                        disabled={!highlightEnabled}
+                        value={highlightOpacityPercents[i] ?? 50}
+                        disabled={!enabled}
                         onChange={(e) => {
                           const n = Number(e.target.value);
-                          if (Number.isFinite(n)) setHighlightOpacityPercent(Math.max(0, Math.min(100, Math.round(n))));
+                          if (Number.isFinite(n)) setHighlightOpAt(i, Math.max(0, Math.min(100, Math.round(n))));
                         }}
                         className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       <span className="opacity-60">%</span>
                     </label>
-                  )}
+                  ))}
                 </div>
               );
             })()}
@@ -449,10 +504,15 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                       repeatType={repeatType}
                       onClick={() => {}}
                       colorOverride={mockupColorOverride}
-                      shadowOpacityOverride={shadowOpacityPercent / 100}
-                      highlightOpacityOverride={highlightOpacityPercent / 100}
-                      shadowEnabled={shadowEnabled}
-                      highlightEnabled={highlightEnabled}
+                      shadowEnabled={shadowEnableds[0] ?? true}
+                      shadowOpacityOverride={(shadowOpacityPercents[0] ?? 50) / 100}
+                      highlightEnabled={highlightEnableds[0] ?? true}
+                      highlightOpacityOverride={(highlightOpacityPercents[0] ?? 50) / 100}
+                      additionalShadowEnableds={shadowEnableds.slice(1)}
+                      additionalShadowOpacityOverrides={shadowOpacityPercents.slice(1).map(p => p / 100)}
+                      additionalHighlightEnableds={highlightEnableds.slice(1)}
+                      additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
+                      colorOverlayEnabled={colorOverlayEnabled}
                     />
                   ) : (
                     <MockupRenderer

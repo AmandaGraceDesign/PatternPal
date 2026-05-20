@@ -19,10 +19,20 @@ interface MockupRendererV2Props {
   shadowOpacityOverride?: number | null;
   /** Runtime override for highlight overlay opacity (0..1). When absent, uses template default. */
   highlightOpacityOverride?: number | null;
-  /** Runtime toggle for shadow layer. When false, shadow is skipped entirely. */
+  /** Runtime toggle for the PRIMARY shadow layer. When false, that layer is skipped. */
   shadowEnabled?: boolean;
-  /** Runtime toggle for highlight layer. When false, highlight is skipped entirely. */
+  /** Runtime toggle for the PRIMARY highlight layer. When false, that layer is skipped. */
   highlightEnabled?: boolean;
+  /** Per-additional-shadow toggles (parallel to template.additionalShadowPaths). */
+  additionalShadowEnableds?: boolean[];
+  /** Per-additional-shadow opacity overrides (0..1). */
+  additionalShadowOpacityOverrides?: number[];
+  /** Per-additional-highlight toggles. */
+  additionalHighlightEnableds?: boolean[];
+  /** Per-additional-highlight opacity overrides (0..1). */
+  additionalHighlightOpacityOverrides?: number[];
+  /** Runtime toggle for color overlay. When false, color overlay layer is skipped. */
+  colorOverlayEnabled?: boolean;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -63,6 +73,11 @@ export default function MockupRendererV2({
   highlightOpacityOverride,
   shadowEnabled,
   highlightEnabled,
+  additionalShadowEnableds,
+  additionalShadowOpacityOverrides,
+  additionalHighlightEnableds,
+  additionalHighlightOpacityOverrides,
+  colorOverlayEnabled,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -82,6 +97,8 @@ export default function MockupRendererV2({
         const displacementPath = template.displacementMapPath ?? null;
         const shadowPath = template.shadowPath ?? null;
         const highlightPath = template.highlightPath ?? null;
+        const extraShadowPaths = template.additionalShadowPaths ?? [];
+        const extraHighlightPaths = template.additionalHighlightPaths ?? [];
 
         const [
           productBaseImage,
@@ -91,6 +108,8 @@ export default function MockupRendererV2({
           shadowImage,
           highlightImage,
           zoneMaskResults,
+          extraShadowResults,
+          extraHighlightResults,
         ] = await Promise.all([
           productImagePath ? cachedLoadImage(productImagePath) : Promise.resolve(null),
           productMaskPath ? cachedLoadImage(productMaskPath) : Promise.resolve(null),
@@ -101,7 +120,12 @@ export default function MockupRendererV2({
           template.zones
             ? Promise.all(template.zones.map(async (zone) => ({ id: zone.id, img: await cachedLoadImage(zone.maskPath) })))
             : Promise.resolve([] as Array<{ id: string; img: HTMLImageElement | null }>),
+          Promise.all(extraShadowPaths.map(p => cachedLoadImage(p))),
+          Promise.all(extraHighlightPaths.map(p => cachedLoadImage(p))),
         ]);
+
+        const additionalShadowImages = extraShadowResults.filter((i): i is HTMLImageElement => !!i);
+        const additionalHighlightImages = extraHighlightResults.filter((i): i is HTMLImageElement => !!i);
 
         const zoneMasks: Record<string, HTMLImageElement> = {};
         for (const { id, img } of zoneMaskResults) {
@@ -124,11 +148,20 @@ export default function MockupRendererV2({
           colorOverride: colorOverride ?? undefined,
           displacementMapImage: displacementMapImage || undefined,
           shadowImage: shadowImage || undefined,
+          additionalShadowImages: additionalShadowImages.length > 0 ? additionalShadowImages : undefined,
+          additionalShadowOpacities: template.additionalShadowOpacities,
           highlightImage: highlightImage || undefined,
+          additionalHighlightImages: additionalHighlightImages.length > 0 ? additionalHighlightImages : undefined,
+          additionalHighlightOpacities: template.additionalHighlightOpacities,
           shadowOpacityOverride: shadowOpacityOverride ?? undefined,
           highlightOpacityOverride: highlightOpacityOverride ?? undefined,
           shadowEnabled: shadowEnabled,
           highlightEnabled: highlightEnabled,
+          additionalShadowEnableds,
+          additionalShadowOpacityOverrides,
+          additionalHighlightEnableds,
+          additionalHighlightOpacityOverrides,
+          colorOverlayEnabled,
         });
 
         const canvas = canvasRef.current;
@@ -148,7 +181,17 @@ export default function MockupRendererV2({
     })();
 
     return () => { cancelled = true; };
-  }, [patternImage, template, tileWidth, tileHeight, dpi, repeatType, colorOverride, shadowOpacityOverride, highlightOpacityOverride, shadowEnabled, highlightEnabled]);
+  }, [
+    patternImage, template, tileWidth, tileHeight, dpi, repeatType,
+    colorOverride, shadowOpacityOverride, highlightOpacityOverride,
+    shadowEnabled, highlightEnabled, colorOverlayEnabled,
+    // Stringify array deps so identical contents don't trigger extra renders
+    // even when the parent rebuilds the array on each render.
+    JSON.stringify(additionalShadowEnableds),
+    JSON.stringify(additionalShadowOpacityOverrides),
+    JSON.stringify(additionalHighlightEnableds),
+    JSON.stringify(additionalHighlightOpacityOverrides),
+  ]);
 
   return (
     <div
