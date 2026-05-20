@@ -212,6 +212,7 @@ export default function MockupGalleryModal({
                       tileHeight={tileHeight}
                       dpi={dpi}
                       repeatType={repeatType}
+                      maxRenderDimension={600}
                     />
                   </div>
 

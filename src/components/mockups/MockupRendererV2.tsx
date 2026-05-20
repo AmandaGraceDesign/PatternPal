@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { runPipeline, ROOT_ZONE_KEY } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
+import { scaleTemplate, computeScaleFactor } from '@/lib/mockups/mockupEngineV2/scaleTemplate';
 import type { MockupV2Template } from '@/lib/mockups/mockupEngineV2/templates/types';
 import type { RepeatType } from '@/lib/tiling/PatternTiler';
 
@@ -36,6 +37,11 @@ interface MockupRendererV2Props {
   /** When true, pointer drag on the canvas shifts the pattern tiles (drag-to-position).
    *  Default false so gallery thumbnails keep their plain click behaviour. */
   dragEnabled?: boolean;
+  /** Max pixel dimension (longest side) the pipeline should render at. When set
+   *  and smaller than the template's canvas, the template is downscaled before
+   *  rendering — saves a large amount of per-pixel work for gallery thumbnails.
+   *  Default undefined = full template resolution. */
+  maxRenderDimension?: number;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -82,6 +88,7 @@ export default function MockupRendererV2({
   additionalHighlightOpacityOverrides,
   colorOverlayEnabled,
   dragEnabled = false,
+  maxRenderDimension,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -122,6 +129,13 @@ export default function MockupRendererV2({
 
     let cancelled = false;
     setIsRendering(true);
+
+    // For gallery thumbs and other small renders, scale the template down so
+    // the pipeline doesn't burn time on 3000×4500-pixel work for a tile that
+    // ends up displayed at ~150px. PNG paths stay the same; drawImage handles
+    // the down-scaling automatically.
+    const scaleFactor = maxRenderDimension ? computeScaleFactor(template, maxRenderDimension) : 1;
+    const renderTemplate = scaleFactor < 1 ? scaleTemplate(template, scaleFactor) : template;
 
     (async () => {
       try {
@@ -173,7 +187,7 @@ export default function MockupRendererV2({
 
         const resultCanvas = runPipeline({
           patternImage,
-          template,
+          template: renderTemplate,
           repeatType,
           dpi,
           tileWidth,
@@ -223,6 +237,7 @@ export default function MockupRendererV2({
     patternImage, template, tileWidth, tileHeight, dpi, repeatType,
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
+    maxRenderDimension,
     JSON.stringify(patternOffsets),
     // Stringify array deps so identical contents don't trigger extra renders
     // even when the parent rebuilds the array on each render.
