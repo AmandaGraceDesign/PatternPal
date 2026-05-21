@@ -165,6 +165,11 @@ export interface MockupV2Template {
      *  the dominant background colour from the pattern image at render time. */
     defaultColor: string | 'auto';
   };
+  /** Initial state of the color overlay toggle. Defaults to true (overlay
+   *  enabled when the template is selected). Set to false for templates where
+   *  the overlay is a secondary accent the user usually wants off — e.g. the
+   *  jacket region on mens-tie. Users can still flip the toggle on. */
+  colorOverlayDefaultEnabled?: boolean;
 
   productBase:
     | {

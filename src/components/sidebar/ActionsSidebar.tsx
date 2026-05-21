@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRenderer from '@/components/mockups/MockupRenderer';
@@ -102,8 +102,30 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     setShadowOpacityPercents(Array(shadowCount).fill(30));
     setHighlightEnableds(Array(highlightCount).fill(true));
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
-    setColorOverlayEnabled(true);
+    setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
   }, [selectedMockup]);
+
+  // rAF-coalesce color picker updates. Native <input type="color"> fires
+  // onChange many times per second while the user drags inside the picker;
+  // each setState kicks off a full 3000×4500 pipeline render. Without this,
+  // the queue grows faster than renders complete and the UI feels stuck.
+  // Coalescing to one setState per animation frame caps render rate at ~60fps
+  // and matches the drag-throttle pattern in MockupRendererV2.
+  const pendingColorRef = useRef<string | null>(null);
+  const colorRafIdRef = useRef<number | null>(null);
+  const scheduleColorUpdate = (value: string) => {
+    pendingColorRef.current = value;
+    if (colorRafIdRef.current !== null) return;
+    colorRafIdRef.current = requestAnimationFrame(() => {
+      colorRafIdRef.current = null;
+      const v = pendingColorRef.current;
+      pendingColorRef.current = null;
+      if (v !== null) setMockupColorOverride(v);
+    });
+  };
+  useEffect(() => () => {
+    if (colorRafIdRef.current !== null) cancelAnimationFrame(colorRafIdRef.current);
+  }, []);
 
   // Create canvas from image for seam analysis
   useEffect(() => {
@@ -389,7 +411,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 <input
                   type="color"
                   value={mockupColorOverride || effectiveAuto}
-                  onChange={(e) => setMockupColorOverride(e.target.value)}
+                  onChange={(e) => scheduleColorUpdate(e.target.value)}
                   disabled={canToggle && !colorOverlayEnabled}
                   className="w-10 h-8 rounded border border-[#92afa5]/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 />
