@@ -70,3 +70,43 @@ export async function downloadCanvasAsImage(
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }
+
+/**
+ * Like downloadCanvasAsImage but accepts an already-produced Blob. Use when
+ * the canvas output has been post-processed (e.g. watermark stamped) and
+ * needs to keep the same iOS-aware download UX.
+ */
+export async function downloadBlobAsImage(
+  blob: Blob,
+  filename: string,
+  mimeType: string = 'image/png',
+): Promise<void> {
+  const finalFilename = ensureExtension(filename, mimeType);
+
+  if (isIOS() && typeof navigator.share === 'function') {
+    try {
+      const file = new File([blob], finalFilename, { type: mimeType });
+      const canShareFiles =
+        typeof navigator.canShare !== 'function' ||
+        navigator.canShare({ files: [file] });
+      if (canShareFiles) {
+        await navigator.share({ files: [file], title: finalFilename });
+        return;
+      }
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return;
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = finalFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}

@@ -15,7 +15,10 @@ import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
-import { downloadCanvasAsImage } from '@/lib/utils/downloadCanvas';
+import { downloadCanvasAsImage, downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
+import { WatermarkConfig, DEFAULT_WATERMARK, applyWatermarkToBlob } from '@/lib/watermark/watermark';
+import WatermarkPanel from '@/components/watermark/WatermarkPanel';
+import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
@@ -135,6 +138,7 @@ export default function AdvancedToolsBar({
   const [highlightOpacityPercents, setHighlightOpacityPercents] = useState<number[]>([30]);
   const [colorOverlayEnabled, setColorOverlayEnabled] = useState(true);
   const [mockupScaleOverride, setMockupScaleOverride] = useState<number | null>(null);
+  const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
 
   // Resize per-layer arrays to match the selected template's layer count.
   useEffect(() => {
@@ -437,7 +441,21 @@ export default function AdvancedToolsBar({
                 const userInput = window.prompt('Name your mockup file:', suggested);
                 if (!userInput) return;
                 const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
-                await downloadCanvasAsImage(mockupCanvas, filename);
+                const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
+                if (wmActive) {
+                  const sourceBlob: Blob = await new Promise((resolve, reject) =>
+                    mockupCanvas.toBlob(
+                      b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+                      'image/png',
+                    ),
+                  );
+                  const stamped = await applyWatermarkToBlob(
+                    sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
+                  );
+                  await downloadBlobAsImage(stamped, filename);
+                } else {
+                  await downloadCanvasAsImage(mockupCanvas, filename);
+                }
               }
             }}
           >
@@ -605,8 +623,12 @@ export default function AdvancedToolsBar({
                 );
               })()}
 
+              {/* Watermark (text + logo) — same UX as social export */}
+              <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
+
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
-                <div className="w-full max-w-2xl">
+                <div className="w-full max-w-2xl relative" style={{ containerType: 'inline-size' }}>
+                  <WatermarkPreviewOverlay watermark={watermark} />
                   {v2Template ? (
                     <MockupRendererV2
                       template={v2Template}
