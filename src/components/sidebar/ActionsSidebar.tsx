@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
-import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
@@ -11,7 +10,6 @@ import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
 import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
-import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
@@ -359,7 +357,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             setHighlightOpacityPercents([30]);
             setColorOverlayEnabled(true);
           }}
-          title={getMockupTemplate(selectedMockup as any)?.name}
+          title={getV2Template(selectedMockup)?.name}
           subtitle={`Based on ${tileWidth.toFixed(1)} \u00d7 ${tileHeight.toFixed(1)} inch repeat`}
           onDownload={async () => {
             const allowed = await verifyProAccess();
@@ -372,7 +370,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               '[data-mockup-modal] .mockup-canvas'
             ) as HTMLCanvasElement | null;
             if (mockupCanvas) {
-              const template = getMockupTemplate(selectedMockup as any);
+              const template = getV2Template(selectedMockup);
               const templateSlug =
                 template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
               const baseName = originalFilename
@@ -542,7 +540,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                 <WatermarkPreviewOverlay watermark={watermark} />
                 {(() => {
                   const v2Tmpl = getV2Template(selectedMockup);
-                  return v2Tmpl ? (
+                  if (!v2Tmpl) return null;
+                  return (
                     <MockupRendererV2
                       template={v2Tmpl}
                       patternImage={image}
@@ -562,20 +561,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                       additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
-                    />
-                  ) : (
-                    <MockupRenderer
-                      template={getMockupTemplate(selectedMockup as any)}
-                      patternImage={image}
-                      tileWidth={tileWidth}
-                      tileHeight={tileHeight}
-                      dpi={dpi}
-                      repeatType={repeatType}
-                      zoom={zoom}
-                      scaleFactor={scaleFactor}
-                      scalePreviewActive={scalePreviewActive}
-                      onClick={() => {}}
-                      colorOverride={mockupColorOverride}
                     />
                   );
                 })()}

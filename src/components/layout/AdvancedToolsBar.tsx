@@ -8,10 +8,8 @@ import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
 import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import MockupModal from '@/components/mockups/MockupModal';
-import MockupRenderer from '@/components/mockups/MockupRenderer';
 import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import UpgradeModal from '@/components/export/UpgradeModal';
-import { getMockupTemplate } from '@/lib/mockups/mockupTemplates';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
@@ -409,9 +407,8 @@ export default function AdvancedToolsBar({
       />
 
       {selectedMockup && (() => {
-        const v1Template = getMockupTemplate(selectedMockup as any);
         const v2Template = getV2Template(selectedMockup);
-        const mockupName = v1Template?.name || v2Template?.name || selectedMockup;
+        const mockupName = v2Template?.name || selectedMockup;
 
         return (
           <MockupModal
@@ -631,7 +628,7 @@ export default function AdvancedToolsBar({
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
                 <div className="w-full max-w-2xl relative" style={{ containerType: 'inline-size' }}>
                   <WatermarkPreviewOverlay watermark={watermark} />
-                  {v2Template ? (
+                  {v2Template && (
                     <MockupRendererV2
                       template={v2Template}
                       patternImage={image}
@@ -651,20 +648,6 @@ export default function AdvancedToolsBar({
                       additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
-                    />
-                  ) : (
-                    <MockupRenderer
-                      template={getMockupTemplate(selectedMockup as any)}
-                      patternImage={image}
-                      tileWidth={renderTileWidth}
-                      tileHeight={renderTileHeight}
-                      dpi={dpi}
-                      repeatType={repeatType}
-                      zoom={zoom}
-                      scaleFactor={scaleFactor}
-                      scalePreviewActive={scalePreviewActive}
-                      onClick={() => {}}
-                      colorOverride={mockupColorOverride}
                     />
                   )}
                 </div>
