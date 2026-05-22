@@ -404,24 +404,6 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     productBase: { type: 'image', imagePath: '/mockups/v2/tea-towel-2.png' },
     shadowPath: '/mockups/v2/tea-towel-2-shadow.png',
   },
-  'blanket': {
-    id: 'blanket',
-    name: 'Throw Blanket',
-    description: 'Cozy throw blanket with gentle folds',
-    category: 'home-goods',
-    canvasSize: { width: 2400, height: 3577 },
-    patternArea: { x: 200, y: 779, width: 1807, height: 2605 },
-    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
-    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
-    blend: { mode: 'multiply', opacity: 1.0 },
-    lighting: { enabled: false, intensity: 0 },
-    physicalSize: { width: 50, height: 60, unit: 'in' },
-    sizeLabel: '50×60" (127×152.4cm) Throw Blanket',
-    productBase: { type: 'image', imagePath: '/mockups/v2/throw-blanket.png', maskPath: '/mockups/v2/throw-blanket-mask.png' },
-    colorOverlay: { maskPath: '/mockups/v2/throw-blanket-color-mask.png', defaultColor: 'auto' },
-    shadowPath: '/mockups/v2/throw-blanket-shadow.png',
-    highlightPath: '/mockups/v2/throw-blanket-highlight.png',
-  },
   'picnic-blanket': {
     id: 'picnic-blanket',
     name: 'Picnic Blanket',
@@ -788,6 +770,52 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     productBase: { type: 'image', imagePath: '/mockups/v2/desk-mat.png', maskPath: '/mockups/v2/desk-mat-mask.png' },
     shadowPath: '/mockups/v2/desk-mat-shadow.png',
     highlightPath: '/mockups/v2/desk-mat-highlight.png',
+  },
+  'tote-bag': {
+    id: 'tote-bag',
+    name: 'Tote Bag',
+    description: 'Canvas tote bag with front-panel and edge-trim regions',
+    category: 'accessories',
+    canvasSize: { width: 3000, height: 4500 },
+    // Union of mask1 (body) + mask2 (trim) bboxes.
+    patternArea: { x: 420, y: 1456, width: 2061, height: 1747 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'body',
+        maskPath: '/mockups/v2/tote-bag-mask1.png',
+        patternArea: { x: 420, y: 1456, width: 2061, height: 1747 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 15,
+      },
+      {
+        id: 'trim',
+        maskPath: '/mockups/v2/tote-bag-mask2.png',
+        patternArea: { x: 420, y: 1456, width: 2061, height: 1747 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 15,
+        // Offset so the trim's pattern doesn't line up with the body panel —
+        // reads as a separate side gusset rather than a continuous front.
+        // Roughly 24% / 16% of patternArea (W=2061, H=1747) so it falls clearly
+        // out of phase with common pattern tile sizes (small offsets get
+        // swallowed by tiles that repeat at multiples of the shift).
+        patternOffset: { x: 487, y: 281 },
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 15, height: 14, unit: 'in' },
+    sizeLabel: '15×14" (38.1×35.6cm) Tote Bag',
+    productBase: { type: 'image', imagePath: '/mockups/v2/tote-bag.png' },
+    colorOverlay: { maskPath: '/mockups/v2/tote-bag-color-mask.png', defaultColor: 'auto' },
+    colorOverlayLabel: 'Handle Color',
+    shadowPath: '/mockups/v2/tote-bag-shadow.png',
+    highlightPath: '/mockups/v2/tote-bag-highlight.png',
   },
   'mens-dress-shirt': {
     id: 'mens-dress-shirt',

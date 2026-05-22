@@ -536,7 +536,10 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
             {/* Mockup preview */}
             <div className="flex items-center justify-center bg-white rounded-lg p-4">
-              <div className="w-full max-w-2xl relative" style={{ containerType: 'inline-size' }}>
+              {/* Fixed 600px CSS width so all templates render at the same display width
+                  regardless of their canvasSize (e.g., 1024² onesie vs 3000×4500 tie).
+                  Height follows each canvas's intrinsic aspect ratio via `w-full` on the canvas. */}
+              <div className="w-[600px] max-w-full relative" style={{ containerType: 'inline-size' }}>
                 <WatermarkPreviewOverlay watermark={watermark} />
                 {(() => {
                   const v2Tmpl = getV2Template(selectedMockup);

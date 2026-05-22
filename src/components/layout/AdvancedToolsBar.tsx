@@ -626,7 +626,9 @@ export default function AdvancedToolsBar({
               <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
 
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
-                <div className="w-full max-w-2xl relative" style={{ containerType: 'inline-size' }}>
+                {/* Fixed 600px CSS width so all templates render at the same display width
+                    regardless of their canvasSize. Height follows aspect ratio via canvas `w-full`. */}
+                <div className="w-[600px] max-w-full relative" style={{ containerType: 'inline-size' }}>
                   <WatermarkPreviewOverlay watermark={watermark} />
                   {v2Template && (
                     <MockupRendererV2
