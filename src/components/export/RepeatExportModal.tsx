@@ -11,8 +11,8 @@ import {
 } from '@/lib/utils/repeatFillExport';
 import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
-import { renderMockupOffscreen } from '@/lib/utils/renderMockupOffscreen';
-import { MockupType, mockupTemplates, SOCIAL_MOCKUP_IDS } from '@/lib/mockups/mockupTemplates';
+import { mockupV2Templates, getAllV2Templates } from '@/lib/mockups/mockupEngineV2';
+import { renderMockupV2Offscreen } from '@/lib/utils/renderMockupV2Offscreen';
 import {
   WatermarkConfig,
   DEFAULT_WATERMARK,
@@ -126,14 +126,20 @@ function SocialSizeRow({ preset, isChecked, onToggle, isExporting }: SocialSizeR
   );
 }
 
+/** v2 mockup IDs available in the social-export picker — image-based templates
+ *  only (procedural templates have no thumbnail and aren't useful for export). */
+const SOCIAL_V2_MOCKUP_IDS: string[] = getAllV2Templates()
+  .filter(t => t.productBase.type === 'image')
+  .map(t => t.id);
+
 interface MockupOverlayConfig {
   enabled: boolean;
-  templateId: MockupType;
+  templateId: string;
 }
 
 const DEFAULT_MOCKUP_OVERLAY: MockupOverlayConfig = {
   enabled: false,
-  templateId: SOCIAL_MOCKUP_IDS[0],
+  templateId: SOCIAL_V2_MOCKUP_IDS[0],
 };
 
 /** Draw a rendered mockup centered on a canvas with a white photo border. */
@@ -182,15 +188,16 @@ async function applyMockupOverlay(
   blob: Blob,
   w: number,
   h: number,
-  templateId: MockupType,
+  templateId: string,
   patternImage: HTMLImageElement,
   tileWidth: number,
   tileHeight: number,
   repeatType: 'full-drop' | 'half-drop' | 'half-brick',
   format: 'png' | 'jpg',
+  dpi: number,
 ): Promise<Blob> {
-  const mockupCanvas = await renderMockupOffscreen(
-    templateId, patternImage, tileWidth, tileHeight, repeatType,
+  const mockupCanvas = await renderMockupV2Offscreen(
+    templateId, patternImage, tileWidth, tileHeight, repeatType, dpi,
   );
   const img = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
@@ -221,11 +228,12 @@ interface SocialPreviewSlideProps {
   isExporting: boolean;
   watermark: WatermarkConfig;
   mockupsRef: MutableRefObject<Record<SizeSlug, MockupOverlayConfig>>;
+  dpi: number;
 }
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -300,8 +308,8 @@ function SocialPreviewSlide({
     const drawOverlays = async () => {
       if (mockupCfg.enabled) {
         try {
-          const mc = await renderMockupOffscreen(
-            mockupCfg.templateId, image, tileWidth, tileHeight, repeatType,
+          const mc = await renderMockupV2Offscreen(
+            mockupCfg.templateId, image, tileWidth, tileHeight, repeatType, dpi,
           );
           drawMockupOverlay(ctx, mc, previewW, previewH);
         } catch { /* mockup render failed — skip overlay */ }
@@ -311,7 +319,7 @@ function SocialPreviewSlide({
       drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080, logoImg);
     };
     drawOverlays();
-  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark, mockupCfg.enabled, mockupCfg.templateId, tileWidth, tileHeight]);
+  }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark, mockupCfg.enabled, mockupCfg.templateId, tileWidth, tileHeight, dpi]);
 
   const scaledTileW = tileWidth * scale;
   const scaledTileH = tileHeight * scale;
@@ -363,9 +371,10 @@ function SocialPreviewSlide({
         </label>
         {mockupCfg.enabled && (
           <div className="px-3 pb-3 pt-1 border-t border-[#e5e7eb]">
-            <div className="flex justify-center gap-2 flex-wrap">
-              {SOCIAL_MOCKUP_IDS.map(id => {
-                const tmpl = mockupTemplates[id];
+            <div className="flex gap-2 flex-wrap max-h-[180px] overflow-y-auto">
+              {SOCIAL_V2_MOCKUP_IDS.map(id => {
+                const tmpl = mockupV2Templates[id];
+                const imgPath = tmpl.productBase.type === 'image' ? tmpl.productBase.imagePath : '';
                 const isSelected = mockupCfg.templateId === id;
                 return (
                   <button
@@ -381,7 +390,7 @@ function SocialPreviewSlide({
                     title={tmpl.name}
                   >
                     <img
-                      src={tmpl.image || tmpl.templateImage}
+                      src={imgPath}
                       alt={tmpl.name}
                       className="w-full h-full object-contain"
                       draggable={false}
@@ -391,7 +400,7 @@ function SocialPreviewSlide({
               })}
             </div>
             <div className="text-[10px] text-[#9ca3af] mt-1.5 text-center">
-              {mockupTemplates[mockupCfg.templateId].name}
+              {mockupV2Templates[mockupCfg.templateId]?.name ?? mockupCfg.templateId}
             </div>
           </div>
         )}
@@ -731,7 +740,7 @@ export default function RepeatExportModal({
           if (mc?.enabled) {
             blob = await applyMockupOverlay(
               blob, preset.pxW, preset.pxH, mc.templateId,
-              image, tileWidth, tileHeight, repeatType, socialFormat,
+              image, tileWidth, tileHeight, repeatType, socialFormat, currentDPI,
             );
           }
           // Stamp watermark onto exported image (if text OR a logo is present)
@@ -1326,6 +1335,7 @@ export default function RepeatExportModal({
                     isExporting={isExporting}
                     watermark={watermark}
                     mockupsRef={mockupsRef}
+                    dpi={currentDPI}
                   />
 
                   {/* Error */}
