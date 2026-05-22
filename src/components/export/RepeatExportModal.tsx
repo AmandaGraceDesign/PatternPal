@@ -129,6 +129,13 @@ interface WatermarkConfig {
   fontSize: number;   // px relative to 1080px-wide canvas
   bgEnabled: boolean;
   bgColor: string;
+  /** Data URL of an uploaded transparent PNG logo. When set, the logo is
+   *  drawn at the bottom-center above any text. */
+  logoDataUrl?: string;
+  /** Logo opacity 0..1. Independent from text opacity. */
+  logoOpacity: number;
+  /** Logo width as a fraction of canvas width (e.g. 0.25 = 25%). */
+  logoSizePercent: number;
 }
 
 const WATERMARK_FONTS: { value: WatermarkFont; label: string; css: string; google: string }[] = [
@@ -157,39 +164,94 @@ const DEFAULT_WATERMARK: WatermarkConfig = {
   fontSize: 32,
   bgEnabled: false,
   bgColor: '#000000',
+  logoDataUrl: undefined,
+  logoOpacity: 1,
+  logoSizePercent: 0.2,
 };
 
-/** Draw watermark text at bottom center of a canvas context */
+/** Load an image from a data URL or http(s) URL. Returns null on failure. */
+function loadImageFromUrl(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+/** Cache of decoded watermark logos keyed by data URL. Data URLs change only
+ *  when the user uploads a new file, so a single decode per upload is enough.
+ *  Without this cache, every slider tweak (opacity, size) re-decodes the PNG. */
+const watermarkLogoCache = new Map<string, Promise<HTMLImageElement | null>>();
+function cachedLoadLogo(src: string): Promise<HTMLImageElement | null> {
+  const existing = watermarkLogoCache.get(src);
+  if (existing) return existing;
+  const p = loadImageFromUrl(src);
+  watermarkLogoCache.set(src, p);
+  return p;
+}
+
+/** Draw watermark (optional logo above text) at bottom center of a canvas context.
+ *  Logo is rendered with its own opacity; text uses wm.opacity. When both are
+ *  present the logo stacks above the text with a small gap. */
 function drawWatermark(
   ctx: CanvasRenderingContext2D,
   canvasW: number,
   canvasH: number,
   wm: WatermarkConfig,
   scaleFactor: number = 1,
+  logoImage: HTMLImageElement | null = null,
 ) {
-  if (!wm.enabled || !wm.text.trim()) return;
+  if (!wm.enabled) return;
+  const hasText = wm.text.trim().length > 0;
+  const hasLogo = !!logoImage;
+  if (!hasText && !hasLogo) return;
+
   const fontDef = WATERMARK_FONTS.find(f => f.value === wm.font) ?? WATERMARK_FONTS[0];
   const fontSize = Math.round(wm.fontSize * scaleFactor);
   const pad = Math.round(8 * scaleFactor);
   const bottomMargin = Math.round(32 * scaleFactor);
+  const logoGap = Math.round(12 * scaleFactor);
+
   ctx.save();
-  ctx.globalAlpha = wm.opacity;
-  ctx.font = `${fontSize}px ${fontDef.css}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  const textY = canvasH - bottomMargin;
-  // Draw background box behind text
-  if (wm.bgEnabled) {
-    const metrics = ctx.measureText(wm.text);
-    const boxW = metrics.width + pad * 2;
-    const boxH = fontSize + pad * 2;
-    const boxX = (canvasW - boxW) / 2;
-    const boxY = textY - fontSize - pad;
-    ctx.fillStyle = wm.bgColor;
-    ctx.fillRect(Math.round(boxX), Math.round(boxY), Math.round(boxW), Math.round(boxH));
+
+  let cursorY = canvasH - bottomMargin;
+
+  // Text first (drawn with text opacity; baseline = bottom at cursorY)
+  if (hasText) {
+    ctx.save();
+    ctx.globalAlpha = wm.opacity;
+    ctx.font = `${fontSize}px ${fontDef.css}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    // Background box behind text
+    if (wm.bgEnabled) {
+      const metrics = ctx.measureText(wm.text);
+      const boxW = metrics.width + pad * 2;
+      const boxH = fontSize + pad * 2;
+      const boxX = (canvasW - boxW) / 2;
+      const boxY = cursorY - fontSize - pad;
+      ctx.fillStyle = wm.bgColor;
+      ctx.fillRect(Math.round(boxX), Math.round(boxY), Math.round(boxW), Math.round(boxH));
+    }
+    ctx.fillStyle = wm.color;
+    ctx.fillText(wm.text, canvasW / 2, cursorY);
+    ctx.restore();
+    // Move cursor above the text block (including bg pad) for the logo
+    cursorY -= fontSize + (wm.bgEnabled ? pad * 2 : 0) + logoGap;
   }
-  ctx.fillStyle = wm.color;
-  ctx.fillText(wm.text, canvasW / 2, textY);
+
+  // Logo above text (or alone at bottom if no text)
+  if (hasLogo) {
+    const drawW = Math.max(1, Math.round(canvasW * wm.logoSizePercent));
+    const aspect = logoImage.width / logoImage.height;
+    const drawH = Math.max(1, Math.round(drawW / aspect));
+    const drawX = Math.round((canvasW - drawW) / 2);
+    const drawY = Math.round(cursorY - drawH);
+    ctx.globalAlpha = wm.logoOpacity;
+    ctx.drawImage(logoImage, drawX, drawY, drawW, drawH);
+  }
+
   ctx.restore();
 }
 
@@ -202,6 +264,9 @@ async function applyWatermarkToBlob(
   const fontFamily = fontDef.css.split(',')[0].replace(/"/g, '').trim();
   try { await document.fonts.load(`${wm.fontSize}px "${fontFamily}"`); } catch { /* fallback ok */ }
 
+  // Load logo (if any) before drawing
+  const logoImage = wm.logoDataUrl ? await loadImageFromUrl(wm.logoDataUrl) : null;
+
   const img = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -209,7 +274,7 @@ async function applyWatermarkToBlob(
   const ctx = canvas.getContext('2d');
   if (!ctx) return blob;
   ctx.drawImage(img, 0, 0, w, h);
-  drawWatermark(ctx, w, h, wm, w / 1080);
+  drawWatermark(ctx, w, h, wm, w / 1080, logoImage);
   return new Promise(resolve => {
     canvas.toBlob(
       b => resolve(b ?? blob),
@@ -399,8 +464,9 @@ function SocialPreviewSlide({
           drawMockupOverlay(ctx, mc, previewW, previewH);
         } catch { /* mockup render failed — skip overlay */ }
       }
-      // Draw watermark on preview (scale relative to 1080px reference)
-      drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080);
+      // Load logo (cached after first decode) then draw watermark.
+      const logoImg = watermark.logoDataUrl ? await cachedLoadLogo(watermark.logoDataUrl) : null;
+      drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080, logoImg);
     };
     drawOverlays();
   }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark, mockupCfg.enabled, mockupCfg.templateId, tileWidth, tileHeight]);
@@ -826,8 +892,8 @@ export default function RepeatExportModal({
               image, tileWidth, tileHeight, repeatType, socialFormat,
             );
           }
-          // Stamp watermark onto exported image
-          if (watermark.enabled && watermark.text.trim()) {
+          // Stamp watermark onto exported image (if text OR a logo is present)
+          if (watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl)) {
             blob = await applyWatermarkToBlob(blob, preset.pxW, preset.pxH, watermark, socialFormat);
           }
           results.push({ slug: preset.slug, label: preset.label, blob });
@@ -1379,12 +1445,84 @@ export default function RepeatExportModal({
                       </label>
                       {watermark.enabled && (
                         <div className="px-3 pb-3 space-y-3 border-t border-[#e5e7eb] pt-3">
+                          {/* Logo upload — transparent PNG goes bottom-center, above text */}
+                          <div>
+                            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Logo (transparent PNG)</span>
+                            <div className="mt-1 flex items-center gap-2">
+                              {watermark.logoDataUrl ? (
+                                <>
+                                  <div
+                                    className="w-12 h-12 rounded border border-[#e5e7eb] flex items-center justify-center bg-[#f9fafb]"
+                                    style={{
+                                      backgroundImage: `repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)`,
+                                      backgroundSize: '8px 8px',
+                                    }}
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={watermark.logoDataUrl} alt="Logo preview" className="max-w-full max-h-full object-contain" />
+                                  </div>
+                                  <button
+                                    onClick={() => setWatermark(w => ({ ...w, logoDataUrl: undefined }))}
+                                    className="text-[10px] text-[#705046] hover:text-[#294051] underline"
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              ) : (
+                                <label className="flex-1 px-3 py-2 text-xs text-center border border-dashed border-[#e5e7eb] rounded-md text-[#6b7280] hover:bg-[#f9fafb] cursor-pointer">
+                                  Upload PNG logo
+                                  <input
+                                    type="file"
+                                    accept="image/png"
+                                    className="hidden"
+                                    onChange={e => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      const reader = new FileReader();
+                                      reader.onload = () => {
+                                        const result = reader.result;
+                                        if (typeof result === 'string') {
+                                          setWatermark(w => ({ ...w, logoDataUrl: result }));
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                            {watermark.logoDataUrl && (
+                              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center mt-2">
+                                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Logo size</span>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="range" min={5} max={60} step={1}
+                                    value={Math.round(watermark.logoSizePercent * 100)}
+                                    onChange={e => setWatermark(w => ({ ...w, logoSizePercent: Number(e.target.value) / 100 }))}
+                                    className="flex-1 accent-[#e0c26e]"
+                                  />
+                                  <span className="text-[10px] text-[#9ca3af] w-10 text-right">{Math.round(watermark.logoSizePercent * 100)}%</span>
+                                </div>
+                                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Logo opacity</span>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="range" min={10} max={100} step={5}
+                                    value={Math.round(watermark.logoOpacity * 100)}
+                                    onChange={e => setWatermark(w => ({ ...w, logoOpacity: Number(e.target.value) / 100 }))}
+                                    className="flex-1 accent-[#e0c26e]"
+                                  />
+                                  <span className="text-[10px] text-[#9ca3af] w-10 text-right">{Math.round(watermark.logoOpacity * 100)}%</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
                           {/* Text input */}
                           <input
                             type="text"
                             value={watermark.text}
                             onChange={e => setWatermark(w => ({ ...w, text: e.target.value }))}
-                            placeholder="Your name or brand"
+                            placeholder="Your name or brand (optional)"
                             maxLength={60}
                             className="w-full px-2.5 py-1.5 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#294051] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#e0c26e]"
                           />

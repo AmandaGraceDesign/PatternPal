@@ -68,7 +68,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
   },
   'swim-trunks-1': {
     id: 'swim-trunks-1',
-    name: "Men's Swim Trunks",
+    name: "Boys' Swim Trunks",
     description: 'Swim trunks with a contrast hem panel',
     category: 'apparel',
     canvasSize: { width: 3000, height: 4500 },
@@ -99,7 +99,7 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     ],
     lighting: { enabled: false, intensity: 0 },
     physicalSize: { width: 22, height: 19, unit: 'in' },
-    sizeLabel: "22×19\" (55.9×48.3cm) Men's Swim Trunks",
+    sizeLabel: "22×19\" (55.9×48.3cm) Boys' Swim Trunks",
     productBase: { type: 'image', imagePath: '/mockups/v2/swim-trunks-1.png' },
     colorOverlay: { maskPath: '/mockups/v2/swim-trunks-1-color-mask.png', defaultColor: 'auto' },
     shadowPath: '/mockups/v2/swim-trunks-1-shadow.png',
