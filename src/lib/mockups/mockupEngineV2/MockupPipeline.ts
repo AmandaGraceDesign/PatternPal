@@ -217,6 +217,11 @@ function processZone(
     scaledTile.width = scaledW;
     scaledTile.height = scaledH;
     const scaledCtx = scaledTile.getContext('2d')!;
+    // Narrow zones (e.g. the men's tie, 3.5" wide) upscale the source pattern
+    // image by 2-3x to fill the zone. Default canvas smoothing produces blocky
+    // output at those scales; 'high' uses bicubic-style resampling.
+    scaledCtx.imageSmoothingEnabled = true;
+    scaledCtx.imageSmoothingQuality = 'high';
     scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
 
     const angleDeg = zone.patternAngle ?? 0;

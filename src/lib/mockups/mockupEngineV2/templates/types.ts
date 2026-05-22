@@ -137,6 +137,10 @@ export interface MockupV2Template {
   shadowLabel?: string;
   /** Display labels for additional shadow sliders (parallel to additionalShadowPaths). */
   additionalShadowLabels?: string[];
+  /** Initial enabled state for each additional shadow (parallel to additionalShadowPaths).
+   *  Missing entries default to true. Used to start a layer off by default —
+   *  e.g. the jacket shadow on mens-tie. Users can still toggle it on. */
+  additionalShadowDefaultEnableds?: boolean[];
 
   /** Optional highlight overlay (RGBA PNG, canvas-sized). Composited on top of
    *  the finished pattern+base composite using `soft-light` blend (fixed). Use
@@ -153,6 +157,9 @@ export interface MockupV2Template {
   highlightLabel?: string;
   /** Display labels for additional highlight sliders. */
   additionalHighlightLabels?: string[];
+  /** Initial enabled state for each additional highlight (parallel to additionalHighlightPaths).
+   *  Missing entries default to true. */
+  additionalHighlightDefaultEnableds?: boolean[];
   /** Display label for the color overlay toggle. Default "Accent color". */
   colorOverlayLabel?: string;
 

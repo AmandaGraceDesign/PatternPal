@@ -81,10 +81,11 @@ EDITED
 
 ## Not done
 
-- Browser test the picker UI (scroll behavior, all 27 templates render
-  thumbnails, selection updates preview).
-- Browser test a v2 mockup export end-to-end (e.g., select mens-tie →
-  export → confirm the exported PNG has the tie correctly baked in).
+- ~~Browser test the picker UI (scroll behavior, all 27 templates render
+  thumbnails, selection updates preview).~~
+- ~~Browser test a v2 mockup export end-to-end (e.g., select mens-tie →
+  export → confirm the exported PNG has the tie correctly baked in).~~
+  **Done 2026-05-22 — verified working.**
 - iPad verification (touch-scroll the picker, tap a thumbnail, export).
 - Consider deleting the legacy `mockupTemplates.ts` +
   `renderMockupOffscreen.ts` if nothing else references them.

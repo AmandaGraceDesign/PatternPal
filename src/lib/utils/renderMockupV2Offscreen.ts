@@ -5,8 +5,11 @@
  * tool to bake any v2 mockup onto an exported image.
  *
  * Mirrors the legacy `renderMockupOffscreen` signature so the export pipeline
- * can swap implementations cleanly. Defaults all runtime toggles to "enabled"
- * — the social export doesn't expose per-layer controls.
+ * can swap implementations cleanly. Honors the template's *DefaultEnabled
+ * flags (colorOverlayDefaultEnabled, additional{Shadow,Highlight}DefaultEnableds)
+ * so the social export matches the mockup view's default visual state — e.g.
+ * mens-tie ships with the jacket layers off so the social export shows just
+ * the tie. Everything not explicitly defaulted off stays enabled.
  */
 
 import { runPipeline } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
@@ -85,6 +88,13 @@ export async function renderMockupV2Offscreen(
     if (img) zoneMasks[id] = img;
   }
 
+  // Per-layer enabled flags derived from template defaults. Parallel to the
+  // additional{Shadow,Highlight}Images arrays; missing entries default to true.
+  const shadowDefaults = template.additionalShadowDefaultEnableds ?? [];
+  const highlightDefaults = template.additionalHighlightDefaultEnableds ?? [];
+  const additionalShadowEnableds = additionalShadowImages.map((_, i) => shadowDefaults[i] ?? true);
+  const additionalHighlightEnableds = additionalHighlightImages.map((_, i) => highlightDefaults[i] ?? true);
+
   return runPipeline({
     patternImage,
     template,
@@ -96,12 +106,15 @@ export async function renderMockupV2Offscreen(
     productBaseImage: productBaseImage || undefined,
     productMaskImage: productMaskImage || undefined,
     colorOverlayMaskImage: colorOverlayMaskImage || undefined,
+    colorOverlayEnabled: template.colorOverlayDefaultEnabled ?? true,
     displacementMapImage: displacementMapImage || undefined,
     shadowImage: shadowImage || undefined,
     additionalShadowImages: additionalShadowImages.length > 0 ? additionalShadowImages : undefined,
     additionalShadowOpacities: template.additionalShadowOpacities,
+    additionalShadowEnableds: additionalShadowEnableds.length > 0 ? additionalShadowEnableds : undefined,
     highlightImage: highlightImage || undefined,
     additionalHighlightImages: additionalHighlightImages.length > 0 ? additionalHighlightImages : undefined,
     additionalHighlightOpacities: template.additionalHighlightOpacities,
+    additionalHighlightEnableds: additionalHighlightEnableds.length > 0 ? additionalHighlightEnableds : undefined,
   });
 }

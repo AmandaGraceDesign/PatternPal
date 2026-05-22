@@ -744,10 +744,12 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     colorOverlayDefaultEnabled: false,
     shadowPath: '/mockups/v2/mens-tie-shadow.png',
     additionalShadowPaths: ['/mockups/v2/mens-tie-jacket-shadow.png'],
+    additionalShadowDefaultEnableds: [false],
     shadowLabel: 'Tie shadow',
     additionalShadowLabels: ['Jacket shadow'],
     highlightPath: '/mockups/v2/mens-tie-highlight.png',
     additionalHighlightPaths: ['/mockups/v2/mens-tie-jacket-highlight.png'],
+    additionalHighlightDefaultEnableds: [false],
     highlightLabel: 'Tie highlight',
     additionalHighlightLabels: ['Jacket highlight'],
     colorOverlayLabel: 'Jacket color',
@@ -815,7 +817,10 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
       {
         id: 'panel-2',
         maskPath: '/mockups/v2/mens-dress-shirt-mask2.png',
-        patternArea: { x: 0, y: 734, width: 2274, height: 3766 },
+        // Width widened from 2274 → 2310 to fully contain mask2 (actual right
+        // edge at x=2307); without this, the rightmost ~33px of mask2 ends up
+        // outside the tile canvas and gets no pattern.
+        patternArea: { x: 0, y: 734, width: 2310, height: 3766 },
         perspective: { topSqueeze: 0, bottomSqueeze: 0 },
         displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
         blend: { mode: 'multiply', opacity: 1.0 },
@@ -829,7 +834,11 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
       {
         id: 'panel-3',
         maskPath: '/mockups/v2/mens-dress-shirt-mask3.png',
-        patternArea: { x: 0, y: 180, width: 2203, height: 4320 },
+        // Width widened from 2203 → 2280 to fully contain mask3 (actual right
+        // edge at x=2273). Previously the rightmost ~70px of mask3 (a vertical
+        // strip down the placket area, visible as a blank gap near the buttons)
+        // fell outside the tile canvas and received no pattern.
+        patternArea: { x: 0, y: 180, width: 2280, height: 4320 },
         perspective: { topSqueeze: 0, bottomSqueeze: 0 },
         displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
         blend: { mode: 'multiply', opacity: 1.0 },

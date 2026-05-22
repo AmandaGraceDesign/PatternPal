@@ -71,6 +71,12 @@ const SOCIAL_SIZE_PRESETS: SocialSizePreset[] = [
 ];
 
 const SOCIAL_PREVIEW_MAX_PX = 240; // max dimension for per-size preview thumbnail
+/** Multiplier applied to preset pxW/pxH at export time. Exports at 2× the
+ *  platform's standard size so the heavy mockup downsample (3000×4500 source
+ *  → social canvas) is less aggressive and high-frequency textures (e.g. the
+ *  mens-tie jacket weave) survive without aliasing. Social platforms accept
+ *  and recompress larger uploads, so this is upside-only for quality. */
+const SOCIAL_EXPORT_SCALE = 2;
 
 type ModalMode = 'picker' | 'cricut' | 'social';
 type SocialStep = 'select' | 'preview';
@@ -179,8 +185,34 @@ function drawMockupOverlay(
   ctx.fillRect(x, y, totalW, totalH);
   ctx.restore();
 
-  // Draw mockup
-  ctx.drawImage(mockupCanvas, x + borderW, y + borderW, drawW, drawH);
+  // Draw mockup. The source canvas is 3000×4500; the destination box is much
+  // smaller (e.g. ~594×892 for a 1080² Instagram tile), a ~5× downsample.
+  // Default low-quality smoothing aliases high-frequency textures (the corduroy
+  // weave on the mens-tie jacket was a clear moiré case). Pyramid-downsample
+  // through 2× steps until close to the target size — each step is a halving
+  // canvas handles well — then do the final fractional step at high quality.
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  let src: HTMLCanvasElement | CanvasImageSource = mockupCanvas;
+  let curW = mockupCanvas.width;
+  let curH = mockupCanvas.height;
+  while (curW > drawW * 2 && curH > drawH * 2) {
+    const halfW = Math.max(1, Math.floor(curW / 2));
+    const halfH = Math.max(1, Math.floor(curH / 2));
+    const step = document.createElement('canvas');
+    step.width = halfW;
+    step.height = halfH;
+    const stepCtx = step.getContext('2d')!;
+    stepCtx.imageSmoothingEnabled = true;
+    stepCtx.imageSmoothingQuality = 'high';
+    stepCtx.drawImage(src, 0, 0, halfW, halfH);
+    src = step;
+    curW = halfW;
+    curH = halfH;
+  }
+  ctx.drawImage(src, x + borderW, y + borderW, drawW, drawH);
+  ctx.restore();
 }
 
 /** Stamp a mockup overlay onto an existing image blob, return a new blob. */
@@ -724,12 +756,16 @@ export default function RepeatExportModal({
 
       for (const preset of slugsToExport) {
         const scale = scalesRef.current[preset.slug] ?? 1.0;
+        // Export at 2× the platform's standard pixel dimensions for the
+        // reasons described on SOCIAL_EXPORT_SCALE. Aspect ratio is preserved.
+        const exportPxW = preset.pxW * SOCIAL_EXPORT_SCALE;
+        const exportPxH = preset.pxH * SOCIAL_EXPORT_SCALE;
         try {
           let blob = await generateSocialFillBlob({
             image,
             repeatType,
-            targetPxW: preset.pxW,
-            targetPxH: preset.pxH,
+            targetPxW: exportPxW,
+            targetPxH: exportPxH,
             format: socialFormat,
             tileWidthInches: tileWidth,
             tileHeightInches: tileHeight,
@@ -739,13 +775,13 @@ export default function RepeatExportModal({
           const mc = mockupsRef.current[preset.slug];
           if (mc?.enabled) {
             blob = await applyMockupOverlay(
-              blob, preset.pxW, preset.pxH, mc.templateId,
+              blob, exportPxW, exportPxH, mc.templateId,
               image, tileWidth, tileHeight, repeatType, socialFormat, currentDPI,
             );
           }
           // Stamp watermark onto exported image (if text OR a logo is present)
           if (watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl)) {
-            blob = await applyWatermarkToBlob(blob, preset.pxW, preset.pxH, watermark, socialFormat);
+            blob = await applyWatermarkToBlob(blob, exportPxW, exportPxH, watermark, socialFormat);
           }
           results.push({ slug: preset.slug, label: preset.label, blob });
         } catch {

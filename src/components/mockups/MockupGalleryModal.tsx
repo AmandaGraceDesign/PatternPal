@@ -214,6 +214,8 @@ export default function MockupGalleryModal({
                       repeatType={repeatType}
                       maxRenderDimension={600}
                       colorOverlayEnabled={template.colorOverlayDefaultEnabled ?? true}
+                      additionalShadowEnableds={template.additionalShadowDefaultEnableds}
+                      additionalHighlightEnableds={template.additionalHighlightDefaultEnableds}
                     />
                   </div>
 

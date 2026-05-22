@@ -102,9 +102,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     const v2 = getV2Template(selectedMockup);
     const shadowCount = 1 + (v2?.additionalShadowPaths?.length ?? 0);
     const highlightCount = 1 + (v2?.additionalHighlightPaths?.length ?? 0);
-    setShadowEnableds(Array(shadowCount).fill(true));
+    // Primary shadow/highlight default on; additionals honor template defaults
+    // (missing entries → true).
+    const additionalShadowDefaults = v2?.additionalShadowDefaultEnableds ?? [];
+    const additionalHighlightDefaults = v2?.additionalHighlightDefaultEnableds ?? [];
+    setShadowEnableds([true, ...Array.from({ length: shadowCount - 1 }, (_, i) => additionalShadowDefaults[i] ?? true)]);
     setShadowOpacityPercents(Array(shadowCount).fill(30));
-    setHighlightEnableds(Array(highlightCount).fill(true));
+    setHighlightEnableds([true, ...Array.from({ length: highlightCount - 1 }, (_, i) => additionalHighlightDefaults[i] ?? true)]);
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
   }, [selectedMockup]);
