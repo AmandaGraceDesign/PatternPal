@@ -69,7 +69,7 @@ NEW assets (untracked)
 
 - `npx tsc --noEmit` exit 0 after each change.
 - Cleanup commit (595d439) — code-level only, no functional changes (v1 fallback was already unreachable).
-- Tote-bag template — **not yet browser-verified**. User should load the tote-bag mockup in the gallery and confirm: (1) front panel + trim render distinctly, (2) trim pattern is visibly offset from body pattern, (3) handle color picker works.
+- Tote-bag template — **browser-verified (2026-05-22)**: user confirmed "tote renders great".
 - Preview width lock — **not yet browser-verified**. User should open tea-towel-2 and mens-tie back-to-back and confirm they render at identical widths.
 
 ## Diagnostic notes (context for next session)
