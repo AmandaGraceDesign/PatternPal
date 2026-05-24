@@ -594,21 +594,6 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/mug-2-shadow.png',
     highlightPath: '/mockups/v2/mug-2-highlight.png',
   },
-  'nursery-wall': {
-    id: 'nursery-wall',
-    name: 'Nursery Wall',
-    description: 'Nursery room scene with wallpaper applied to wall',
-    category: 'wallpaper',
-    canvasSize: { width: 1000, height: 800 },
-    patternArea: { x: 50, y: 30, width: 900, height: 550 },
-    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
-    displacement: { intensity: 4, wrinkleFreq: 3, type: 'flat-surface' },
-    blend: { mode: 'multiply', opacity: 0.90 },
-    lighting: { enabled: true, intensity: 0.15 },
-    physicalSize: { width: 120, height: 96, unit: 'in' },
-    sizeLabel: '120×96" (304.8×243.8cm) Nursery Wall',
-    productBase: { type: 'procedural', brightness: 240, shape: 'flat-surface' },
-  },
 
   // ─── Gifting ───
   'wrapping-paper': {
@@ -643,6 +628,46 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/gift-box-shadow.png',
     highlightPath: '/mockups/v2/gift-box-highlight.png',
   },
+  'wrapping-paper-roll': {
+    id: 'wrapping-paper-roll',
+    name: 'Wrapping Paper Roll',
+    description: 'See your pattern on a partially-unrolled wrapping paper roll',
+    category: 'gifting',
+    canvasSize: { width: 3000, height: 4500 },
+    patternArea: { x: 0, y: 0, width: 3000, height: 4500 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'sheet',
+        maskPath: '/mockups/v2/wrapping-paper-roll-mask1.png',
+        patternArea: { x: 0, y: 0, width: 3000, height: 4500 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 30,
+      },
+      {
+        id: 'roll',
+        maskPath: '/mockups/v2/wrapping-paper-roll-mask2.png',
+        // Offset so the roll's pattern doesn't tile in phase with the sheet —
+        // reads as "layered/separate piece of paper" instead of one flat plane.
+        patternArea: { x: 0, y: 0, width: 3000, height: 4500 },
+        patternOffset: { x: 487, y: 281 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 30,
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 30, height: 45, unit: 'in' },
+    sizeLabel: '30×45" (76.2×114.3cm) Wrapping Paper Roll',
+    productBase: { type: 'image', imagePath: '/mockups/v2/wrapping-paper-roll.png' },
+    shadowPath: '/mockups/v2/wrapping-paper-roll-shadow.png',
+    highlightPath: '/mockups/v2/wrapping-paper-roll-highlight.png',
+  },
   'gift-bag': {
     id: 'gift-bag',
     name: 'Gift Bag',
@@ -660,22 +685,6 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/gift-bag-shadow.png',
     highlightPath: '/mockups/v2/gift-bag-highlight.png',
   },
-  'wrapping-paper-v2': {
-    id: 'wrapping-paper-v2',
-    name: 'Wrapping Paper (Flat Sheet)',
-    description: 'Wrapping paper sheet with gentle folds',
-    category: 'gifting',
-    canvasSize: { width: 900, height: 800 },
-    patternArea: { x: 50, y: 50, width: 800, height: 700 },
-    perspective: { topSqueeze: 12, bottomSqueeze: 0 },
-    displacement: { intensity: 8, wrinkleFreq: 5, type: 'fabric-drape' },
-    blend: { mode: 'multiply', opacity: 0.90 },
-    lighting: { enabled: true, intensity: 0.2 },
-    physicalSize: { width: 30, height: 20, unit: 'in' },
-    sizeLabel: '30×20" (76.2×50.8cm) Wrapping Paper (Flat Sheet)',
-    productBase: { type: 'procedural', brightness: 240, shape: 'fabric-drape' },
-  },
-
   // ─── Wallpaper ───
   'wallpaper': {
     // ID preserved for backward-compat (referenced in __tests__/templateRegistry.test.ts
@@ -709,22 +718,6 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/entry-wallpaper-shadow.png',
     highlightPath: '/mockups/v2/entry-wallpaper-highlight.png',
   },
-  'wallpaper-roll': {
-    id: 'wallpaper-roll',
-    name: 'Wallpaper Roll',
-    description: 'Wallpaper roll partially unrolled',
-    category: 'wallpaper',
-    canvasSize: { width: 700, height: 900 },
-    patternArea: { x: 100, y: 50, width: 500, height: 800 },
-    perspective: { topSqueeze: 15, bottomSqueeze: 5 },
-    displacement: { intensity: 8, wrinkleFreq: 10, type: 'cylindrical' },
-    blend: { mode: 'multiply', opacity: 0.88 },
-    lighting: { enabled: true, intensity: 0.3 },
-    physicalSize: { width: 20, height: 33, unit: 'in' },
-    sizeLabel: '20×33" (50.8×83.8cm) Wallpaper Roll',
-    productBase: { type: 'procedural', brightness: 235, shape: 'cylindrical' },
-  },
-
   // ─── Stationery ───
   'journal': {
     id: 'journal',
