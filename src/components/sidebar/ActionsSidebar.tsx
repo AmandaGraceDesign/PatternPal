@@ -478,14 +478,19 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               return (
                 <div className="flex flex-wrap items-center justify-center gap-5 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
                   {hasShadow && shadowEnableds.map((enabled, i) => (
-                    <label key={`shadow-${i}`} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={enabled}
-                        onChange={(e) => setShadowAt(i, e.target.checked)}
-                        className="cursor-pointer"
-                      />
-                      <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
+                    // Outer wrapper is a div, NOT a label — wrapping the number
+                    // input in a label causes clicks/typing on the number to
+                    // toggle the checkbox (label's labelable-control behavior).
+                    <div key={`shadow-${i}`} className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => setShadowAt(i, e.target.checked)}
+                          className="cursor-pointer"
+                        />
+                        <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
+                      </label>
                       <input
                         type="number"
                         min={0}
@@ -500,17 +505,19 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                         className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       <span className="opacity-60">%</span>
-                    </label>
+                    </div>
                   ))}
                   {hasHighlight && highlightEnableds.map((enabled, i) => (
-                    <label key={`highlight-${i}`} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={enabled}
-                        onChange={(e) => setHighlightAt(i, e.target.checked)}
-                        className="cursor-pointer"
-                      />
-                      <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
+                    <div key={`highlight-${i}`} className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => setHighlightAt(i, e.target.checked)}
+                          className="cursor-pointer"
+                        />
+                        <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
+                      </label>
                       <input
                         type="number"
                         min={0}
@@ -525,7 +532,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                         className="w-14 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       <span className="opacity-60">%</span>
-                    </label>
+                    </div>
                   ))}
                 </div>
               );

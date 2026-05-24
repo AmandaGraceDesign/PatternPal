@@ -563,14 +563,19 @@ export default function AdvancedToolsBar({
                     {hasShadow && shadowEnableds.map((enabled, i) => (
                       <React.Fragment key={`shadow-${i}`}>
                         {divider}
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={enabled}
-                            onChange={(e) => setShadowAt(i, e.target.checked)}
-                            className="cursor-pointer"
-                          />
-                          <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
+                        {/* Outer wrapper is a div, NOT a label — wrapping the
+                            number input in a label causes clicks/typing on the
+                            number to toggle the checkbox. */}
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={enabled}
+                              onChange={(e) => setShadowAt(i, e.target.checked)}
+                              className="cursor-pointer"
+                            />
+                            <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
+                          </label>
                           <input
                             type="number"
                             min={0}
@@ -585,7 +590,7 @@ export default function AdvancedToolsBar({
                             className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                           <span className="opacity-60">%</span>
-                        </label>
+                        </div>
                       </React.Fragment>
                     ))}
 
@@ -593,14 +598,16 @@ export default function AdvancedToolsBar({
                     {hasHighlight && highlightEnableds.map((enabled, i) => (
                       <React.Fragment key={`highlight-${i}`}>
                         {divider}
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={enabled}
-                            onChange={(e) => setHighlightAt(i, e.target.checked)}
-                            className="cursor-pointer"
-                          />
-                          <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={enabled}
+                              onChange={(e) => setHighlightAt(i, e.target.checked)}
+                              className="cursor-pointer"
+                            />
+                            <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
+                          </label>
                           <input
                             type="number"
                             min={0}
@@ -615,7 +622,7 @@ export default function AdvancedToolsBar({
                             className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                           <span className="opacity-60">%</span>
-                        </label>
+                        </div>
                       </React.Fragment>
                     ))}
                   </div>
