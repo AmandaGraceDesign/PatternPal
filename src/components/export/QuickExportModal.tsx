@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { injectJpegDpi } from '@/lib/utils/dpiMetadata';
+import { downloadBlob } from '@/lib/utils/downloadCanvas';
 
 interface QuickExportModalProps {
   isOpen: boolean;
@@ -76,15 +77,9 @@ export default function QuickExportModal({
         // Inject correct DPI into the JPEG metadata
         const blob = await injectJpegDpi(rawBlob, dpi);
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
         const baseName = originalFilename?.replace(/\.[^/.]+$/, '') || 'pattern';
-        link.download = `${baseName}_${wInches}x${hInches}_${dpi}dpi.jpg`;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        const filename = `${baseName}_${wInches}x${hInches}_${dpi}dpi.jpg`;
+        await downloadBlob(blob, filename, 'image/jpeg');
       }, 'image/jpeg', 0.95);
 
     } catch (error) {

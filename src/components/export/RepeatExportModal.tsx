@@ -13,6 +13,7 @@ import { convertToFullDrop } from '@/lib/utils/convertToFullDrop';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { mockupV2Templates, getAllV2Templates } from '@/lib/mockups/mockupEngineV2';
 import { renderMockupV2Offscreen } from '@/lib/utils/renderMockupV2Offscreen';
+import { downloadBlob } from '@/lib/utils/downloadCanvas';
 import {
   WatermarkConfig,
   DEFAULT_WATERMARK,
@@ -799,31 +800,18 @@ export default function RepeatExportModal({
       }
 
       if (successful.length === 1) {
-        // Single file — direct download
+        // Single file — direct download (iOS-aware)
         const { slug, blob } = successful[0];
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${baseName}-${slug}.${ext}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        const mime = socialFormat === 'jpg' ? 'image/jpeg' : 'image/png';
+        await downloadBlob(blob, `${baseName}-${slug}.${ext}`, mime);
       } else {
-        // Multiple files — zip
+        // Multiple files — zip (iOS-aware)
         const zip = new JSZip();
         for (const { slug, blob } of successful) {
           zip.file(`${baseName}-${slug}.${ext}`, blob);
         }
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        const url = URL.createObjectURL(zipBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${baseName}-social-media.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        await downloadBlob(zipBlob, `${baseName}-social-media.zip`, 'application/zip');
       }
 
       // Warn about partial failures

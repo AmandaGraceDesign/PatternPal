@@ -7,8 +7,14 @@ function isIOS(): boolean {
 }
 
 function ensureExtension(filename: string, mimeType: string): string {
-  const ext = mimeType === 'image/jpeg' ? '.jpg' : '.png';
-  return /\.(png|jpg|jpeg)$/i.test(filename) ? filename : `${filename}${ext}`;
+  // Leave any pre-existing extension intact (image, zip, tiff, etc).
+  if (/\.[a-z0-9]{2,5}$/i.test(filename)) return filename;
+  const ext =
+    mimeType === 'image/jpeg' ? '.jpg' :
+    mimeType === 'image/tiff' ? '.tif' :
+    mimeType === 'application/zip' ? '.zip' :
+    '.png';
+  return `${filename}${ext}`;
 }
 
 function canvasToBlob(
@@ -36,39 +42,8 @@ export async function downloadCanvasAsImage(
   mimeType: string = 'image/png',
   quality: number = 1.0
 ): Promise<void> {
-  const finalFilename = ensureExtension(filename, mimeType);
   const blob = await canvasToBlob(canvas, mimeType, quality);
-
-  if (isIOS() && typeof navigator.share === 'function') {
-    try {
-      const file = new File([blob], finalFilename, { type: mimeType });
-      // Only skip if canShare explicitly rejects files; otherwise try share
-      // and fall back on error. This forces the native iOS share sheet
-      // (centered) instead of Chrome-on-iOS's bottom download bar.
-      const canShareFiles =
-        typeof navigator.canShare !== 'function' ||
-        navigator.canShare({ files: [file] });
-      if (canShareFiles) {
-        await navigator.share({ files: [file], title: finalFilename });
-        return;
-      }
-    } catch (err) {
-      if ((err as Error)?.name === 'AbortError') return;
-      // Fall through to anchor-download fallback on any other error.
-    }
-  }
-
-  const url = URL.createObjectURL(blob);
-  try {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = finalFilename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  return downloadBlob(blob, filename, mimeType);
 }
 
 /**
@@ -80,6 +55,20 @@ export async function downloadBlobAsImage(
   blob: Blob,
   filename: string,
   mimeType: string = 'image/png',
+): Promise<void> {
+  return downloadBlob(blob, filename, mimeType);
+}
+
+/**
+ * Generic blob download with iOS share-sheet fallback. Works for images, ZIPs,
+ * TIFFs, etc. On iOS Safari/Chrome <a download> is unreliable, so when the
+ * Web Share API can accept files we use the native share sheet (saves to
+ * Photos for images, Files for ZIPs). Other platforms get the anchor click.
+ */
+export async function downloadBlob(
+  blob: Blob,
+  filename: string,
+  mimeType: string,
 ): Promise<void> {
   const finalFilename = ensureExtension(filename, mimeType);
 
@@ -95,6 +84,7 @@ export async function downloadBlobAsImage(
       }
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return;
+      // Fall through to anchor-download fallback on any other error.
     }
   }
 

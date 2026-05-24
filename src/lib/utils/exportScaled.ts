@@ -3,6 +3,7 @@ import { scaleImage, calculateOriginalSize, detectOriginalDPI } from './imageSca
 import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
 import { sanitizeFilename } from './sanitizeFilename';
 import { convertToFullDrop } from './convertToFullDrop';
+import { downloadBlob } from './downloadCanvas';
 
 const FREE_USER_SIZES = [8, 12];
 
@@ -124,24 +125,17 @@ export async function generateScaledExport(config: ScaledExportConfig) {
     zip.file(filename, scaledBlob);
   }
   
-  // Generate and download zip
-  const zipBlob = await zip.generateAsync({ 
+  // Generate and download zip (iOS-aware — uses Web Share API on iPad/iPhone
+  // so users get the native share sheet → Save to Files, instead of Safari's
+  // unreliable anchor-download which often produces "Unknown.zip").
+  const zipBlob = await zip.generateAsync({
     type: 'blob',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 }
   });
-  
+
   const timestamp = new Date().toISOString().split('T')[0];
-  const link = document.createElement('a');
-  const zipUrl = URL.createObjectURL(zipBlob);
-  link.href = zipUrl;
-  link.download = `${baseFilename}-scaled-${timestamp}.zip`;
-  link.click();
-  
-  // Clean up object URL after a short delay
-  setTimeout(() => {
-    URL.revokeObjectURL(zipUrl);
-  }, 100);
+  await downloadBlob(zipBlob, `${baseFilename}-scaled-${timestamp}.zip`, 'application/zip');
 }
 
 

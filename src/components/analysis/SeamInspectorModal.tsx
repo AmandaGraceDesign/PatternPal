@@ -66,29 +66,27 @@ export default function SeamInspectorModal({
     }
   }, [seamViewCanvas]);
 
-  // Mouse events for panning
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Pointer events for panning — unifies mouse, touch, and Apple Pencil
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
     setIsDragging(true);
-    setDragStart({
-      x: e.clientX,
-      y: e.clientY
-    });
+    setDragStart({ x: e.clientX, y: e.clientY });
     setPanStart(panPosition);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDragging) return;
-    
+
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
-    
+
     setPanPosition({
       x: panStart.x + deltaX,
       y: panStart.y + deltaY
     });
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
     setIsDragging(false);
   };
 
@@ -283,10 +281,10 @@ export default function SeamInspectorModal({
           {/* Canvas */}
           <canvas
             ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
             className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             style={{ touchAction: 'none' }}
           />
