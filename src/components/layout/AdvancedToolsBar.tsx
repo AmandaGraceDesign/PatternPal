@@ -560,69 +560,77 @@ export default function AdvancedToolsBar({
                     )}
 
                     {/* Shadow rows — one per (primary + additional) layer */}
-                    {hasShadow && shadowEnableds.map((enabled, i) => (
-                      <React.Fragment key={`shadow-${i}`}>
-                        {divider}
-                        {/* Outer wrapper is a div, NOT a label — wrapping the
-                            number input in a label causes clicks/typing on the
-                            number to toggle the checkbox. */}
-                        <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={enabled}
-                              onChange={(e) => setShadowAt(i, e.target.checked)}
-                              className="cursor-pointer"
-                            />
-                            <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={shadowOpacityPercents[i] ?? 30}
-                            disabled={!enabled}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              if (Number.isFinite(n)) setShadowOpAt(i, Math.max(0, Math.min(100, Math.round(n))));
-                            }}
-                            className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
-                          />
-                          <span className="opacity-60">%</span>
-                        </div>
-                      </React.Fragment>
-                    ))}
-
-                    {/* Highlight rows — one per (primary + additional) layer */}
-                    {hasHighlight && highlightEnableds.map((enabled, i) => (
-                      <React.Fragment key={`highlight-${i}`}>
-                        {divider}
-                        <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={enabled}
-                              onChange={(e) => setHighlightAt(i, e.target.checked)}
-                              className="cursor-pointer"
-                            />
-                            <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={highlightOpacityPercents[i] ?? 30}
-                            disabled={!enabled}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              if (Number.isFinite(n)) setHighlightOpAt(i, Math.max(0, Math.min(100, Math.round(n))));
-                            }}
-                            className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
-                          />
-                          <span className="opacity-60">%</span>
-                        </div>
+                    {/* Interleave: render shadow[i] then highlight[i] together so
+                        Tie shadow + Tie highlight sit side-by-side (and same for
+                        Jacket) instead of all shadows then all highlights. */}
+                    {Array.from({ length: Math.max(
+                      hasShadow ? shadowEnableds.length : 0,
+                      hasHighlight ? highlightEnableds.length : 0,
+                    ) }).map((_, i) => (
+                      <React.Fragment key={`fx-${i}`}>
+                        {hasShadow && i < shadowEnableds.length && (
+                          <React.Fragment>
+                            {divider}
+                            {/* Outer wrapper is a div, NOT a label — wrapping the
+                                number input in a label causes clicks/typing on
+                                the number to toggle the checkbox. */}
+                            <div className="flex items-center gap-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={shadowEnableds[i]}
+                                  onChange={(e) => setShadowAt(i, e.target.checked)}
+                                  className="cursor-pointer"
+                                />
+                                <span className="font-medium">{shadowLabels[i] ?? 'Shadow'}</span>
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={shadowOpacityPercents[i] ?? 30}
+                                disabled={!shadowEnableds[i]}
+                                onChange={(e) => {
+                                  const n = Number(e.target.value);
+                                  if (Number.isFinite(n)) setShadowOpAt(i, Math.max(0, Math.min(100, Math.round(n))));
+                                }}
+                                className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
+                              />
+                              <span className="opacity-60">%</span>
+                            </div>
+                          </React.Fragment>
+                        )}
+                        {hasHighlight && i < highlightEnableds.length && (
+                          <React.Fragment>
+                            {divider}
+                            <div className="flex items-center gap-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={highlightEnableds[i]}
+                                  onChange={(e) => setHighlightAt(i, e.target.checked)}
+                                  className="cursor-pointer"
+                                />
+                                <span className="font-medium">{highlightLabels[i] ?? 'Highlight'}</span>
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={highlightOpacityPercents[i] ?? 30}
+                                disabled={!highlightEnableds[i]}
+                                onChange={(e) => {
+                                  const n = Number(e.target.value);
+                                  if (Number.isFinite(n)) setHighlightOpAt(i, Math.max(0, Math.min(100, Math.round(n))));
+                                }}
+                                className="w-12 h-7 px-1 rounded border border-[#92afa5]/40 bg-white text-center tabular-nums disabled:opacity-40 disabled:cursor-not-allowed"
+                              />
+                              <span className="opacity-60">%</span>
+                            </div>
+                          </React.Fragment>
+                        )}
                       </React.Fragment>
                     ))}
                   </div>
