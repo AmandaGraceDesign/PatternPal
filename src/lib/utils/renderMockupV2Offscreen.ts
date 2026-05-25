@@ -14,6 +14,7 @@
 
 import { runPipeline } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
+import { scaleTemplate, computeScaleFactor } from '@/lib/mockups/mockupEngineV2/scaleTemplate';
 import type { RepeatType } from '@/lib/tiling/PatternTiler';
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -34,6 +35,19 @@ function cachedLoadImage(src: string): Promise<HTMLImageElement | null> {
   return p;
 }
 
+/** Swap a full-res /mockups/v2/foo.png path to its 800px medium sibling.
+ *  Mirrors the helper in MockupRendererV2. */
+function toMediumPath(p: string): string {
+  return p.replace('/mockups/v2/', '/mockups/v2/medium/');
+}
+
+interface RenderOptions {
+  /** Use 800px medium-res layer set instead of full 3000×4500 PNGs. */
+  preview?: boolean;
+  /** Downscale template canvas so longest side ≤ this px. */
+  maxRenderDimension?: number;
+}
+
 export async function renderMockupV2Offscreen(
   templateId: string,
   patternImage: HTMLImageElement,
@@ -41,20 +55,24 @@ export async function renderMockupV2Offscreen(
   tileHeight: number,
   repeatType: RepeatType,
   dpi = 300,
+  options: RenderOptions = {},
 ): Promise<HTMLCanvasElement> {
   const template = getV2Template(templateId);
   if (!template) {
     throw new Error(`Unknown v2 mockup template: ${templateId}`);
   }
 
-  const productImagePath = template.productBase.type === 'image' ? template.productBase.imagePath : null;
-  const productMaskPath = template.productBase.type === 'image' ? template.productBase.maskPath ?? null : null;
-  const colorMaskPath = template.colorOverlay?.maskPath ?? null;
-  const displacementPath = template.displacementMapPath ?? null;
-  const shadowPath = template.shadowPath ?? null;
-  const highlightPath = template.highlightPath ?? null;
-  const extraShadowPaths = template.additionalShadowPaths ?? [];
-  const extraHighlightPaths = template.additionalHighlightPaths ?? [];
+  const { preview = false, maxRenderDimension } = options;
+  const px = (p: string | null | undefined) => p && preview ? toMediumPath(p) : p;
+
+  const productImagePath = template.productBase.type === 'image' ? px(template.productBase.imagePath) ?? null : null;
+  const productMaskPath = template.productBase.type === 'image' ? px(template.productBase.maskPath) ?? null : null;
+  const colorMaskPath = px(template.colorOverlay?.maskPath) ?? null;
+  const displacementPath = px(template.displacementMapPath) ?? null;
+  const shadowPath = px(template.shadowPath) ?? null;
+  const highlightPath = px(template.highlightPath) ?? null;
+  const extraShadowPaths = (template.additionalShadowPaths ?? []).map((p) => preview ? toMediumPath(p) : p);
+  const extraHighlightPaths = (template.additionalHighlightPaths ?? []).map((p) => preview ? toMediumPath(p) : p);
 
   const [
     productBaseImage,
@@ -74,7 +92,7 @@ export async function renderMockupV2Offscreen(
     shadowPath ? cachedLoadImage(shadowPath) : Promise.resolve(null),
     highlightPath ? cachedLoadImage(highlightPath) : Promise.resolve(null),
     template.zones
-      ? Promise.all(template.zones.map(async (zone) => ({ id: zone.id, img: await cachedLoadImage(zone.maskPath) })))
+      ? Promise.all(template.zones.map(async (zone) => ({ id: zone.id, img: await cachedLoadImage(preview ? toMediumPath(zone.maskPath) : zone.maskPath) })))
       : Promise.resolve([] as Array<{ id: string; img: HTMLImageElement | null }>),
     Promise.all(extraShadowPaths.map(p => cachedLoadImage(p))),
     Promise.all(extraHighlightPaths.map(p => cachedLoadImage(p))),
@@ -95,9 +113,14 @@ export async function renderMockupV2Offscreen(
   const additionalShadowEnableds = additionalShadowImages.map((_, i) => shadowDefaults[i] ?? true);
   const additionalHighlightEnableds = additionalHighlightImages.map((_, i) => highlightDefaults[i] ?? true);
 
+  // Optionally downscale the template canvas — saves pipeline work for live
+  // social-export previews where the destination is only a few hundred px.
+  const scaleFactor = maxRenderDimension ? computeScaleFactor(template, maxRenderDimension) : 1;
+  const renderTemplate = scaleFactor < 1 ? scaleTemplate(template, scaleFactor) : template;
+
   return runPipeline({
     patternImage,
-    template,
+    template: renderTemplate,
     repeatType,
     dpi,
     tileWidth,

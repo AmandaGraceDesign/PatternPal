@@ -213,6 +213,7 @@ export default function MockupGalleryModal({
                       dpi={dpi}
                       repeatType={repeatType}
                       maxRenderDimension={600}
+                      preview
                       colorOverlayEnabled={template.colorOverlayDefaultEnabled ?? true}
                       additionalShadowEnableds={template.additionalShadowDefaultEnableds}
                       additionalHighlightEnableds={template.additionalHighlightDefaultEnableds}

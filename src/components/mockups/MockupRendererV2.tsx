@@ -42,6 +42,12 @@ interface MockupRendererV2Props {
    *  rendering — saves a large amount of per-pixel work for gallery thumbnails.
    *  Default undefined = full template resolution. */
   maxRenderDimension?: number;
+  /** When true, swap every `/mockups/v2/foo.png` asset path to
+   *  `/mockups/v2/medium/foo.png` — the 800px pre-generated layer set used by
+   *  the gallery. Full 3000×4500 PNGs (5-25 MB each) are 28× larger and
+   *  crashed iPad Safari when the gallery loaded ~125 layers at once. Tweak
+   *  view leaves this false to keep full fidelity. */
+  preview?: boolean;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -59,12 +65,21 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
  * frequently (every scale, opacity, or color tweak); without this cache each
  * render re-decodes every PNG (some 10-15 MB), which dominates render time.
  *
- * Bounded to prevent the gallery modal from accumulating ~125 decoded PNGs
- * (5 layers × 25 templates) simultaneously — that's GBs of RGBA in RAM and
- * crashes iPad Safari (~1.5 GB per-tab memory limit). Eviction is LRU via
- * Map insertion order: re-inserting on hit moves the entry to the tail.
+ * Bounded to prevent the gallery modal from accumulating decoded PNGs — at
+ * full res ~125 layers × 54 MB RGBA would crash iPad Safari (~1.5 GB per-tab
+ * memory limit). With the medium-res layer set (≤800px, ~200 KB on disk,
+ * ~2.5 MB RGBA), 100 entries comfortably hold every gallery layer at once
+ * AND leaves room for a tweak-view full-res load. Eviction is LRU via Map
+ * insertion order: re-inserting on hit moves the entry to the tail.
  */
-const IMAGE_CACHE_MAX = 40;
+const IMAGE_CACHE_MAX = 100;
+
+/** Swap a full-res `/mockups/v2/foo.png` path to the 800px medium variant
+ *  `/mockups/v2/medium/foo.png`. Only used when MockupRendererV2's `preview`
+ *  prop is true (gallery cards). */
+function toMediumPath(p: string): string {
+  return p.replace('/mockups/v2/', '/mockups/v2/medium/');
+}
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
 function cachedLoadImage(src: string): Promise<HTMLImageElement | null> {
   const existing = imageCache.get(src);
@@ -105,6 +120,7 @@ export default function MockupRendererV2({
   colorOverlayEnabled,
   dragEnabled = false,
   maxRenderDimension,
+  preview = false,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -167,14 +183,17 @@ export default function MockupRendererV2({
     (async () => {
       try {
         // Load all template assets in parallel (cached after first load).
-        const productImagePath = template.productBase.type === 'image' ? template.productBase.imagePath : null;
-        const productMaskPath = template.productBase.type === 'image' ? template.productBase.maskPath ?? null : null;
-        const colorMaskPath = template.colorOverlay?.maskPath ?? null;
-        const displacementPath = template.displacementMapPath ?? null;
-        const shadowPath = template.shadowPath ?? null;
-        const highlightPath = template.highlightPath ?? null;
-        const extraShadowPaths = template.additionalShadowPaths ?? [];
-        const extraHighlightPaths = template.additionalHighlightPaths ?? [];
+        // In preview mode, swap every path to its medium-res sibling.
+        const px = (p: string | null | undefined) =>
+          p && preview ? toMediumPath(p) : p;
+        const productImagePath = template.productBase.type === 'image' ? px(template.productBase.imagePath) ?? null : null;
+        const productMaskPath = template.productBase.type === 'image' ? px(template.productBase.maskPath) ?? null : null;
+        const colorMaskPath = px(template.colorOverlay?.maskPath) ?? null;
+        const displacementPath = px(template.displacementMapPath) ?? null;
+        const shadowPath = px(template.shadowPath) ?? null;
+        const highlightPath = px(template.highlightPath) ?? null;
+        const extraShadowPaths = (template.additionalShadowPaths ?? []).map((p) => preview ? toMediumPath(p) : p);
+        const extraHighlightPaths = (template.additionalHighlightPaths ?? []).map((p) => preview ? toMediumPath(p) : p);
 
         const [
           productBaseImage,
@@ -194,7 +213,7 @@ export default function MockupRendererV2({
           shadowPath ? cachedLoadImage(shadowPath) : Promise.resolve(null),
           highlightPath ? cachedLoadImage(highlightPath) : Promise.resolve(null),
           template.zones
-            ? Promise.all(template.zones.map(async (zone) => ({ id: zone.id, img: await cachedLoadImage(zone.maskPath) })))
+            ? Promise.all(template.zones.map(async (zone) => ({ id: zone.id, img: await cachedLoadImage(preview ? toMediumPath(zone.maskPath) : zone.maskPath) })))
             : Promise.resolve([] as Array<{ id: string; img: HTMLImageElement | null }>),
           Promise.all(extraShadowPaths.map(p => cachedLoadImage(p))),
           Promise.all(extraHighlightPaths.map(p => cachedLoadImage(p))),
@@ -264,7 +283,7 @@ export default function MockupRendererV2({
     patternImage, template, tileWidth, tileHeight, dpi, repeatType,
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
-    maxRenderDimension,
+    maxRenderDimension, preview,
     JSON.stringify(patternOffsets),
     // Stringify array deps so identical contents don't trigger extra renders
     // even when the parent rebuilds the array on each render.

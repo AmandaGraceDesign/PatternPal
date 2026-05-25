@@ -343,6 +343,7 @@ function SocialPreviewSlide({
         try {
           const mc = await renderMockupV2Offscreen(
             mockupCfg.templateId, image, tileWidth, tileHeight, repeatType, dpi,
+            { preview: true, maxRenderDimension: 600 },
           );
           drawMockupOverlay(ctx, mc, previewW, previewH);
         } catch { /* mockup render failed — skip overlay */ }
@@ -420,12 +421,13 @@ function SocialPreviewSlide({
                     className={`flex-shrink-0 w-11 h-11 rounded-md border-2 overflow-hidden transition-colors ${
                       isSelected ? 'border-[#e0c26e] ring-1 ring-[#e0c26e]' : 'border-[#e5e7eb] hover:border-[#ccc]'
                     }`}
+                    style={{ touchAction: 'manipulation' }}
                     title={tmpl.name}
                   >
                     <img
                       src={thumbPath}
                       alt={tmpl.name}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain pointer-events-none"
                       draggable={false}
                       loading="lazy"
                       decoding="async"
