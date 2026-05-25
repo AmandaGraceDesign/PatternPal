@@ -234,11 +234,6 @@ export default function MockupGalleryModal({
               ))
             )}
           </div>
-
-          {/* Upcoming mockups teaser */}
-          <p className="text-center text-xs text-gray-400 mt-4 pb-1">
-            20+ mockups coming May 2026
-          </p>
         </div>
       </div>
     </div>
