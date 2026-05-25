@@ -270,18 +270,38 @@ export default function MockupRendererV2({
           additionalHighlightEnableds,
           additionalHighlightOpacityOverrides,
           colorOverlayEnabled,
-          patternOffsetOverrides: Object.keys(patternOffsets).length > 0 ? patternOffsets : undefined,
+          // Offsets are stored in FULL template-space px (see handlePointerMove).
+          // When rendering at a downscaled renderTemplate, scale offsets down to
+          // match — otherwise the pipeline interprets template-px as renderTemplate-px
+          // and the drag-time shift looks ~7× bigger than what gets persisted at full-res.
+          patternOffsetOverrides: Object.keys(patternOffsets).length > 0
+            ? Object.fromEntries(
+                Object.entries(patternOffsets).map(([k, v]) =>
+                  [k, { x: v.x * scaleFactor, y: v.y * scaleFactor }]
+                )
+              )
+            : undefined,
         });
 
         const canvas = canvasRef.current;
         if (!canvas || cancelled) return;
 
-        canvas.width = resultCanvas.width;
-        canvas.height = resultCanvas.height;
+        // Always keep the DISPLAY canvas at the template's full intrinsic size.
+        // Drag-time low-res renders get upscaled into it. This decouples the
+        // display box from render resolution, which fixes iPad Safari ignoring
+        // our `aspect-ratio` CSS and shrinking the box to match low intrinsic
+        // dims during drag.
+        const targetW = template.canvasSize.width;
+        const targetH = template.canvasSize.height;
+        if (canvas.width !== targetW) canvas.width = targetW;
+        if (canvas.height !== targetH) canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        ctx.drawImage(resultCanvas, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = isDragging ? 'low' : 'high';
+        ctx.clearRect(0, 0, targetW, targetH);
+        ctx.drawImage(resultCanvas, 0, 0, targetW, targetH);
       } catch (err) {
         console.error('MockupRendererV2 render error:', err);
       } finally {
@@ -380,12 +400,15 @@ export default function MockupRendererV2({
     }
     if (!wasDragRef.current) return;
 
-    // Convert CSS-space delta to pattern-space (canvas-internal) px and
-    // update ONLY the zone that was clicked.
+    // Convert CSS-space delta to FULL TEMPLATE px and update ONLY the zone
+    // that was clicked. Using template.canvasSize.width (not canvas.width)
+    // keeps the stored offset in a render-scale-independent unit, so the
+    // value computed during a cheap drag render still applies correctly
+    // when the full-res render fires on pointer-up.
     const canvas = canvasRef.current;
     const rect = canvas?.getBoundingClientRect();
     if (!canvas || !rect || rect.width <= 0) return;
-    const scale = canvas.width / rect.width;
+    const scale = template.canvasSize.width / rect.width;
     const maxOffset = template.canvasSize.width;
     const nextX = Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetX + cssDx * scale));
     const nextY = Math.max(-maxOffset, Math.min(maxOffset, start.startOffsetY + cssDy * scale));
