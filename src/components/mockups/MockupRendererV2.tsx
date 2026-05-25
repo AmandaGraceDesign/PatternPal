@@ -55,17 +55,33 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 }
 
 /**
- * Module-level cache of in-flight and resolved image loads, keyed by URL.
- * Templates re-render frequently (every scale, opacity, or color tweak); without
- * this cache each render re-decodes every PNG (some 10-15 MB), which dominates
- * render time. The cache holds the Promise so concurrent callers de-dupe too.
+ * Module-level LRU cache of image loads, keyed by URL. Templates re-render
+ * frequently (every scale, opacity, or color tweak); without this cache each
+ * render re-decodes every PNG (some 10-15 MB), which dominates render time.
+ *
+ * Bounded to prevent the gallery modal from accumulating ~125 decoded PNGs
+ * (5 layers × 25 templates) simultaneously — that's GBs of RGBA in RAM and
+ * crashes iPad Safari (~1.5 GB per-tab memory limit). Eviction is LRU via
+ * Map insertion order: re-inserting on hit moves the entry to the tail.
  */
+const IMAGE_CACHE_MAX = 40;
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
 function cachedLoadImage(src: string): Promise<HTMLImageElement | null> {
   const existing = imageCache.get(src);
-  if (existing) return existing;
+  if (existing) {
+    // Refresh recency: delete + re-insert moves to the tail of insertion order.
+    imageCache.delete(src);
+    imageCache.set(src, existing);
+    return existing;
+  }
   const p = loadImage(src);
   imageCache.set(src, p);
+  // Evict oldest entries (head of insertion order) until under cap.
+  while (imageCache.size > IMAGE_CACHE_MAX) {
+    const oldest = imageCache.keys().next().value;
+    if (oldest === undefined) break;
+    imageCache.delete(oldest);
+  }
   return p;
 }
 

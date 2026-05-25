@@ -407,7 +407,7 @@ function SocialPreviewSlide({
             <div className="flex gap-2 flex-wrap max-h-[180px] overflow-y-auto">
               {SOCIAL_V2_MOCKUP_IDS.map(id => {
                 const tmpl = mockupV2Templates[id];
-                const imgPath = tmpl.productBase.type === 'image' ? tmpl.productBase.imagePath : '';
+                const thumbPath = `/mockups/v2/thumbnails/${id}.jpg`;
                 const isSelected = mockupCfg.templateId === id;
                 return (
                   <button
@@ -423,10 +423,12 @@ function SocialPreviewSlide({
                     title={tmpl.name}
                   >
                     <img
-                      src={imgPath}
+                      src={thumbPath}
                       alt={tmpl.name}
                       className="w-full h-full object-contain"
                       draggable={false}
+                      loading="lazy"
+                      decoding="async"
                     />
                   </button>
                 );
