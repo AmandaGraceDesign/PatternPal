@@ -186,7 +186,10 @@ export default function MockupRendererV2({
     // On pointerup, isDragging flips false and this same effect re-fires
     // (isDragging is in deps), giving a full-quality final render.
     const effPreview = isDragging ? true : preview;
-    const effMaxDim = isDragging ? 400 : maxRenderDimension;
+    // 700px keeps the pipeline ~15× cheaper than full-res while reading as
+    // "soft" rather than "pixelated" once upscaled into a ~600px display box.
+    // Tested as a safe ceiling for iPad — going higher starts to lag drag.
+    const effMaxDim = isDragging ? 700 : maxRenderDimension;
     const scaleFactor = effMaxDim ? computeScaleFactor(template, effMaxDim) : 1;
     const renderTemplate = scaleFactor < 1 ? scaleTemplate(template, scaleFactor) : template;
 
@@ -300,7 +303,7 @@ export default function MockupRendererV2({
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
           ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = isDragging ? 'low' : 'high';
+          ctx.imageSmoothingQuality = isDragging ? 'medium' : 'high';
           ctx.clearRect(0, 0, targetW, targetH);
           ctx.drawImage(resultCanvas, 0, 0, targetW, targetH);
         } else {
