@@ -286,22 +286,30 @@ export default function MockupRendererV2({
         const canvas = canvasRef.current;
         if (!canvas || cancelled) return;
 
-        // Always keep the DISPLAY canvas at the template's full intrinsic size.
-        // Drag-time low-res renders get upscaled into it. This decouples the
-        // display box from render resolution, which fixes iPad Safari ignoring
-        // our `aspect-ratio` CSS and shrinking the box to match low intrinsic
-        // dims during drag.
-        const targetW = template.canvasSize.width;
-        const targetH = template.canvasSize.height;
-        if (canvas.width !== targetW) canvas.width = targetW;
-        if (canvas.height !== targetH) canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = isDragging ? 'low' : 'high';
-        ctx.clearRect(0, 0, targetW, targetH);
-        ctx.drawImage(resultCanvas, 0, 0, targetW, targetH);
+        // In fitContainer mode (tweak modal), keep the DISPLAY canvas at the
+        // template's full intrinsic size so iPad Safari doesn't ignore our
+        // `aspect-ratio` CSS during low-res drag renders. Gallery thumbnails
+        // and other callsites use resultCanvas dims directly — forcing the
+        // full template size everywhere would allocate ~54MB per 3000×4500
+        // template, crashing the tab when the gallery mounts ~30 thumbnails.
+        if (fitContainer) {
+          const targetW = template.canvasSize.width;
+          const targetH = template.canvasSize.height;
+          if (canvas.width !== targetW) canvas.width = targetW;
+          if (canvas.height !== targetH) canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = isDragging ? 'low' : 'high';
+          ctx.clearRect(0, 0, targetW, targetH);
+          ctx.drawImage(resultCanvas, 0, 0, targetW, targetH);
+        } else {
+          canvas.width = resultCanvas.width;
+          canvas.height = resultCanvas.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.drawImage(resultCanvas, 0, 0);
+        }
       } catch (err) {
         console.error('MockupRendererV2 render error:', err);
       } finally {
