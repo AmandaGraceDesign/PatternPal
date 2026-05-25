@@ -1,3 +1,5 @@
+import { pushIOSSaveTask } from './iosSaveQueue';
+
 function isIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent;
@@ -72,20 +74,14 @@ export async function downloadBlob(
 ): Promise<void> {
   const finalFilename = ensureExtension(filename, mimeType);
 
+  // iOS Safari requires navigator.share to be called synchronously inside a
+  // user gesture. Since exports await heavy async work before reaching this
+  // point, the gesture is expired by now — calling share here silently fails
+  // and falls through. Instead, hand the blob to the global IOSSaveSheet, which
+  // renders a "Save" button whose click fires share inside a fresh gesture.
   if (isIOS() && typeof navigator.share === 'function') {
-    try {
-      const file = new File([blob], finalFilename, { type: mimeType });
-      const canShareFiles =
-        typeof navigator.canShare !== 'function' ||
-        navigator.canShare({ files: [file] });
-      if (canShareFiles) {
-        await navigator.share({ files: [file], title: finalFilename });
-        return;
-      }
-    } catch (err) {
-      if ((err as Error)?.name === 'AbortError') return;
-      // Fall through to anchor-download fallback on any other error.
-    }
+    await pushIOSSaveTask(blob, finalFilename, mimeType);
+    return;
   }
 
   const url = URL.createObjectURL(blob);
