@@ -42,3 +42,10 @@ next-env.d.ts
 
 # local repro files
 /tmp/
+
+# tooling / session state
+.claude/
+.superpowers/
+openspec/
+.continue-here.md
+/tasks/
