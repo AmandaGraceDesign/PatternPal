@@ -48,6 +48,12 @@ interface MockupRendererV2Props {
    *  crashed iPad Safari when the gallery loaded ~125 layers at once. Tweak
    *  view leaves this false to keep full fidelity. */
   preview?: boolean;
+  /** When true, scale the canvas's CSS display to fit BOTH the parent's width
+   *  AND the viewport height (max 60vh), preserving aspect ratio. Used by the
+   *  tweak-mockup modal so a 2:3 portrait canvas (900px tall at 600px wide)
+   *  no longer overflows iPad landscape's ~680px content area. Default false
+   *  preserves the `w-full` behavior needed by gallery cards. */
+  fitContainer?: boolean;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -121,6 +127,7 @@ export default function MockupRendererV2({
   dragEnabled = false,
   maxRenderDimension,
   preview = false,
+  fitContainer = false,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -173,27 +180,31 @@ export default function MockupRendererV2({
     let cancelled = false;
     setIsRendering(true);
 
-    // For gallery thumbs and other small renders, scale the template down so
-    // the pipeline doesn't burn time on 3000×4500-pixel work for a tile that
-    // ends up displayed at ~150px. PNG paths stay the same; drawImage handles
-    // the down-scaling automatically.
-    const scaleFactor = maxRenderDimension ? computeScaleFactor(template, maxRenderDimension) : 1;
+    // While actively dragging (drag-to-position), drop to medium-res sources
+    // and a small render canvas so each pointermove re-render is ~50× cheaper
+    // than full 3000×4500 pipeline work — kills the 3-5s drag lag on iPad.
+    // On pointerup, isDragging flips false and this same effect re-fires
+    // (isDragging is in deps), giving a full-quality final render.
+    const effPreview = isDragging ? true : preview;
+    const effMaxDim = isDragging ? 400 : maxRenderDimension;
+    const scaleFactor = effMaxDim ? computeScaleFactor(template, effMaxDim) : 1;
     const renderTemplate = scaleFactor < 1 ? scaleTemplate(template, scaleFactor) : template;
 
     (async () => {
       try {
         // Load all template assets in parallel (cached after first load).
-        // In preview mode, swap every path to its medium-res sibling.
+        // In preview mode (or while dragging), swap every path to its
+        // medium-res sibling.
         const px = (p: string | null | undefined) =>
-          p && preview ? toMediumPath(p) : p;
+          p && effPreview ? toMediumPath(p) : p;
         const productImagePath = template.productBase.type === 'image' ? px(template.productBase.imagePath) ?? null : null;
         const productMaskPath = template.productBase.type === 'image' ? px(template.productBase.maskPath) ?? null : null;
         const colorMaskPath = px(template.colorOverlay?.maskPath) ?? null;
         const displacementPath = px(template.displacementMapPath) ?? null;
         const shadowPath = px(template.shadowPath) ?? null;
         const highlightPath = px(template.highlightPath) ?? null;
-        const extraShadowPaths = (template.additionalShadowPaths ?? []).map((p) => preview ? toMediumPath(p) : p);
-        const extraHighlightPaths = (template.additionalHighlightPaths ?? []).map((p) => preview ? toMediumPath(p) : p);
+        const extraShadowPaths = (template.additionalShadowPaths ?? []).map((p) => effPreview ? toMediumPath(p) : p);
+        const extraHighlightPaths = (template.additionalHighlightPaths ?? []).map((p) => effPreview ? toMediumPath(p) : p);
 
         const [
           productBaseImage,
@@ -283,7 +294,7 @@ export default function MockupRendererV2({
     patternImage, template, tileWidth, tileHeight, dpi, repeatType,
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
-    maxRenderDimension, preview,
+    maxRenderDimension, preview, isDragging,
     JSON.stringify(patternOffsets),
     // Stringify array deps so identical contents don't trigger extra renders
     // even when the parent rebuilds the array on each render.
@@ -448,10 +459,20 @@ export default function MockupRendererV2({
     >
       <canvas
         ref={canvasRef}
-        className="w-full rounded-lg"
+        className={fitContainer ? "rounded-lg" : "w-full rounded-lg"}
         style={{
           display: 'block',
           userSelect: dragEnabled ? 'none' : undefined,
+          ...(fitContainer ? {
+            // aspect-ratio + width:100% locks the canvas DISPLAY size to the
+            // template's intended aspect, regardless of the pipeline's current
+            // intrinsic pixel size. Means low-res renders during drag don't
+            // collapse the display box — they just look briefly blurry.
+            width: '100%',
+            aspectRatio: `${template.canvasSize.width} / ${template.canvasSize.height}`,
+            maxHeight: '60vh',
+            height: 'auto',
+          } : {}),
         }}
         onDragStart={(e) => e.preventDefault()}
       />

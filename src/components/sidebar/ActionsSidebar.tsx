@@ -543,10 +543,12 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
 
             {/* Mockup preview */}
             <div className="flex items-center justify-center bg-white rounded-lg p-4">
-              {/* Fixed 600px CSS width so all templates render at the same display width
-                  regardless of their canvasSize (e.g., 1024² onesie vs 3000×4500 tie).
-                  Height follows each canvas's intrinsic aspect ratio via `w-full` on the canvas. */}
-              <div className="w-[600px] max-w-full relative" style={{ containerType: 'inline-size' }}>
+              {/* Definite 600px wrapper width keeps the modal sized
+                  predictably even before the canvas mounts (otherwise the
+                  whole modal collapses). `flex justify-center` centers the
+                  canvas horizontally when fitContainer shrinks it below
+                  600px wide (e.g. tall 2:3 mockup capped by 60vh height). */}
+              <div className="w-[600px] max-w-full relative flex justify-center" style={{ containerType: 'inline-size' }}>
                 <WatermarkPreviewOverlay watermark={watermark} />
                 {(() => {
                   const v2Tmpl = getV2Template(selectedMockup);
@@ -571,6 +573,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                       additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
+                      fitContainer
                     />
                   );
                 })()}

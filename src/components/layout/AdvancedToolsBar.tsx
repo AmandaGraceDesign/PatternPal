@@ -641,9 +641,11 @@ export default function AdvancedToolsBar({
               <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
 
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
-                {/* Fixed 600px CSS width so all templates render at the same display width
-                    regardless of their canvasSize. Height follows aspect ratio via canvas `w-full`. */}
-                <div className="w-[600px] max-w-full relative" style={{ containerType: 'inline-size' }}>
+                {/* Definite 600px wrapper width keeps the modal from
+                    collapsing before the canvas mounts. `flex justify-center`
+                    centers the canvas when fitContainer shrinks it below
+                    600px wide to honor the 60vh height cap. */}
+                <div className="w-[600px] max-w-full relative flex justify-center" style={{ containerType: 'inline-size' }}>
                   <WatermarkPreviewOverlay watermark={watermark} />
                   {v2Template && (
                     <MockupRendererV2
@@ -665,6 +667,7 @@ export default function AdvancedToolsBar({
                       additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
+                      fitContainer
                     />
                   )}
                 </div>
