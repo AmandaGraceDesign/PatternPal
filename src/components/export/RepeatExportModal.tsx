@@ -33,6 +33,10 @@ interface RepeatExportModalProps {
   tileHeight: number;  // inches (effective/scaled from canvas)
   repeatType: 'full-drop' | 'half-drop' | 'half-brick';
   originalFilename: string | null;
+  /** When set, skip the internal picker and open straight into the named flow.
+   *  Back button in cricut/social-select view closes the modal instead of
+   *  returning to the picker. */
+  initialMode?: 'cricut' | 'social';
 }
 
 interface SizePreset {
@@ -500,6 +504,7 @@ export default function RepeatExportModal({
   tileHeight,
   repeatType,
   originalFilename,
+  initialMode,
 }: RepeatExportModalProps) {
   const [targetW, setTargetW] = useState(12);
   const [targetH, setTargetH] = useState(12);
@@ -548,7 +553,7 @@ export default function RepeatExportModal({
       setError(null);
       setIsExporting(false);
       setExportScale(1.0);
-      setMode('picker');
+      setMode(initialMode ?? 'picker');
       setSocialFormat('jpg');
       setCheckedSizes(new Set());
       scalesRef.current = {} as Record<SizeSlug, number>;
@@ -557,7 +562,7 @@ export default function RepeatExportModal({
       setPreviewIndex(0);
       setWatermark({ ...DEFAULT_WATERMARK });
     }
-  }, [isOpen]);
+  }, [isOpen, initialMode]);
 
   // Escape to close
   useEffect(() => {
@@ -862,7 +867,7 @@ export default function RepeatExportModal({
         {/* Header */}
         <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#e0c26e]">
           <div className="flex items-center gap-3">
-            {mode !== 'picker' && (
+            {mode !== 'picker' && !(initialMode && !(mode === 'social' && socialStep === 'preview')) && (
               <button
                 onClick={() => {
                   if (mode === 'social' && socialStep === 'preview') {

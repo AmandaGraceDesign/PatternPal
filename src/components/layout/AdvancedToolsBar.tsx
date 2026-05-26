@@ -122,8 +122,11 @@ export default function AdvancedToolsBar({
 }: AdvancedToolsBarProps) {
   const { user, isSignedIn } = useUser();
   const [isQuickExportOpen, setIsQuickExportOpen] = useState(false);
+  const [isEasyscalePickerOpen, setIsEasyscalePickerOpen] = useState(false);
   const [isEasyscaleOpen, setIsEasyscaleOpen] = useState(false);
-  const [isRepeatExportOpen, setIsRepeatExportOpen] = useState(false);
+  // Single state for both Cricut and Social flows — they share RepeatExportModal.
+  // 'cricut' is reached via the Easyscale picker; 'social' via its own toolbar card.
+  const [repeatModalMode, setRepeatModalMode] = useState<'cricut' | 'social' | null>(null);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMockupsOpen, setIsMockupsOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -270,29 +273,18 @@ export default function AdvancedToolsBar({
             />
           )}
 
-          {/* Card 2: Easyscale Export (PRO) */}
+          {/* Card 2: Easyscale Export (PRO) — picker opens to choose POD vs Cricut/Silhouette */}
           <ToolCard
             icon="📦"
             title="Easyscale Export"
-            description="Print-ready files for POD & Spoonflower"
+            description="POD, Spoonflower, Cricut & Silhouette"
             isPro={proAllowed}
-            onClick={() => handleProToolClick(() => setIsEasyscaleOpen(true))}
+            onClick={() => handleProToolClick(() => setIsEasyscalePickerOpen(true))}
             disabled={!image}
             dataTour="easyscale-export"
           />
 
-          {/* Card 3: Pattern Fill Export (PRO) */}
-          <ToolCard
-            icon="🖼️"
-            title="Pattern Fill Export"
-            description="Export for social media, Cricut & Silhouette"
-            isPro={proAllowed}
-            onClick={() => handleProToolClick(() => setIsRepeatExportOpen(true))}
-            disabled={!image}
-            dataTour="pattern-fill-export"
-          />
-
-          {/* Card 4: Pattern Analysis (PRO) */}
+          {/* Card 3: Pattern Analysis (PRO) */}
           <ToolCard
             icon="📊"
             title="Pattern Analysis"
@@ -320,7 +312,18 @@ export default function AdvancedToolsBar({
             dataTour="seam-analyzer"
           />
 
-          {/* Card 5: Mockups — always opens gallery (free users see upgrade overlay inside) */}
+          {/* Card 5: Social Media Export (PRO) — sits to the left of Mockups */}
+          <ToolCard
+            icon="📱"
+            title="Social Media Export"
+            description="Instagram, Pinterest, TikTok, Facebook"
+            isPro={proAllowed}
+            onClick={() => handleProToolClick(() => setRepeatModalMode('social'))}
+            disabled={!image}
+            dataTour="social-export"
+          />
+
+          {/* Card 6: Mockups — always opens gallery (free users see upgrade overlay inside) */}
           <ToolCard
             icon="🎨"
             title="Mockups"
@@ -355,15 +358,67 @@ export default function AdvancedToolsBar({
       />
 
       <RepeatExportModal
-        isOpen={isRepeatExportOpen}
-        onClose={() => setIsRepeatExportOpen(false)}
+        isOpen={repeatModalMode !== null}
+        onClose={() => setRepeatModalMode(null)}
         image={image}
         currentDPI={dpi}
         tileWidth={tileWidth}
         tileHeight={tileHeight}
         repeatType={repeatType}
         originalFilename={originalFilename}
+        initialMode={repeatModalMode ?? undefined}
       />
+
+      {/* Easyscale picker — choose between POD/Spoonflower and Cricut/Silhouette */}
+      {isEasyscalePickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setIsEasyscalePickerOpen(false)}
+        >
+          <div
+            className="relative max-w-md w-full mx-3 sm:mx-auto bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#e0c26e]">
+              <h3 className="text-sm font-semibold text-white">Easyscale Export</h3>
+              <button
+                onClick={() => setIsEasyscalePickerOpen(false)}
+                className="text-[#705046] hover:text-[#294051] transition-all duration-200"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-center text-[#6b7280]">What are you exporting for?</p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setIsEasyscalePickerOpen(false);
+                    setIsEasyscaleOpen(true);
+                  }}
+                  className="w-full text-left px-4 py-4 border-2 border-[#e0c26e] rounded-lg bg-[#faf3e0] hover:bg-[#f5ecd0] transition-colors"
+                >
+                  <div className="text-sm font-semibold text-[#294051]">📦 Print on Demand / Spoonflower</div>
+                  <div className="text-xs text-[#9ca3af] mt-1">Batch sizes · 150/300 DPI · PNG, JPG, TIFF</div>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEasyscalePickerOpen(false);
+                    setRepeatModalMode('cricut');
+                  }}
+                  className="w-full text-left px-4 py-4 border-2 border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f9fafb] transition-colors"
+                >
+                  <div className="text-sm font-semibold text-[#294051]">🖨 Cricut / Silhouette</div>
+                  <div className="text-xs text-[#9ca3af] mt-1">Digital paper · print files · Etsy / Creative Fabrica</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PatternAnalysisModal
         isOpen={isAnalysisOpen}
