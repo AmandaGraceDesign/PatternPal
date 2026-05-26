@@ -485,10 +485,18 @@ export default function AdvancedToolsBar({
             subtitle={`Based on ${effectiveTileWidth.toFixed(1)} × ${effectiveTileHeight.toFixed(1)} inch repeat`}
             isDownloading={isCapturingFullRes}
             onDownload={async () => {
-              const allowed = await verifyProAccess();
-              if (!allowed) {
-                setIsUpgradeModalOpen(true);
-                return;
+              // Skip the server re-verify if the client-side Pro check already
+              // passed (she sees the gallery, so proAllowed must be true). The
+              // re-verify was paranoid defense and was incorrectly blocking
+              // real Pro users when /api/pro/verify intermittently returned
+              // 401/403 — needs separate investigation, but don't gate
+              // legitimate downloads on it.
+              if (!proAllowed) {
+                const allowed = await verifyProAccess();
+                if (!allowed) {
+                  setIsUpgradeModalOpen(true);
+                  return;
+                }
               }
 
               // Prompt for filename BEFORE triggering the full-res re-render so
