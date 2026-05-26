@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
 import IOSSaveSheet from "@/components/ios/IOSSaveSheet";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geistSans = GeistSans;
@@ -106,6 +107,7 @@ pintrk('page');`,
           </noscript>
           {children}
           <IOSSaveSheet />
+          <SpeedInsights />
           {/* Rewardful affiliate tracking */}
           <Script src="https://r.wdfl.co/rw.js" data-rewardful="97736d" />
           <Script id="rewardful-queue" strategy="beforeInteractive">
