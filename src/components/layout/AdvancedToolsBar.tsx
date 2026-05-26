@@ -132,6 +132,13 @@ export default function AdvancedToolsBar({
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
+  // When true, the mockup canvas re-renders at full template resolution so the
+  // download captures a high-res PNG. Default false → MockupRendererV2 renders
+  // at maxRenderDimension=1500 for ~4× faster iPad display.
+  const [isCapturingFullRes, setIsCapturingFullRes] = useState(false);
+  // Ref holds the post-full-res-render callback. Set just before flipping
+  // isCapturingFullRes=true; cleared by onRenderComplete once it fires.
+  const downloadAfterRenderRef = useRef<(() => void) | null>(null);
   // Per-layer arrays — index 0 = primary, 1+ = template.additionalShadowPaths / additionalHighlightPaths.
   const [shadowEnableds, setShadowEnableds] = useState<boolean[]>([true]);
   const [shadowOpacityPercents, setShadowOpacityPercents] = useState<number[]>([30]);
@@ -482,35 +489,48 @@ export default function AdvancedToolsBar({
                 return;
               }
 
-              const mockupCanvas = document.querySelector(
-                '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
-              ) as HTMLCanvasElement | null;
-              if (mockupCanvas) {
-                const templateSlug =
-                  mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-                const baseName = originalFilename
-                  ? `${originalFilename}-${templateSlug}`
-                  : `mockup-${templateSlug}`;
-                const suggested = sanitizeFilename(baseName, 'mockup');
-                const userInput = window.prompt('Name your mockup file:', suggested);
-                if (!userInput) return;
-                const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
-                const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-                if (wmActive) {
-                  const sourceBlob: Blob = await new Promise((resolve, reject) =>
-                    mockupCanvas.toBlob(
-                      b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-                      'image/png',
-                    ),
-                  );
-                  const stamped = await applyWatermarkToBlob(
-                    sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
-                  );
-                  await downloadBlobAsImage(stamped, filename);
-                } else {
-                  await downloadCanvasAsImage(mockupCanvas, filename);
+              // Prompt for filename BEFORE triggering the full-res re-render so
+              // the user doesn't watch a blank/stale canvas while waiting for
+              // the prompt.
+              const templateSlug =
+                mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+              const baseName = originalFilename
+                ? `${originalFilename}-${templateSlug}`
+                : `mockup-${templateSlug}`;
+              const suggested = sanitizeFilename(baseName, 'mockup');
+              const userInput = window.prompt('Name your mockup file:', suggested);
+              if (!userInput) return;
+              const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
+
+              // Queue the actual capture+download to fire once the canvas
+              // finishes its full-res render. MockupRendererV2's
+              // onRenderComplete will invoke this callback exactly once.
+              downloadAfterRenderRef.current = async () => {
+                try {
+                  const mockupCanvas = document.querySelector(
+                    '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
+                  ) as HTMLCanvasElement | null;
+                  if (!mockupCanvas) return;
+                  const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
+                  if (wmActive) {
+                    const sourceBlob: Blob = await new Promise((resolve, reject) =>
+                      mockupCanvas.toBlob(
+                        b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+                        'image/png',
+                      ),
+                    );
+                    const stamped = await applyWatermarkToBlob(
+                      sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
+                    );
+                    await downloadBlobAsImage(stamped, filename);
+                  } else {
+                    await downloadCanvasAsImage(mockupCanvas, filename);
+                  }
+                } finally {
+                  setIsCapturingFullRes(false);
                 }
-              }
+              };
+              setIsCapturingFullRes(true);
             }}
           >
             <div className="flex flex-col gap-3">
@@ -723,6 +743,14 @@ export default function AdvancedToolsBar({
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
                       fitContainer
+                      maxRenderDimension={isCapturingFullRes ? undefined : 1500}
+                      onRenderComplete={() => {
+                        if (downloadAfterRenderRef.current) {
+                          const cb = downloadAfterRenderRef.current;
+                          downloadAfterRenderRef.current = null;
+                          cb();
+                        }
+                      }}
                     />
                   )}
                 </div>

@@ -48,6 +48,10 @@ interface MockupRendererV2Props {
    *  crashed iPad Safari when the gallery loaded ~125 layers at once. Tweak
    *  view leaves this false to keep full fidelity. */
   preview?: boolean;
+  /** Fires once each time the render pipeline updates the canvas. Used by the
+   *  tweak-mockup modal to coordinate a "render small for display, regenerate
+   *  full-res before download" flow. */
+  onRenderComplete?: () => void;
   /** When true, scale the canvas's CSS display to fit BOTH the parent's width
    *  AND the viewport height (max 60vh), preserving aspect ratio. Used by the
    *  tweak-mockup modal so a 2:3 portrait canvas (900px tall at 600px wide)
@@ -128,6 +132,7 @@ export default function MockupRendererV2({
   maxRenderDimension,
   preview = false,
   fitContainer = false,
+  onRenderComplete,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -316,7 +321,10 @@ export default function MockupRendererV2({
       } catch (err) {
         console.error('MockupRendererV2 render error:', err);
       } finally {
-        if (!cancelled) setIsRendering(false);
+        if (!cancelled) {
+          setIsRendering(false);
+          onRenderComplete?.();
+        }
       }
     })();
 
