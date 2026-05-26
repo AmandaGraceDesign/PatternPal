@@ -9,9 +9,13 @@ interface MockupModalProps {
   title?: string;
   subtitle?: string;
   onDownload?: () => void;
+  /** True while the canvas is regenerating at full res for download. Swaps
+   *  the Download button to a disabled "Generating…" spinner so users get
+   *  visual feedback during the 10-60s wait. */
+  isDownloading?: boolean;
 }
 
-export default function MockupModal({ isOpen, onClose, children, title, subtitle, onDownload }: MockupModalProps) {
+export default function MockupModal({ isOpen, onClose, children, title, subtitle, onDownload, isDownloading }: MockupModalProps) {
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -62,11 +66,19 @@ export default function MockupModal({ isOpen, onClose, children, title, subtitle
               {onDownload && (
                 <button
                   onClick={onDownload}
-                  className="px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-all duration-200 hover:opacity-90"
+                  disabled={isDownloading}
+                  className="px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-all duration-200 hover:opacity-90 disabled:opacity-70 disabled:cursor-wait flex items-center gap-1.5"
                   style={{ backgroundColor: '#e0c26e' }}
-                  aria-label="Download"
+                  aria-label={isDownloading ? 'Generating high-resolution download' : 'Download'}
+                  aria-busy={isDownloading}
                 >
-                  Download
+                  {isDownloading && (
+                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+                      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {isDownloading ? 'Generating high-res…' : 'Download'}
                 </button>
               )}
               <button

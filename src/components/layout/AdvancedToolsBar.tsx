@@ -483,6 +483,7 @@ export default function AdvancedToolsBar({
             }}
             title={mockupName}
             subtitle={`Based on ${effectiveTileWidth.toFixed(1)} × ${effectiveTileHeight.toFixed(1)} inch repeat`}
+            isDownloading={isCapturingFullRes}
             onDownload={async () => {
               const allowed = await verifyProAccess();
               if (!allowed) {
