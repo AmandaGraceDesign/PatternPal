@@ -233,8 +233,14 @@ async function applyMockupOverlay(
   format: 'png' | 'jpg',
   dpi: number,
 ): Promise<Blob> {
+  // Cap mockup pipeline canvas to the social export's pixel size. The template's
+  // natural 3000×4500 is overkill when the destination is 1080² or 2160² — the
+  // pipeline's compositing work is O(pixels), so capping to max(w,h) drops it
+  // from ~13.5M to ~3-8M pixels per mockup. drawMockupOverlay still pyramid-
+  // downsamples for anti-aliasing.
   const mockupCanvas = await renderMockupV2Offscreen(
     templateId, patternImage, tileWidth, tileHeight, repeatType, dpi,
+    { maxRenderDimension: Math.max(w, h) },
   );
   const img = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
@@ -514,6 +520,7 @@ export default function RepeatExportModal({
   const [selectedDPI, setSelectedDPI] = useState<150 | 300>(300);
   const [format, setFormat] = useState<'png' | 'jpg'>('png');
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
@@ -766,8 +773,13 @@ export default function RepeatExportModal({
 
       const slugsToExport = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
       const results: { slug: SizeSlug; label: string; blob: Blob | null }[] = [];
+      setExportProgress({ current: 0, total: slugsToExport.length });
 
-      for (const preset of slugsToExport) {
+      for (let i = 0; i < slugsToExport.length; i++) {
+        const preset = slugsToExport[i];
+        setExportProgress({ current: i + 1, total: slugsToExport.length });
+        // Yield so React can paint the updated progress before heavy canvas work
+        await new Promise(r => setTimeout(r, 0));
         const scale = scalesRef.current[preset.slug] ?? 1.0;
         // Export at 2× the platform's standard pixel dimensions for the
         // reasons described on SOCIAL_EXPORT_SCALE. Aspect ratio is preserved.
@@ -830,15 +842,18 @@ export default function RepeatExportModal({
       if (failed.length > 0) {
         setError(`Could not export: ${failed.map(f => f.label).join(', ')}. Others downloaded successfully.`);
         setIsExporting(false);
+        setExportProgress(null);
       } else {
         setTimeout(() => {
           onClose();
           setIsExporting(false);
+          setExportProgress(null);
         }, 500);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Export failed. Please try again.');
       setIsExporting(false);
+      setExportProgress(null);
     }
   };
 
@@ -1397,7 +1412,11 @@ export default function RepeatExportModal({
                         className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ backgroundColor: '#e0c26e' }}
                       >
-                        {isExporting ? 'Exporting...' : selectedPresets.length === 1 ? 'Export 1 Image' : `Export ${selectedPresets.length} Images`}
+                        {isExporting
+                          ? exportProgress
+                            ? `Exporting ${exportProgress.current} of ${exportProgress.total} (${Math.round((exportProgress.current / exportProgress.total) * 100)}%)`
+                            : 'Exporting…'
+                          : selectedPresets.length === 1 ? 'Export 1 Image' : `Export ${selectedPresets.length} Images`}
                       </button>
                     ) : (
                       <button
