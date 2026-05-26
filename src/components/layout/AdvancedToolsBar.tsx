@@ -13,7 +13,8 @@ import UpgradeModal from '@/components/export/UpgradeModal';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
-import { downloadCanvasAsImage, downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
+import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
+import { injectPngDpi } from '@/lib/utils/dpiMetadata';
 import { WatermarkConfig, DEFAULT_WATERMARK, applyWatermarkToBlob } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
@@ -511,21 +512,23 @@ export default function AdvancedToolsBar({
                     '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
                   ) as HTMLCanvasElement | null;
                   if (!mockupCanvas) return;
+                  const sourceBlob: Blob = await new Promise((resolve, reject) =>
+                    mockupCanvas.toBlob(
+                      b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+                      'image/png',
+                    ),
+                  );
                   const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-                  if (wmActive) {
-                    const sourceBlob: Blob = await new Promise((resolve, reject) =>
-                      mockupCanvas.toBlob(
-                        b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-                        'image/png',
-                      ),
-                    );
-                    const stamped = await applyWatermarkToBlob(
-                      sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
-                    );
-                    await downloadBlobAsImage(stamped, filename);
-                  } else {
-                    await downloadCanvasAsImage(mockupCanvas, filename);
-                  }
+                  const composedBlob = wmActive
+                    ? await applyWatermarkToBlob(
+                        sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
+                      )
+                    : sourceBlob;
+                  // Embed DPI so Photoshop opens the mockup at sensible inches
+                  // (3000×4500 @ 300 DPI → 10×15") instead of the browser's
+                  // default 72 DPI fallback (→ 41.667×62.5").
+                  const finalBlob = await injectPngDpi(composedBlob, dpi);
+                  await downloadBlobAsImage(finalBlob, filename);
                 } finally {
                   setIsCapturingFullRes(false);
                 }
