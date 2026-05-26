@@ -119,14 +119,16 @@ export default function SeamInspectorPage() {
   }
 
   const handleBack = () => {
-    // Focus the opener tab first so the user lands back on their pattern, then close this tab
+    // The seam inspector is always opened via window.open() from the main editor,
+    // so this tab is script-opened and window.close() is permitted.
+    // NEVER fall through to history.back() — the main editor's pattern state lives
+    // in memory only, so navigating it back via history reloads / resets and loses
+    // the user's pattern. If close fails silently (rare; e.g. iPad Safari sometimes
+    // ignores it), the user can close the tab manually — but their pattern stays safe.
     if (window.opener) {
       try { window.opener.focus(); } catch { /* opener may be cross-origin */ }
-      window.close();
-    } else {
-      // Fallback: navigate back in history (e.g. if iOS opened in same tab)
-      window.history.back();
     }
+    window.close();
   };
 
   return (
