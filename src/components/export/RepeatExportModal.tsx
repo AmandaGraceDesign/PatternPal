@@ -407,6 +407,9 @@ function SocialPreviewSlide({
           />
           <span className="text-xs font-semibold text-[#294051]">Add Mockup</span>
         </label>
+        <p className="px-3 pb-2 -mt-1 text-[10px] italic text-red-600 leading-tight">
+          Set scale for mockups in main canvas scale preview
+        </p>
         {mockupCfg.enabled && (
           <div className="px-3 pb-3 pt-1 border-t border-[#e5e7eb]">
             <div className="flex gap-2 flex-wrap max-h-[180px] overflow-y-auto">
