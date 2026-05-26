@@ -744,6 +744,7 @@ export default function AdvancedToolsBar({
                       dragEnabled
                       fitContainer
                       maxRenderDimension={isCapturingFullRes ? undefined : 1500}
+                      preview={!isCapturingFullRes}
                       onRenderComplete={() => {
                         if (downloadAfterRenderRef.current) {
                           const cb = downloadAfterRenderRef.current;
