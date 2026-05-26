@@ -506,57 +506,85 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
     }
     maskCtx.putImageData(maskData, 0, 0);
 
-    // Extract shading from product base (contrast-boosted luminance)
-    const shadingLayer = document.createElement('canvas');
-    shadingLayer.width = width;
-    shadingLayer.height = height;
-    const shadingCtx = shadingLayer.getContext('2d')!;
-    shadingCtx.drawImage(productCanvas, 0, 0);
-    const shadingData = shadingCtx.getImageData(0, 0, width, height);
-    const sd = shadingData.data;
-    const contrast = 1.15;
-    for (let i = 0; i < sd.length; i += 4) {
-      const lum = (sd[i] + sd[i + 1] + sd[i + 2]) / 3;
-      const boosted = Math.min(255, Math.max(0, (lum - 128) * contrast + 128));
-      sd[i] = boosted;
-      sd[i + 1] = boosted;
-      sd[i + 2] = boosted;
-    }
-    shadingCtx.putImageData(shadingData, 0, 0);
-    shadingCtx.globalCompositeOperation = 'destination-in';
-    shadingCtx.drawImage(maskCanvas, 0, 0);
-
-    // Build color layer: accent color × shading, masked to accent region
+    // Default: flat multiply (matches a vanilla PSD Color Fill + Multiply layer).
+    // Set flatMultiply: false on a template to opt back into the legacy
+    // pre-multiplied shading + soft-light recovery behavior.
+    const flatMultiply = template.colorOverlay.flatMultiply !== false;
     const colorLayer = document.createElement('canvas');
     colorLayer.width = width;
     colorLayer.height = height;
     const colorCtx = colorLayer.getContext('2d')!;
     colorCtx.fillStyle = accentColor;
     colorCtx.fillRect(0, 0, width, height);
-    colorCtx.globalCompositeOperation = 'multiply';
-    colorCtx.drawImage(shadingLayer, 0, 0);
+    if (!flatMultiply) {
+      const shadingLayer = document.createElement('canvas');
+      shadingLayer.width = width;
+      shadingLayer.height = height;
+      const shadingCtx = shadingLayer.getContext('2d')!;
+      shadingCtx.drawImage(productCanvas, 0, 0);
+      const shadingData = shadingCtx.getImageData(0, 0, width, height);
+      const sd = shadingData.data;
+      const contrast = 1.15;
+      for (let i = 0; i < sd.length; i += 4) {
+        const lum = (sd[i] + sd[i + 1] + sd[i + 2]) / 3;
+        const boosted = Math.min(255, Math.max(0, (lum - 128) * contrast + 128));
+        sd[i] = boosted;
+        sd[i + 1] = boosted;
+        sd[i + 2] = boosted;
+      }
+      shadingCtx.putImageData(shadingData, 0, 0);
+      shadingCtx.globalCompositeOperation = 'destination-in';
+      shadingCtx.drawImage(maskCanvas, 0, 0);
+
+      colorCtx.globalCompositeOperation = 'multiply';
+      colorCtx.drawImage(shadingLayer, 0, 0);
+    }
     colorCtx.globalCompositeOperation = 'destination-in';
     colorCtx.drawImage(maskCanvas, 0, 0);
 
-    // Multiply blends accent color into the photo — preserves shadows/folds
-    finalCtx.globalCompositeOperation = 'multiply';
-    finalCtx.globalAlpha = 1;
-    finalCtx.drawImage(colorLayer, 0, 0);
+    // Composite accent color into the photo. Default multiply at 100% darkens;
+    // per-template overrides let photo lighting bleed through. 'linear-burn' is
+    // not a native canvas mode — do a custom ImageData pass when requested.
+    const overlayBlend = template.colorOverlay.blendMode ?? 'multiply';
+    const overlayOpacity = template.colorOverlay.opacity ?? 1;
+    if (overlayBlend === 'linear-burn') {
+      const baseData = finalCtx.getImageData(0, 0, width, height);
+      const overlayData = (colorLayer.getContext('2d')!).getImageData(0, 0, width, height);
+      const bd = baseData.data;
+      const od = overlayData.data;
+      for (let i = 0; i < bd.length; i += 4) {
+        const oa = (od[i + 3] / 255) * overlayOpacity;
+        if (oa === 0) continue;
+        for (let c = 0; c < 3; c++) {
+          const linear = Math.max(0, od[i + c] + bd[i + c] - 255);
+          bd[i + c] = bd[i + c] + (linear - bd[i + c]) * oa;
+        }
+      }
+      finalCtx.putImageData(baseData, 0, 0);
+    } else {
+      finalCtx.globalCompositeOperation = overlayBlend;
+      finalCtx.globalAlpha = overlayOpacity;
+      finalCtx.drawImage(colorLayer, 0, 0);
+    }
 
-    // Gentle soft-light pass from original photo to restore subtle highlights
-    const photoHighlightLayer = document.createElement('canvas');
-    photoHighlightLayer.width = width;
-    photoHighlightLayer.height = height;
-    const phCtx = photoHighlightLayer.getContext('2d')!;
-    phCtx.drawImage(productCanvas, 0, 0);
-    phCtx.globalCompositeOperation = 'destination-in';
-    phCtx.drawImage(maskCanvas, 0, 0);
+    // Gentle soft-light recovery pass — only when shading was pre-multiplied
+    // into the color layer (it compensates for the darkening). Skipped for
+    // flatMultiply since photo lighting already comes through the multiply.
+    if (!flatMultiply) {
+      const photoHighlightLayer = document.createElement('canvas');
+      photoHighlightLayer.width = width;
+      photoHighlightLayer.height = height;
+      const phCtx = photoHighlightLayer.getContext('2d')!;
+      phCtx.drawImage(productCanvas, 0, 0);
+      phCtx.globalCompositeOperation = 'destination-in';
+      phCtx.drawImage(maskCanvas, 0, 0);
 
-    finalCtx.globalCompositeOperation = 'soft-light';
-    finalCtx.globalAlpha = 0.3;
-    finalCtx.drawImage(photoHighlightLayer, 0, 0);
-    finalCtx.globalCompositeOperation = 'source-over';
-    finalCtx.globalAlpha = 1;
+      finalCtx.globalCompositeOperation = 'soft-light';
+      finalCtx.globalAlpha = 0.3;
+      finalCtx.drawImage(photoHighlightLayer, 0, 0);
+      finalCtx.globalCompositeOperation = 'source-over';
+      finalCtx.globalAlpha = 1;
+    }
   }
 
   // --- Lighting overlay ---

@@ -171,6 +171,18 @@ export interface MockupV2Template {
     /** Default color when no user override is provided. If 'auto', extract
      *  the dominant background colour from the pattern image at render time. */
     defaultColor: string | 'auto';
+    /** Blend mode used to composite the accent color onto the final canvas.
+     *  Defaults to 'multiply' (legacy behavior). 'linear-burn' is a custom
+     *  ImageData pass since canvas has no native equivalent. */
+    blendMode?: GlobalCompositeOperation | 'linear-burn';
+    /** Opacity for the composite step (0..1). Defaults to 1.0. Lower values let
+     *  more of the photo's natural lighting bleed through — matches PSD mockups
+     *  that use Color Fill at <100% opacity. */
+    opacity?: number;
+    /** When true, skip the contrast-boosted shading pre-multiplication and the
+     *  soft-light highlight recovery pass. Just multiplies the flat accent color
+     *  onto the photo (matches a vanilla Photoshop Color Fill + Multiply layer). */
+    flatMultiply?: boolean;
   };
   /** Initial state of the color overlay toggle. Defaults to true (overlay
    *  enabled when the template is selected). Set to false for templates where
