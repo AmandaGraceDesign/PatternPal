@@ -521,8 +521,25 @@ export default function AdvancedToolsBar({
                     '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
                   ) as HTMLCanvasElement | null;
                   if (!mockupCanvas) return;
+
+                  // Downscale to half (3000×4500 → 1500×2250) for 150 DPI
+                  // output. Mockups are portfolio/social/web-display assets, so
+                  // 150 DPI cuts file size ~4× and still beats every social
+                  // target (Pinterest 1000×1500, IG 1080×1350). Source template
+                  // assets stay at 300 DPI rendering, so this is reversible by
+                  // dropping the divide and switching the DPI back to `dpi`.
+                  const OUTPUT_DPI = 150;
+                  const dl = document.createElement('canvas');
+                  dl.width = Math.round(mockupCanvas.width / 2);
+                  dl.height = Math.round(mockupCanvas.height / 2);
+                  const dctx = dl.getContext('2d');
+                  if (!dctx) return;
+                  dctx.imageSmoothingEnabled = true;
+                  dctx.imageSmoothingQuality = 'high';
+                  dctx.drawImage(mockupCanvas, 0, 0, dl.width, dl.height);
+
                   const sourceBlob: Blob = await new Promise((resolve, reject) =>
-                    mockupCanvas.toBlob(
+                    dl.toBlob(
                       b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
                       'image/png',
                     ),
@@ -530,13 +547,10 @@ export default function AdvancedToolsBar({
                   const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
                   const composedBlob = wmActive
                     ? await applyWatermarkToBlob(
-                        sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
+                        sourceBlob, dl.width, dl.height, watermark, 'png',
                       )
                     : sourceBlob;
-                  // Embed DPI so Photoshop opens the mockup at sensible inches
-                  // (3000×4500 @ 300 DPI → 10×15") instead of the browser's
-                  // default 72 DPI fallback (→ 41.667×62.5").
-                  const finalBlob = await injectPngDpi(composedBlob, dpi);
+                  const finalBlob = await injectPngDpi(composedBlob, OUTPUT_DPI);
                   await downloadBlobAsImage(finalBlob, filename);
                 } finally {
                   setIsCapturingFullRes(false);
