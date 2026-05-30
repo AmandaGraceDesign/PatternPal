@@ -17,6 +17,9 @@ import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
 import { injectPngDpi } from '@/lib/utils/dpiMetadata';
 import { WatermarkConfig, DEFAULT_WATERMARK, applyWatermarkToBlob } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
+import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
+import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
+import { applyBadgeToBlob, shouldStampBadge } from '@/lib/badge/patternpalBadge';
 import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
@@ -148,6 +151,7 @@ export default function AdvancedToolsBar({
   const [colorOverlayEnabled, setColorOverlayEnabled] = useState(true);
   const [mockupScaleOverride, setMockupScaleOverride] = useState<number | null>(null);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
+  const [badgeEnabled, setBadgeEnabled] = useState(true);
 
   // Resize per-layer arrays to match the selected template's layer count.
   useEffect(() => {
@@ -375,6 +379,7 @@ export default function AdvancedToolsBar({
         repeatType={repeatType}
         originalFilename={originalFilename}
         initialMode={repeatModalMode ?? undefined}
+        isPro={isPro}
       />
 
       {/* Easyscale picker — choose between POD/Spoonflower and Cricut/Silhouette */}
@@ -545,11 +550,14 @@ export default function AdvancedToolsBar({
                     ),
                   );
                   const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-                  const composedBlob = wmActive
+                  let composedBlob = wmActive
                     ? await applyWatermarkToBlob(
                         sourceBlob, dl.width, dl.height, watermark, 'png',
                       )
                     : sourceBlob;
+                  if (shouldStampBadge({ isPaidPro: isPro, badgeEnabled })) {
+                    composedBlob = await applyBadgeToBlob(composedBlob, dl.width, dl.height, 'png');
+                  }
                   const finalBlob = await injectPngDpi(composedBlob, OUTPUT_DPI);
                   await downloadBlobAsImage(finalBlob, filename);
                 } finally {
@@ -741,15 +749,51 @@ export default function AdvancedToolsBar({
               {/* Watermark (text + logo) — same UX as social export */}
               <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
 
+              {/* PatternPAL badge */}
+              <PatternpalBadgeToggle
+                enabled={badgeEnabled}
+                onChange={setBadgeEnabled}
+                locked={!isPro}
+              />
+
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
                 {/* Definite 600px wrapper width keeps the modal from
                     collapsing before the canvas mounts. `flex justify-center`
                     centers the canvas when fitContainer shrinks it below
                     600px wide to honor the 60vh height cap. */}
-                <div className="w-[600px] max-w-full relative flex justify-center" style={{ containerType: 'inline-size' }}>
-                  <WatermarkPreviewOverlay watermark={watermark} />
+                <div className="w-[600px] max-w-full relative flex justify-center">
+                  {/* Tight wrapper that shrinks to the rendered mockup canvas
+                      (NOT the 600px outer box). It mirrors the canvas's own CSS
+                      sizing — aspect-ratio + 60vh height cap — so its width
+                      equals the visible canvas width. `containerType:
+                      inline-size` makes the overlays' `cqw` units reference the
+                      canvas, putting the bottom-left badge over the product
+                      image exactly where the export stamps it. */}
                   {v2Template && (
-                    <MockupRendererV2
+                    <div
+                      className="relative"
+                      style={{
+                        // WIDTH-DRIVEN, non-collapsing sizing. `width` is the
+                        // smaller of (a) the full 600px box width — `100%` — and
+                        // (b) the width that would make this 2:3 portrait box
+                        // exactly 60vh tall: `60vh * W / H`. Both are DEFINITE
+                        // lengths, so the wrapper can never collapse to 0 the way
+                        // a bare aspect-ratio + maxHeight box did (that had no
+                        // definite main-axis size, so width:100% on the canvas
+                        // resolved against a 0-width parent). `aspectRatio` then
+                        // sets the height, and the canvas (width:100%) fills this
+                        // box exactly — so `containerType: inline-size` makes the
+                        // overlay `cqw` units reference the REAL canvas width and
+                        // the badge lands on the canvas's bottom-left, not the
+                        // 600px box's margin.
+                        width: `min(100%, calc(60vh * ${v2Template.canvasSize.width} / ${v2Template.canvasSize.height}))`,
+                        aspectRatio: `${v2Template.canvasSize.width} / ${v2Template.canvasSize.height}`,
+                        containerType: 'inline-size',
+                      }}
+                    >
+                      <WatermarkPreviewOverlay watermark={watermark} />
+                      <BadgePreviewOverlay visible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })} />
+                      <MockupRendererV2
                       template={v2Template}
                       patternImage={image}
                       tileWidth={renderTileWidth}
@@ -778,7 +822,8 @@ export default function AdvancedToolsBar({
                           cb();
                         }
                       }}
-                    />
+                      />
+                    </div>
                   )}
                 </div>
               </div>

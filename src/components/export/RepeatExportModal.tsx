@@ -22,6 +22,9 @@ import {
   applyWatermarkToBlob,
 } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
+import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
+import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
+import { applyBadgeToBlob, shouldStampBadge } from '@/lib/badge/patternpalBadge';
 import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
@@ -37,6 +40,9 @@ interface RepeatExportModalProps {
    *  Back button in cricut/social-select view closes the modal instead of
    *  returning to the picker. */
   initialMode?: 'cricut' | 'social';
+  /** True for PAID Pro users (not trial). Controls whether the badge toggle is
+   *  user-removable; trial users get the badge locked on. */
+  isPro?: boolean;
 }
 
 interface SizePreset {
@@ -272,11 +278,12 @@ interface SocialPreviewSlideProps {
   watermark: WatermarkConfig;
   mockupsRef: MutableRefObject<Record<SizeSlug, MockupOverlayConfig>>;
   dpi: number;
+  badgeVisible: boolean;
 }
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi, badgeVisible,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -372,12 +379,16 @@ function SocialPreviewSlide({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {/* Big preview canvas */}
-      <canvas
-        ref={canvasRef}
-        className="border border-[#e5e7eb] rounded-md shadow-sm bg-white"
-        style={{ width: previewW, height: previewH }}
-      />
+      {/* Big preview canvas. Relative + container-query wrapper sized to the
+          canvas so BadgePreviewOverlay can position itself with cqw units. */}
+      <div className="relative" style={{ width: previewW, height: previewH, containerType: 'inline-size' }}>
+        <canvas
+          ref={canvasRef}
+          className="border border-[#e5e7eb] rounded-md shadow-sm bg-white"
+          style={{ width: previewW, height: previewH }}
+        />
+        <BadgePreviewOverlay visible={badgeVisible} />
+      </div>
 
       {/* Scale controls */}
       <div className="flex items-center gap-3">
@@ -514,6 +525,7 @@ export default function RepeatExportModal({
   repeatType,
   originalFilename,
   initialMode,
+  isPro,
 }: RepeatExportModalProps) {
   const [targetW, setTargetW] = useState(12);
   const [targetH, setTargetH] = useState(12);
@@ -538,6 +550,7 @@ export default function RepeatExportModal({
   const mockupsRef = useRef<Record<SizeSlug, MockupOverlayConfig>>({} as Record<SizeSlug, MockupOverlayConfig>);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
+  const [badgeEnabled, setBadgeEnabled] = useState(true);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -571,6 +584,7 @@ export default function RepeatExportModal({
       setSocialStep('select');
       setPreviewIndex(0);
       setWatermark({ ...DEFAULT_WATERMARK });
+      setBadgeEnabled(true);
     }
   }, [isOpen, initialMode]);
 
@@ -807,6 +821,10 @@ export default function RepeatExportModal({
           // Stamp watermark onto exported image (if text OR a logo is present)
           if (watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl)) {
             blob = await applyWatermarkToBlob(blob, exportPxW, exportPxH, watermark, socialFormat);
+          }
+          // Stamp the "Tested in PatternPAL" badge as the top layer
+          if (shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })) {
+            blob = await applyBadgeToBlob(blob, exportPxW, exportPxH, socialFormat);
           }
           results.push({ slug: preset.slug, label: preset.label, blob });
         } catch {
@@ -1337,6 +1355,13 @@ export default function RepeatExportModal({
                     {/* Watermark */}
                     <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
 
+                    {/* PatternPAL badge */}
+                    <PatternpalBadgeToggle
+                      enabled={badgeEnabled}
+                      onChange={setBadgeEnabled}
+                      locked={!isPro}
+                    />
+
                     {/* Action buttons */}
                     <div className="flex gap-3 pt-1">
                       <button
@@ -1387,6 +1412,7 @@ export default function RepeatExportModal({
                     watermark={watermark}
                     mockupsRef={mockupsRef}
                     dpi={currentDPI}
+                    badgeVisible={shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })}
                   />
 
                   {/* Error */}

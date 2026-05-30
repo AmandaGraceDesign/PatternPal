@@ -49,3 +49,6 @@ next-env.d.ts
 openspec/
 .continue-here.md
 /tasks/
+
+# PatternPAL badge source package — not served, not committed
+public/tested-in-patternpal.zip

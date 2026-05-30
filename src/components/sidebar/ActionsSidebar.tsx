@@ -17,6 +17,9 @@ import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadCanvasAsImage, downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
 import { WatermarkConfig, DEFAULT_WATERMARK, applyWatermarkToBlob } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
+import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
+import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
+import { applyBadgeToBlob, shouldStampBadge } from '@/lib/badge/patternpalBadge';
 import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 
 interface ActionsSidebarProps {
@@ -48,6 +51,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [highlightOpacityPercents, setHighlightOpacityPercents] = useState<number[]>([30]);
   const [colorOverlayEnabled, setColorOverlayEnabled] = useState(true);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
+  const [badgeEnabled, setBadgeEnabled] = useState(true);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
@@ -381,17 +385,25 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               if (!userInput) return;
               const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
               const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-              if (wmActive) {
-                const sourceBlob: Blob = await new Promise((resolve, reject) =>
+              const stampBadge = shouldStampBadge({ isPaidPro: isPro, badgeEnabled });
+              if (wmActive || stampBadge) {
+                let composed: Blob = await new Promise((resolve, reject) =>
                   mockupCanvas.toBlob(
                     b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
                     'image/png',
                   ),
                 );
-                const stamped = await applyWatermarkToBlob(
-                  sourceBlob, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
-                );
-                await downloadBlobAsImage(stamped, filename);
+                if (wmActive) {
+                  composed = await applyWatermarkToBlob(
+                    composed, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
+                  );
+                }
+                if (stampBadge) {
+                  composed = await applyBadgeToBlob(
+                    composed, mockupCanvas.width, mockupCanvas.height, 'png',
+                  );
+                }
+                await downloadBlobAsImage(composed, filename);
               } else {
                 await downloadCanvasAsImage(mockupCanvas, filename);
               }
@@ -541,6 +553,13 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             {/* Watermark (text + logo) — same UX as social export */}
             <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
 
+            {/* PatternPAL badge */}
+            <PatternpalBadgeToggle
+              enabled={badgeEnabled}
+              onChange={setBadgeEnabled}
+              locked={!isPro}
+            />
+
             {/* Mockup preview */}
             <div className="flex items-center justify-center bg-white rounded-lg p-4">
               {/* Definite 600px wrapper width keeps the modal sized
@@ -548,13 +567,42 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                   whole modal collapses). `flex justify-center` centers the
                   canvas horizontally when fitContainer shrinks it below
                   600px wide (e.g. tall 2:3 mockup capped by 60vh height). */}
-              <div className="w-[600px] max-w-full relative flex justify-center" style={{ containerType: 'inline-size' }}>
-                <WatermarkPreviewOverlay watermark={watermark} />
+              <div className="w-[600px] max-w-full relative flex justify-center">
                 {(() => {
                   const v2Tmpl = getV2Template(selectedMockup);
                   if (!v2Tmpl) return null;
                   return (
-                    <MockupRendererV2
+                    /* Tight wrapper that shrinks to the rendered mockup canvas
+                       (NOT the 600px outer box). It mirrors the canvas's own CSS
+                       sizing — aspect-ratio + 60vh height cap — so its width
+                       equals the visible canvas width. `containerType:
+                       inline-size` makes the overlays' `cqw` units reference the
+                       canvas, putting the bottom-left badge over the product
+                       image exactly where the export stamps it. */
+                    <div
+                      className="relative"
+                      style={{
+                        // WIDTH-DRIVEN, non-collapsing sizing. `width` is the
+                        // smaller of (a) the full 600px box width — `100%` — and
+                        // (b) the width that would make this 2:3 portrait box
+                        // exactly 60vh tall: `60vh * W / H`. Both are DEFINITE
+                        // lengths, so the wrapper can never collapse to 0 the way
+                        // a bare aspect-ratio + maxHeight box did (that had no
+                        // definite main-axis size, so width:100% on the canvas
+                        // resolved against a 0-width parent). `aspectRatio` then
+                        // sets the height, and the canvas (width:100%) fills this
+                        // box exactly — so `containerType: inline-size` makes the
+                        // overlay `cqw` units reference the REAL canvas width and
+                        // the badge lands on the canvas's bottom-left, not the
+                        // 600px box's margin.
+                        width: `min(100%, calc(60vh * ${v2Tmpl.canvasSize.width} / ${v2Tmpl.canvasSize.height}))`,
+                        aspectRatio: `${v2Tmpl.canvasSize.width} / ${v2Tmpl.canvasSize.height}`,
+                        containerType: 'inline-size',
+                      }}
+                    >
+                      <WatermarkPreviewOverlay watermark={watermark} />
+                      <BadgePreviewOverlay visible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })} />
+                      <MockupRendererV2
                       template={v2Tmpl}
                       patternImage={image}
                       tileWidth={tileWidth}
@@ -574,7 +622,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
                       fitContainer
-                    />
+                      />
+                    </div>
                   );
                 })()}
               </div>
