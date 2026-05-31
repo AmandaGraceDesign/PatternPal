@@ -11,6 +11,7 @@ import MockupModal from '@/components/mockups/MockupModal';
 import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
+import { isFreeMockup } from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
@@ -496,7 +497,9 @@ export default function AdvancedToolsBar({
               // real Pro users when /api/pro/verify intermittently returned
               // 401/403 — needs separate investigation, but don't gate
               // legitimate downloads on it.
-              if (!proAllowed) {
+              // Free users may download the curated free mockups (badge stays
+              // stamped). Locked templates still require Pro verification.
+              if (!proAllowed && !isFreeMockup(selectedMockup)) {
                 const allowed = await verifyProAccess();
                 if (!allowed) {
                   setIsUpgradeModalOpen(true);
@@ -746,8 +749,10 @@ export default function AdvancedToolsBar({
                 );
               })()}
 
-              {/* Watermark (text + logo) — same UX as social export */}
-              <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
+              {/* Watermark (text + logo) — Pro only; free tiers can't overlay a logo */}
+              {isPro && (
+                <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
+              )}
 
               {/* PatternPAL badge */}
               <PatternpalBadgeToggle
