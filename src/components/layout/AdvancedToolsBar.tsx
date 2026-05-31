@@ -380,7 +380,7 @@ export default function AdvancedToolsBar({
         repeatType={repeatType}
         originalFilename={originalFilename}
         initialMode={repeatModalMode ?? undefined}
-        isPro={isPro}
+        isPro={proAllowed}
         onUpgrade={() => setIsUpgradeModalOpen(true)}
       />
 

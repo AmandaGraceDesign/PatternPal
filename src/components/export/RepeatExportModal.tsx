@@ -817,8 +817,13 @@ export default function RepeatExportModal({
 
     try {
       // Single pro gate before any rendering
-      const res = await fetch('/api/pro/verify', { method: 'POST' });
-      if (!res.ok) throw new Error('Pro subscription required.');
+      const isFreeSelection =
+        checkedSizes.size === 1 &&
+        checkedSizes.has(FREE_SOCIAL_SIZE_SLUG as SizeSlug);
+      if (!isPro && !isFreeSelection) {
+        const res = await fetch('/api/pro/verify', { method: 'POST' });
+        if (!res.ok) throw new Error('Pro subscription required.');
+      }
 
       const slugsToExport = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
       const results: { slug: SizeSlug; label: string; blob: Blob | null }[] = [];
