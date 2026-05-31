@@ -6,7 +6,7 @@ import {
   getAllV2Templates,
   getV2TemplatesByCategory,
 } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
-import UpgradeModal from '@/components/export/UpgradeModal';
+import { isFreeMockup } from '@/lib/mockups/freeTier';
 
 interface MockupGalleryModalProps {
   isOpen: boolean;
@@ -123,11 +123,6 @@ export default function MockupGalleryModal({
 
   if (!isOpen) return null;
 
-  // Pro gate — non-pro users see UpgradeModal instead of gallery
-  if (!isPro) {
-    return <UpgradeModal isOpen onClose={onClose} />;
-  }
-
   const filteredTemplates =
     activeCategory === 'all'
       ? getAllV2Templates()
@@ -197,11 +192,13 @@ export default function MockupGalleryModal({
                 No mockups in this category yet.
               </p>
             ) : (
-              filteredTemplates.map((template, index) => (
+              filteredTemplates.map((template, index) => {
+                const locked = !isPro && !isFreeMockup(template.id);
+                return (
                 <div
                   key={template.id}
-                  className="group cursor-pointer rounded-xl overflow-hidden bg-gray-50 transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                  onClick={() => onSelectMockup(template.id)}
+                  className="group relative cursor-pointer rounded-xl overflow-hidden bg-gray-50 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={() => (locked ? onUpgrade() : onSelectMockup(template.id))}
                 >
                   {/* Thumbnail area — aspect-square wrapper for visual consistency */}
                   <div className="aspect-square overflow-hidden bg-gray-100">
@@ -220,6 +217,14 @@ export default function MockupGalleryModal({
                     />
                   </div>
 
+                  {/* Lock overlay for non-free templates (free users only) */}
+                  {locked && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 text-white">
+                      <span className="text-lg leading-none">🔒</span>
+                      <span className="mt-1 text-[10px] font-bold uppercase tracking-wide">Pro</span>
+                    </div>
+                  )}
+
                   {/* Card label */}
                   <div className="px-2 py-1.5">
                     <p className="text-xs font-semibold text-[#294051] truncate">
@@ -231,7 +236,8 @@ export default function MockupGalleryModal({
                     </p>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
