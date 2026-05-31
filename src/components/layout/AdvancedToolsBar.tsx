@@ -331,7 +331,7 @@ export default function AdvancedToolsBar({
             title="Social Media Export"
             description="Instagram, Pinterest, TikTok, Facebook"
             isPro={proAllowed}
-            onClick={() => handleProToolClick(() => setRepeatModalMode('social'))}
+            onClick={() => setRepeatModalMode('social')}
             disabled={!image}
             dataTour="social-export"
           />
@@ -381,6 +381,7 @@ export default function AdvancedToolsBar({
         originalFilename={originalFilename}
         initialMode={repeatModalMode ?? undefined}
         isPro={isPro}
+        onUpgrade={() => setIsUpgradeModalOpen(true)}
       />
 
       {/* Easyscale picker — choose between POD/Spoonflower and Cricut/Silhouette */}

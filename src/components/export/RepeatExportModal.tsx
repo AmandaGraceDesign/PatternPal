@@ -25,6 +25,7 @@ import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
 import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
 import { applyBadgeToBlob, shouldStampBadge } from '@/lib/badge/patternpalBadge';
+import { isFreeMockup, isFreeSocialSize, FREE_SOCIAL_SIZE_SLUG, FREE_MOCKUP_IDS } from '@/lib/mockups/freeTier';
 import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
@@ -43,6 +44,8 @@ interface RepeatExportModalProps {
   /** True for PAID Pro users (not trial). Controls whether the badge toggle is
    *  user-removable; trial users get the badge locked on. */
   isPro?: boolean;
+  /** Opens the upgrade modal when a free user clicks a locked size. */
+  onUpgrade?: () => void;
 }
 
 interface SizePreset {
@@ -117,9 +120,29 @@ interface SocialSizeRowProps {
   isChecked: boolean;
   onToggle: () => void;
   isExporting: boolean;
+  locked?: boolean;
+  onLockedClick?: () => void;
 }
 
-function SocialSizeRow({ preset, isChecked, onToggle, isExporting }: SocialSizeRowProps) {
+function SocialSizeRow({ preset, isChecked, onToggle, isExporting, locked = false, onLockedClick }: SocialSizeRowProps) {
+  if (locked) {
+    return (
+      <button
+        type="button"
+        onClick={onLockedClick}
+        className="w-full border border-[#e5e7eb] rounded-md overflow-hidden bg-[#f9fafb] opacity-80"
+        style={{ touchAction: 'manipulation' }}
+      >
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="text-base leading-none">🔒</span>
+            <span className="text-xs text-[#9ca3af]">{preset.label}</span>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-[#d97706]">Pro</span>
+        </div>
+      </button>
+    );
+  }
   return (
     <div className={`border rounded-md overflow-hidden transition-colors ${
       isChecked ? 'border-[#e0c26e] bg-[#faf3e0]' : 'border-[#e5e7eb] bg-white'
@@ -279,18 +302,23 @@ interface SocialPreviewSlideProps {
   mockupsRef: MutableRefObject<Record<SizeSlug, MockupOverlayConfig>>;
   dpi: number;
   badgeVisible: boolean;
+  isPro?: boolean;
 }
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi, badgeVisible,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi, badgeVisible, isPro,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Non-Pro users default the overlay to a free template (the full picker is
+  // also restricted to free templates below).
+  const defaultMockupId = isPro ? SOCIAL_V2_MOCKUP_IDS[0] : FREE_MOCKUP_IDS[0];
+
   // Initialize mockup config for this slug if needed
   if (!(preset.slug in mockupsRef.current)) {
-    mockupsRef.current[preset.slug] = { ...DEFAULT_MOCKUP_OVERLAY };
+    mockupsRef.current[preset.slug] = { ...DEFAULT_MOCKUP_OVERLAY, templateId: defaultMockupId };
   }
   const mockupCfg = mockupsRef.current[preset.slug];
 
@@ -430,7 +458,7 @@ function SocialPreviewSlide({
         {mockupCfg.enabled && (
           <div className="px-3 pb-3 pt-1 border-t border-[#e5e7eb]">
             <div className="flex gap-2 flex-wrap max-h-[180px] overflow-y-auto">
-              {SOCIAL_V2_MOCKUP_IDS.map(id => {
+              {(isPro ? SOCIAL_V2_MOCKUP_IDS : SOCIAL_V2_MOCKUP_IDS.filter(isFreeMockup)).map(id => {
                 const tmpl = mockupV2Templates[id];
                 const thumbPath = `/mockups/v2/thumbnails/${id}.jpg`;
                 const isSelected = mockupCfg.templateId === id;
@@ -526,6 +554,7 @@ export default function RepeatExportModal({
   originalFilename,
   initialMode,
   isPro,
+  onUpgrade,
 }: RepeatExportModalProps) {
   const [targetW, setTargetW] = useState(12);
   const [targetH, setTargetH] = useState(12);
@@ -578,7 +607,13 @@ export default function RepeatExportModal({
       setExportScale(1.0);
       setMode(initialMode ?? 'picker');
       setSocialFormat('jpg');
-      setCheckedSizes(new Set());
+      // Free users can only export the Instagram square — preselect it when
+      // opening in social mode. Pro users start with nothing selected.
+      setCheckedSizes(
+        initialMode === 'social' && !isPro
+          ? new Set<SizeSlug>([FREE_SOCIAL_SIZE_SLUG as SizeSlug])
+          : new Set<SizeSlug>()
+      );
       scalesRef.current = {} as Record<SizeSlug, number>;
       mockupsRef.current = {} as Record<SizeSlug, MockupOverlayConfig>;
       setSocialStep('select');
@@ -586,7 +621,7 @@ export default function RepeatExportModal({
       setWatermark({ ...DEFAULT_WATERMARK });
       setBadgeEnabled(true);
     }
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, isPro]);
 
   // Escape to close
   useEffect(() => {
@@ -1330,6 +1365,7 @@ export default function RepeatExportModal({
                     {/* Select All */}
                     <div>
                       <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
+                      {isPro && (
                       <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
                         <input
                           ref={selectAllRef}
@@ -1339,21 +1375,29 @@ export default function RepeatExportModal({
                         />
                         <span className="text-xs font-semibold text-[#294051]">Select All</span>
                       </label>
+                      )}
                       <div className="space-y-2">
-                        {SOCIAL_SIZE_PRESETS.map(preset => (
+                        {SOCIAL_SIZE_PRESETS.map(preset => {
+                          const locked = !isPro && !isFreeSocialSize(preset.slug);
+                          return (
                           <SocialSizeRow
                             key={preset.slug}
                             preset={preset}
                             isChecked={checkedSizes.has(preset.slug)}
                             onToggle={() => handleToggleSize(preset.slug)}
                             isExporting={false}
+                            locked={locked}
+                            onLockedClick={() => onUpgrade?.()}
                           />
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Watermark */}
-                    <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
+                    {/* Watermark — Pro only; free tiers can't overlay a logo */}
+                    {isPro && (
+                      <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
+                    )}
 
                     {/* PatternPAL badge */}
                     <PatternpalBadgeToggle
@@ -1413,6 +1457,7 @@ export default function RepeatExportModal({
                     mockupsRef={mockupsRef}
                     dpi={currentDPI}
                     badgeVisible={shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })}
+                    isPro={isPro}
                   />
 
                   {/* Error */}
