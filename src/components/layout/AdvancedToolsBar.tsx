@@ -292,7 +292,7 @@ export default function AdvancedToolsBar({
             title="Easyscale Export"
             description="POD, Spoonflower, Cricut & Silhouette"
             isPro={proAllowed}
-            onClick={() => handleProToolClick(() => setIsEasyscalePickerOpen(true))}
+            onClick={() => setIsEasyscalePickerOpen(true)}
             disabled={!image}
             dataTour="easyscale-export"
           />
@@ -422,11 +422,17 @@ export default function AdvancedToolsBar({
                 <button
                   onClick={() => {
                     setIsEasyscalePickerOpen(false);
-                    setRepeatModalMode('cricut');
+                    if (proAllowed) {
+                      setRepeatModalMode('cricut');
+                    } else {
+                      setIsUpgradeModalOpen(true);
+                    }
                   }}
                   className="w-full text-left px-4 py-4 border-2 border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f9fafb] transition-colors"
                 >
-                  <div className="text-sm font-semibold text-[#294051]">🖨 Cricut / Silhouette</div>
+                  <div className="text-sm font-semibold text-[#294051]">
+                    🖨 Cricut / Silhouette {!proAllowed && '🔒'}
+                  </div>
                   <div className="text-xs text-[#9ca3af] mt-1">Digital paper · print files · Etsy / Creative Fabrica</div>
                 </button>
               </div>
