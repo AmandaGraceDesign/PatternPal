@@ -91,7 +91,7 @@ function ToolCard({ icon, title, description, isFree = false, isPro = false, hid
         <div className="text-[10px] md:text-[11px] text-[#999] leading-tight">{description}</div>
       </div>
 
-      {/* Badge - only show if user is not Pro */}
+      {/* Badge - hidden for Pro users and for cards that opt out via hideBadge */}
       {showBadge && (
         <span
           className={`absolute top-2 right-2 text-[9px] font-bold px-1.5 py-1 rounded ${
