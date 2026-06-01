@@ -56,13 +56,14 @@ interface ToolCardProps {
   description: string;
   isFree?: boolean;
   isPro?: boolean; // User's Pro status
+  hideBadge?: boolean; // Suppress the PRO/FREE chip even for non-Pro users
   onClick: () => void;
   disabled?: boolean;
   dataTour?: string;
 }
 
-function ToolCard({ icon, title, description, isFree = false, isPro = false, onClick, disabled = false, dataTour }: ToolCardProps) {
-  const showBadge = !isPro; // Hide badge if user is Pro
+function ToolCard({ icon, title, description, isFree = false, isPro = false, hideBadge = false, onClick, disabled = false, dataTour }: ToolCardProps) {
+  const showBadge = !isPro && !hideBadge; // Hide if Pro user, or if explicitly suppressed
 
   return (
     <button
@@ -271,18 +272,19 @@ export default function AdvancedToolsBar({
       {/* Horizontal Tool Cards Bar */}
       <div className="w-full bg-[#1a1a1a] px-4 py-4 border-b border-black/50">
         <div className="flex flex-wrap gap-3 md:gap-4 justify-center items-stretch mx-auto max-w-6xl">
-          {/* Card 2: Easyscale Export (FREE/PRO) — POD/Spoonflower is free (8"/12", JPG, 150 DPI); Cricut/Silhouette is Pro-locked */}
+          {/* Easyscale Export (FREE/PRO) — POD/Spoonflower is free (8"/12", JPG, 150 DPI); Cricut/Silhouette is Pro-locked */}
           <ToolCard
             icon="📦"
             title="Easyscale Export"
             description="POD, Spoonflower, Cricut & Silhouette"
             isPro={proAllowed}
+            hideBadge
             onClick={() => setIsEasyscalePickerOpen(true)}
             disabled={!image}
             dataTour="easyscale-export"
           />
 
-          {/* Card 3: Pattern Analysis (PRO) */}
+          {/* Pattern Analysis (PRO) */}
           <ToolCard
             icon="📊"
             title="Pattern Analysis"
@@ -293,7 +295,7 @@ export default function AdvancedToolsBar({
             dataTour="pattern-analysis"
           />
 
-          {/* Card 4: Seam Analyzer (PRO) */}
+          {/* Seam Analyzer (PRO) */}
           <ToolCard
             icon="🔍"
             title="Seam Analyzer"
@@ -310,23 +312,25 @@ export default function AdvancedToolsBar({
             dataTour="seam-analyzer"
           />
 
-          {/* Card 5: Social Media Export (PRO) — sits to the left of Mockups */}
+          {/* Social Media Export (FREE/PRO) — free users get the Instagram square; sits to the left of Mockups */}
           <ToolCard
             icon="📱"
             title="Social Media Export"
             description="Instagram, Pinterest, TikTok, Facebook"
             isPro={proAllowed}
+            hideBadge
             onClick={() => setRepeatModalMode('social')}
             disabled={!image}
             dataTour="social-export"
           />
 
-          {/* Card 6: Mockups — always opens gallery (free users see upgrade overlay inside) */}
+          {/* Mockups (FREE/PRO) — always opens gallery; free users get the curated free mockups, the rest show an upgrade overlay */}
           <ToolCard
             icon="🎨"
             title="Mockups"
             description="Preview on products & download"
             isPro={proAllowed}
+            hideBadge
             onClick={() => setIsMockupsOpen(true)}
             disabled={!image}
             dataTour="mockups"
