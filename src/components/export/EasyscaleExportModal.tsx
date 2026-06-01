@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { generateScaledExport, ScaledExportConfig } from '@/lib/utils/exportScaled';
 import { calculateOriginalSize, detectOriginalDPI } from '@/lib/utils/imageScaler';
 import { getConvertToFullDropBlockReason } from '@/lib/utils/convertToFullDrop';
+import { FREE_EASYSCALE_SIZES, FREE_EASYSCALE_DPI, FREE_EASYSCALE_FORMAT } from '@/lib/mockups/freeTier';
 
 interface EasyscaleExportModalProps {
   isOpen: boolean;
@@ -16,7 +17,6 @@ interface EasyscaleExportModalProps {
 }
 
 const PRESET_SIZES = [2, 4, 6, 8, 10, 12, 18, 24];
-const FREE_USER_SIZES = [8, 12]; // Free users limited to 8" and 12"
 
 // Map UI repeat types to export format
 function mapRepeatType(repeatType: 'full-drop' | 'half-drop' | 'half-brick'): string {
@@ -40,8 +40,8 @@ export default function EasyscaleExportModal({
   isPro = false,
 }: EasyscaleExportModalProps) {
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
-  const [selectedDPI, setSelectedDPI] = useState<150 | 300>(isPro ? 300 : 150);
-  const [format, setFormat] = useState<'png' | 'jpg' | 'tif'>(isPro ? 'png' : 'jpg');
+  const [selectedDPI, setSelectedDPI] = useState<150 | 300>(isPro ? 300 : FREE_EASYSCALE_DPI);
+  const [format, setFormat] = useState<'png' | 'jpg' | 'tif'>(isPro ? 'png' : FREE_EASYSCALE_FORMAT);
   const [includeOriginal, setIncludeOriginal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -298,7 +298,7 @@ export default function EasyscaleExportModal({
                   <span className="text-slate-500">(changes size labels)</span>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {(isPro ? PRESET_SIZES : FREE_USER_SIZES).map((sizeInInches) => {
+                  {(isPro ? PRESET_SIZES : [...FREE_EASYSCALE_SIZES]).map((sizeInInches) => {
                     const sizeValue = sizeValueFromInches(sizeInInches, selectedUnit, selectedDPI);
                     const allowed = isSizeAllowed(sizeInInches);
                     const selected = selectedSizes.includes(sizeInInches);
