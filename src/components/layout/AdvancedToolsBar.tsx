@@ -286,7 +286,7 @@ export default function AdvancedToolsBar({
             />
           )}
 
-          {/* Card 2: Easyscale Export (PRO) — picker opens to choose POD vs Cricut/Silhouette */}
+          {/* Card 2: Easyscale Export (FREE/PRO) — POD/Spoonflower is free (8"/12", JPG, 150 DPI); Cricut/Silhouette is Pro-locked */}
           <ToolCard
             icon="📦"
             title="Easyscale Export"
