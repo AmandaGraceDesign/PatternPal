@@ -3,6 +3,9 @@ import { describe, it, expect } from 'vitest';
 import {
   FREE_MOCKUP_IDS,
   FREE_SOCIAL_SIZE_SLUG,
+  FREE_EASYSCALE_SIZES,
+  FREE_EASYSCALE_DPI,
+  FREE_EASYSCALE_FORMAT,
   isFreeMockup,
   isFreeSocialSize,
 } from '../lib/mockups/freeTier';
@@ -34,5 +37,17 @@ describe('isFreeSocialSize', () => {
     expect(isFreeSocialSize('instagram-post')).toBe(true);
     expect(isFreeSocialSize('story')).toBe(false);
     expect(isFreeSocialSize('pinterest-pin')).toBe(false);
+  });
+});
+
+describe('free-tier Easyscale limits', () => {
+  it('limits free users to 8" and 12"', () => {
+    expect([...FREE_EASYSCALE_SIZES]).toEqual([8, 12]);
+  });
+  it('limits free users to 150 DPI', () => {
+    expect(FREE_EASYSCALE_DPI).toBe(150);
+  });
+  it('limits free users to JPG', () => {
+    expect(FREE_EASYSCALE_FORMAT).toBe('jpg');
   });
 });
