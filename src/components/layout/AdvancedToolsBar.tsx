@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef, useState, Suspense } from 'react';
-import QuickExportModal from '@/components/export/QuickExportModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
 import RepeatExportModal from '@/components/export/RepeatExportModal';
 import PatternAnalysisModal from '@/components/analysis/PatternAnalysisModal';
@@ -126,7 +125,6 @@ export default function AdvancedToolsBar({
   tileOutlineColor,
 }: AdvancedToolsBarProps) {
   const { user, isSignedIn } = useUser();
-  const [isQuickExportOpen, setIsQuickExportOpen] = useState(false);
   const [isEasyscalePickerOpen, setIsEasyscalePickerOpen] = useState(false);
   const [isEasyscaleOpen, setIsEasyscaleOpen] = useState(false);
   // Single state for both Cricut and Social flows — they share RepeatExportModal.
@@ -273,19 +271,6 @@ export default function AdvancedToolsBar({
       {/* Horizontal Tool Cards Bar */}
       <div className="w-full bg-[#1a1a1a] px-4 py-4 border-b border-black/50">
         <div className="flex flex-wrap gap-3 md:gap-4 justify-center items-stretch mx-auto max-w-6xl">
-          {/* Card 1: Quick Export (FREE) - Only show for non-Pro users */}
-          {!proAllowed && (
-            <ToolCard
-              icon="📦"
-              title="Quick Export"
-              description="2 sizes • JPG only"
-              isFree
-              isPro={proAllowed}
-              onClick={() => setIsQuickExportOpen(true)}
-              disabled={!image}
-            />
-          )}
-
           {/* Card 2: Easyscale Export (FREE/PRO) — POD/Spoonflower is free (8"/12", JPG, 150 DPI); Cricut/Silhouette is Pro-locked */}
           <ToolCard
             icon="📦"
@@ -350,16 +335,6 @@ export default function AdvancedToolsBar({
       </div>
 
       {/* Modals */}
-      <QuickExportModal
-        isOpen={isQuickExportOpen}
-        onClose={() => setIsQuickExportOpen(false)}
-        image={image}
-        currentDPI={dpi}
-        repeatType={repeatType}
-        originalFilename={originalFilename}
-        onUpgrade={() => setIsUpgradeModalOpen(true)}
-      />
-
       <EasyscaleExportModal
         isOpen={isEasyscaleOpen}
         onClose={() => setIsEasyscaleOpen(false)}
