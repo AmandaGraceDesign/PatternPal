@@ -10,7 +10,12 @@ import MockupModal from '@/components/mockups/MockupModal';
 import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
-import { isFreeMockup } from '@/lib/mockups/freeTier';
+import {
+  isFreeMockup,
+  FREE_EASYSCALE_SIZES,
+  FREE_EASYSCALE_DPI,
+  FREE_EASYSCALE_FORMAT,
+} from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
@@ -396,7 +401,11 @@ export default function AdvancedToolsBar({
                   className="w-full text-left px-4 py-4 border-2 border-[#e0c26e] rounded-lg bg-[#faf3e0] hover:bg-[#f5ecd0] transition-colors"
                 >
                   <div className="text-sm font-semibold text-[#294051]">📦 Print on Demand / Spoonflower</div>
-                  <div className="text-xs text-[#9ca3af] mt-1">Batch sizes · 150/300 DPI · PNG, JPG, TIFF</div>
+                  <div className="text-xs text-[#9ca3af] mt-1">
+                    {proAllowed
+                      ? 'Batch sizes · 150/300 DPI · PNG, JPG, TIFF'
+                      : `${FREE_EASYSCALE_SIZES.map((s) => `${s}"`).join(' & ')} · ${FREE_EASYSCALE_DPI} DPI · ${FREE_EASYSCALE_FORMAT.toUpperCase()}`}
+                  </div>
                 </button>
                 <button
                   onClick={() => {
