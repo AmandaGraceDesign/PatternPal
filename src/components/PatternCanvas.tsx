@@ -254,9 +254,11 @@ export default function PatternCanvas({ isPro }: PatternCanvasProps) {
           )}
         </div>
         
-        {/* Basic Export */}
+        {/* Basic Export — downloads the on-screen canvas as a low-res PNG.
+            Heading matches the button ("Export Preview") so it no longer
+            collides with the removed "Quick Export" modal. */}
         <div className="p-4 border rounded">
-          <h3 className="font-bold mb-2">💾 Quick Export</h3>
+          <h3 className="font-bold mb-2">💾 Export Preview</h3>
           <button
             onClick={() => {
               const canvas = canvasRef.current;
