@@ -201,7 +201,23 @@ export default function MockupGalleryModal({
                   onClick={() => (locked ? onUpgrade() : onSelectMockup(template.id))}
                 >
                   {/* Thumbnail area — aspect-square wrapper for visual consistency */}
-                  <div className="aspect-square overflow-hidden bg-gray-100">
+                  <div className="relative aspect-square overflow-hidden bg-gray-100">
+                    {/* Instant static product thumbnail (200px, ~13KB) shown
+                        underneath the live canvas so the card has content from
+                        the first paint instead of an empty gray box. The live
+                        render — once the stagger reveals this card — draws an
+                        opaque product over it. Hidden on 404 so a missing
+                        thumbnail just falls back to the gray box. */}
+                    <img
+                      src={`/mockups/v2/thumbnails/${template.id}.jpg`}
+                      alt=""
+                      aria-hidden="true"
+                      draggable={false}
+                      className="absolute top-0 left-0 w-full select-none pointer-events-none"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                     <MockupRendererV2
                       template={template}
                       patternImage={index < revealedCount ? image : null}
