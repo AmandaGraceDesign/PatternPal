@@ -4,14 +4,13 @@ import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
 import { sanitizeFilename } from './sanitizeFilename';
 import { convertToFullDrop } from './convertToFullDrop';
 import { downloadBlob } from './downloadCanvas';
-
-const FREE_USER_SIZES = [8, 12];
+import { FREE_EASYSCALE_SIZES } from '../mockups/freeTier';
 
 async function verifyProAccessIfNeeded(config: ScaledExportConfig) {
   const usesProDpi = config.selectedDPI === 300;
   const usesProFormat = config.format !== 'jpg';
-  const usesProSizes = config.selectedSizes.some((size) => !FREE_USER_SIZES.includes(size));
-  const usesExtraSizes = config.selectedSizes.length > FREE_USER_SIZES.length;
+  const usesProSizes = config.selectedSizes.some((size) => !(FREE_EASYSCALE_SIZES as readonly number[]).includes(size));
+  const usesExtraSizes = config.selectedSizes.length > FREE_EASYSCALE_SIZES.length;
   const usesOriginal = config.includeOriginal;
 
   const requiresPro = usesProDpi || usesProFormat || usesProSizes || usesExtraSizes || usesOriginal;
