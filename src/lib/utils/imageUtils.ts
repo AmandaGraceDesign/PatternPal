@@ -190,6 +190,94 @@ export async function extractDpiFromFile(file: File | Blob): Promise<number | nu
   });
 }
 
+// Friendly notice shown when a CMYK file is uploaded. CMYK is a print color
+// mode; browsers/screens are RGB-only and convert CMYK on decode (ignoring the
+// embedded ICC profile), which visibly shifts colors. The fix is to re-export
+// as RGB — so we tell the user exactly that.
+export const CMYK_WARNING_MESSAGE =
+  'Heads up — this looks like a CMYK file (a print color mode). ' +
+  'Screens can only display RGB, so your colors may look different here than ' +
+  'in your design software. For accurate color, re-export as RGB ' +
+  '(in Illustrator: File → Document Color Mode → RGB Color) and upload again. ' +
+  'CMYK is only needed when sending to a physical printer.';
+
+// SOFn (Start Of Frame) markers that carry the component count. Excludes
+// 0xC4 (DHT), 0xC8 (JPG), 0xCC (DAC), which are not frame headers.
+const SOF_MARKERS = new Set([
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+]);
+
+/**
+ * Detect whether a JPEG is CMYK (or YCCK) by reading the component count in its
+ * SOF marker. The component count is the definitive color-space signal:
+ *   1 = grayscale, 3 = RGB (YCbCr), 4 = CMYK / YCCK.
+ * Returns false for non-JPEG, RGB, grayscale, or malformed buffers.
+ */
+export function isCmykJpegBuffer(buffer: ArrayBuffer): boolean {
+  try {
+    const view = new DataView(buffer);
+    if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return false; // not JPEG
+
+    let offset = 2;
+    let markerCount = 0;
+    while (offset < view.byteLength - 9) {
+      if (view.getUint8(offset) !== 0xff) {
+        offset++;
+        continue;
+      }
+      const markerType = view.getUint8(offset + 1);
+
+      // Fill byte (0xFF padding) — advance one and retry.
+      if (markerType === 0xff) {
+        offset++;
+        continue;
+      }
+      // Standalone markers with no length payload: SOI, EOI, TEM, RSTn.
+      if (
+        markerType === 0xd8 ||
+        markerType === 0xd9 ||
+        markerType === 0x01 ||
+        (markerType >= 0xd0 && markerType <= 0xd7)
+      ) {
+        offset += 2;
+        continue;
+      }
+
+      const length = view.getUint16(offset + 2);
+
+      if (SOF_MARKERS.has(markerType)) {
+        // Layout: FF, marker, length(2), precision(1), height(2), width(2), Nf(1)
+        const components = view.getUint8(offset + 9);
+        return components === 4;
+      }
+
+      if (markerType === 0xda) break; // SOS: scan data begins, no SOF after this
+      offset += 2 + length;
+      if (++markerCount > 50) break;
+    }
+  } catch {
+    // Malformed header — treat as "not detected" rather than crashing upload.
+    return false;
+  }
+  return false;
+}
+
+/**
+ * Read a file and report whether it is a CMYK JPEG. Resolves false on any read
+ * error so it can never block an upload.
+ */
+export async function detectCmykJpeg(file: File | Blob): Promise<boolean> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const buf = e.target?.result as ArrayBuffer | undefined;
+      resolve(buf ? isCmykJpegBuffer(buf) : false);
+    };
+    reader.onerror = () => resolve(false);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function detectFileType(view: DataView): string {
   if (view.byteLength >= 4 && view.getUint32(0) === 0x89504e47) {
     return 'PNG';

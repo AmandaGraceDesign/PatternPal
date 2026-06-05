@@ -5,7 +5,7 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import TopBar from '@/components/layout/TopBar';
 import PatternControlsTopBar from '@/components/layout/PatternControlsTopBar';
 import PatternPreviewCanvas from '@/components/canvas/PatternPreviewCanvas';
-import { extractDpiFromFile, validateSvgSafety, validateImageDimensions } from '@/lib/utils/imageUtils';
+import { extractDpiFromFile, validateSvgSafety, validateImageDimensions, detectCmykJpeg, CMYK_WARNING_MESSAGE } from '@/lib/utils/imageUtils';
 import ResumeSignupFromQuery from './_components/ResumeSignupFromQuery';
 import CheckoutConversion from './_components/CheckoutConversion';
 import SignupConversion from './_components/SignupConversion';
@@ -133,6 +133,11 @@ export default function Home() {
               `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
             );
             if (!proceed) continue;
+          }
+
+          // CMYK files decode to shifted colors in-browser — warn, then proceed.
+          if (await detectCmykJpeg(blob)) {
+            alert(CMYK_WARNING_MESSAGE);
           }
 
           setIsLoading(true);
@@ -289,6 +294,11 @@ export default function Home() {
       if (!proceed) return;
     }
 
+    // CMYK files decode to shifted colors in-browser — warn, then proceed.
+    if (await detectCmykJpeg(localBlob)) {
+      alert(CMYK_WARNING_MESSAGE);
+    }
+
     if (process.env.NODE_ENV === 'development') {
       console.log('File upload started:', file.name);
     }
@@ -440,6 +450,11 @@ export default function Home() {
             `This file is ${mb}MB (over 15MB) and may be slow to process. Continue?`
           );
           if (!proceed) return;
+        }
+
+        // CMYK files decode to shifted colors in-browser — warn, then proceed.
+        if (await detectCmykJpeg(blob)) {
+          alert(CMYK_WARNING_MESSAGE);
         }
 
         setIsLoading(true);
