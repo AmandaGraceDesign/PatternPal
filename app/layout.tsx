@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
 import IOSSaveSheet from "@/components/ios/IOSSaveSheet";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = GeistSans;
@@ -108,6 +109,7 @@ pintrk('page');`,
           {children}
           <IOSSaveSheet />
           <SpeedInsights />
+          <Analytics />
           {/* Rewardful affiliate tracking */}
           <Script src="https://r.wdfl.co/rw.js" data-rewardful="97736d" />
           <Script id="rewardful-queue" strategy="beforeInteractive">
