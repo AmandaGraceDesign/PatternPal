@@ -36,10 +36,15 @@ Set in `.env.local` (git-ignored ✓) **and** in Vercel (user already added + re
 
 **Verification:** `npx tsc --noEmit` clean. User tested locally end-to-end —
 **test email received**, Reply-To confirmed. Vercel redeployed with env vars.
+**Pushed to `main`** (commits `9e11e8b`, `2b69be0`, `9c7d27f`).
+
+### ✅ Top-bar cleanup (committed `9c7d27f`)
+Consolidated the two redundant email entry points (Help + Feedback) into a
+single **Support** button that opens the form. Removed the Feedback `mailto:`.
+Right-side top bar is now: **Tour · Support · Upgrade**. Modal heading stays
+"Report a problem" (user's call).
 
 ## Open / decisions pending
-- **Feedback link** ([TopBar.tsx](../src/components/layout/TopBar.tsx)) still uses
-  `mailto:` — user was asked whether to convert it to the same form; not yet decided.
 - No automated test for `/api/support` (would need to mock Nodemailer). Manual
   verification only so far.
 
