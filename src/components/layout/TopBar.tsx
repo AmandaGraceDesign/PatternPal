@@ -8,6 +8,7 @@ import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionBut
 import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
 import ProTrialBanner from '@/components/upgrade/ProTrialBanner';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
+import SupportModal from '@/components/support/SupportModal';
 
 export default function TopBar() {
   const { user, isSignedIn, isLoaded } = useUser();
@@ -16,6 +17,7 @@ export default function TopBar() {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly'>('monthly');
   const [tourKey, setTourKey] = useState(0);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
 
   // Deep-link: ?upgrade=1 from landing page
   useEffect(() => {
@@ -38,22 +40,6 @@ export default function TopBar() {
       openSignUp?.({ forceRedirectUrl: window.location.href });
     }
   }, [isLoaded, isSignedIn, openSignUp]);
-
-  const handleHelp = () => {
-    const body = [
-      'Hi Mandy,',
-      '',
-      'Quick details that help me troubleshoot fast:',
-      '• Device: iPad / desktop / laptop?',
-      '• Browser: Safari / Chrome / Firefox / DuckDuckGo / other?',
-      '• If possible, attach the file you were testing — your artwork is 100% safe with me. I\'ll only use it to reproduce the issue, and I\'ll never share, store, or repurpose it.',
-      '',
-      '[Tell me what\'s happening]',
-      '',
-      'Thanks!',
-    ].join('\n');
-    window.location.href = `mailto:education@amandagracedesign.com?subject=PatternPal%20Pro%20Support&body=${encodeURIComponent(body)}`;
-  };
 
   return (
     <header className="relative z-[60] pointer-events-auto h-12 border-b border-slate-700 bg-slate-900 rounded-t-2xl flex items-center justify-between px-6">
@@ -85,7 +71,7 @@ export default function TopBar() {
         </button>
         <button
           type="button"
-          onClick={handleHelp}
+          onClick={() => setIsSupportOpen(true)}
           className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
         >
           Help
@@ -140,6 +126,8 @@ export default function TopBar() {
       {isPro ? <AffiliateSlideOut /> : <ProTrialBanner onUpgradeClick={() => setIsUpgradeModalOpen(true)} />}
 
       <WelcomeModal key={tourKey} />
+
+      <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
     </header>
   );
 }
