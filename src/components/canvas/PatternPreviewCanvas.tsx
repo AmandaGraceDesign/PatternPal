@@ -275,54 +275,63 @@ export default function PatternPreviewCanvas({
     }
 
     // --- Viewport-based rendering from full-res source — double-buffered to eliminate flash ---
-    const scaleFactor = (zoom / 100) * (96 * tileWidth / image.naturalWidth);
+    // Coalesce the redraw into a single animation frame. Rapid zoom/scale/pan changes
+    // would otherwise run N full synchronous re-tiles back-to-back inside this effect,
+    // blocking the main thread (the cause of poor INP). Scheduling one render per frame
+    // lets the interaction handler return immediately and caps redraws at the refresh rate.
+    const img = image;
+    rafId = requestAnimationFrame(() => {
+      if (cancelled) return;
 
-    // Reuse offscreen canvas — resize only when needed
-    if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
-    const offscreen = offscreenRef.current;
-    const pixelW = canvasSize.width * currentDpr;
-    const pixelH = canvasSize.height * currentDpr;
-    if (offscreen.width !== pixelW || offscreen.height !== pixelH) {
-      offscreen.width = pixelW;
-      offscreen.height = pixelH;
-    }
-    const offCtx = offscreen.getContext('2d');
-    if (!offCtx) return () => { cancelled = true; };
+      const scaleFactor = (zoom / 100) * (96 * tileWidth / img.naturalWidth);
 
-    offCtx.setTransform(1, 0, 0, 1, 0, 0);
-    offCtx.scale(currentDpr, currentDpr);
-    offCtx.imageSmoothingEnabled = true;
-    offCtx.imageSmoothingQuality = 'high';
+      // Reuse offscreen canvas — resize only when needed
+      if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
+      const offscreen = offscreenRef.current;
+      const pixelW = canvasSize.width * currentDpr;
+      const pixelH = canvasSize.height * currentDpr;
+      if (offscreen.width !== pixelW || offscreen.height !== pixelH) {
+        offscreen.width = pixelW;
+        offscreen.height = pixelH;
+      }
+      const offCtx = offscreen.getContext('2d');
+      if (!offCtx) return;
 
-    const tiler = new PatternTiler(offCtx, canvasSize.width, canvasSize.height);
-    tiler.render(image, repeatType, scaleFactor, panX, panY);
+      offCtx.setTransform(1, 0, 0, 1, 0, 0);
+      offCtx.scale(currentDpr, currentDpr);
+      offCtx.imageSmoothingEnabled = true;
+      offCtx.imageSmoothingQuality = 'high';
 
-    if (showTileOutline) {
-      const outlineW = Math.ceil(image.naturalWidth * scaleFactor);
-      const outlineH = Math.ceil(image.naturalHeight * scaleFactor);
+      const tiler = new PatternTiler(offCtx, canvasSize.width, canvasSize.height);
+      tiler.render(img, repeatType, scaleFactor, panX, panY);
 
-      offCtx.strokeStyle = tileOutlineColor;
-      offCtx.lineWidth = 6;
-      offCtx.setLineDash([]);
+      if (showTileOutline) {
+        const outlineW = Math.ceil(img.naturalWidth * scaleFactor);
+        const outlineH = Math.ceil(img.naturalHeight * scaleFactor);
 
-      const col = Math.floor(-panX / outlineW);
-      const row = Math.floor(-panY / outlineH);
+        offCtx.strokeStyle = tileOutlineColor;
+        offCtx.lineWidth = 6;
+        offCtx.setLineDash([]);
 
-      let ox = Math.round(col * outlineW + panX);
-      let oy = Math.round(row * outlineH + panY);
+        const col = Math.floor(-panX / outlineW);
+        const row = Math.floor(-panY / outlineH);
 
-      if (repeatType === 'half-drop') {
-        oy += (((col % 2) + 2) % 2 !== 0) ? Math.round(outlineH / 2) : 0;
-      } else if (repeatType === 'half-brick') {
-        ox += (((row % 2) + 2) % 2 !== 0) ? Math.round(outlineW / 2) : 0;
+        let ox = Math.round(col * outlineW + panX);
+        let oy = Math.round(row * outlineH + panY);
+
+        if (repeatType === 'half-drop') {
+          oy += (((col % 2) + 2) % 2 !== 0) ? Math.round(outlineH / 2) : 0;
+        } else if (repeatType === 'half-brick') {
+          ox += (((row % 2) + 2) % 2 !== 0) ? Math.round(outlineW / 2) : 0;
+        }
+
+        offCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
       }
 
-      offCtx.strokeRect(ox + 3, oy + 3, outlineW - 6, outlineH - 6);
-    }
-
-    // Blit complete frame to visible canvas in one operation — no intermediate blank state
-    canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
-    canvasCtx.drawImage(offscreen, 0, 0);
+      // Blit complete frame to visible canvas in one operation — no intermediate blank state
+      canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+      canvasCtx.drawImage(offscreen, 0, 0);
+    });
 
     return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
   }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr, panX, panY]);
