@@ -26,6 +26,12 @@ import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
 import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
 import { applyBadgeToBlob, shouldStampBadge } from '@/lib/badge/patternpalBadge';
 import { isFreeMockup, isFreeSocialSize, FREE_SOCIAL_SIZE_SLUG, FREE_MOCKUP_IDS } from '@/lib/mockups/freeTier';
+import {
+  SOCIAL_SIZE_PRESETS,
+  SOCIAL_EXPORT_SCALE,
+  type SizeSlug,
+  type SocialSizePreset,
+} from '@/lib/export/socialSizes';
 import JSZip from 'jszip';
 
 interface RepeatExportModalProps {
@@ -62,35 +68,7 @@ const PREVIEW_WIDTH = 250;
 const MIN_SCALE = 0.02;
 const MAX_SCALE = 1.0;
 
-type SizeSlug =
-  | 'instagram-post'
-  | 'instagram-portrait'
-  | 'story'
-  | 'pinterest-pin'
-  | 'facebook-cover';
-
-interface SocialSizePreset {
-  slug: SizeSlug;
-  label: string;
-  pxW: number;
-  pxH: number;
-}
-
-const SOCIAL_SIZE_PRESETS: SocialSizePreset[] = [
-  { slug: 'instagram-post',      label: 'Instagram / Facebook Post',     pxW: 1080, pxH: 1080 },
-  { slug: 'instagram-portrait',  label: 'Instagram / Facebook Portrait',  pxW: 1080, pxH: 1350 },
-  { slug: 'story',               label: 'Story / Reel / TikTok',          pxW: 1080, pxH: 1920 },
-  { slug: 'pinterest-pin',       label: 'Pinterest Pin',                  pxW: 1000, pxH: 1500 },
-  { slug: 'facebook-cover',      label: 'Facebook Cover',                 pxW: 1640, pxH: 624  },
-];
-
 const SOCIAL_PREVIEW_MAX_PX = 240; // max dimension for per-size preview thumbnail
-/** Multiplier applied to preset pxW/pxH at export time. Exports at 2× the
- *  platform's standard size so the heavy mockup downsample (3000×4500 source
- *  → social canvas) is less aggressive and high-frequency textures (e.g. the
- *  mens-tie jacket weave) survive without aliasing. Social platforms accept
- *  and recompress larger uploads, so this is upside-only for quality. */
-const SOCIAL_EXPORT_SCALE = 2;
 
 type ModalMode = 'picker' | 'cricut' | 'social';
 type SocialStep = 'select' | 'preview';
