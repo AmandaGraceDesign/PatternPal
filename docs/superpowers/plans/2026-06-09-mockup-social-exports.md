@@ -10,6 +10,18 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-09-mockup-social-exports-design.md`
 
+## Execution progress
+
+- [x] **Task 1 — DONE** (commit `04df5d8`): shared `socialSizes.ts` module + test created, `RepeatExportModal` rewired to import it. Verified: 51 tests pass, `tsc` clean, no leftover local defs.
+- [ ] Task 2 — Cover-crop geometry (next)
+- [ ] Task 3 — Canvas export + download helper
+- [ ] Task 4 — Mockup Modal UI (AdvancedToolsBar)
+- [ ] Task 5 — ActionsSidebar entry
+- [ ] Task 6 — Social signpost note
+- [ ] Task 7 — Manual verification
+
+**Resume:** continue from Task 2 via superpowers:subagent-driven-development on branch `feat/mockup-social-exports`.
+
 ---
 
 ## File Structure
