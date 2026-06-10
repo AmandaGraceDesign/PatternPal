@@ -15,6 +15,9 @@ import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipelin
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadCanvasAsImage, downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
+import { isFreeMockup, isFreeSocialSize } from '@/lib/mockups/freeTier';
+import { mockupSocialSizes, type SizeSlug } from '@/lib/export/socialSizes';
+import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import { WatermarkConfig, DEFAULT_WATERMARK, applyWatermarkToBlob } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
@@ -52,6 +55,9 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [colorOverlayEnabled, setColorOverlayEnabled] = useState(true);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
   const [badgeEnabled, setBadgeEnabled] = useState(true);
+  const [isCapturingFullRes, setIsCapturingFullRes] = useState(false);
+  const downloadAfterRenderRef = useRef<(() => void) | null>(null);
+  const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
@@ -113,6 +119,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     setHighlightEnableds([true, ...Array.from({ length: highlightCount - 1 }, (_, i) => additionalHighlightDefaults[i] ?? true)]);
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
+    setSocialSizes(new Set());
   }, [selectedMockup]);
 
   // rAF-coalesce color picker updates. Native <input type="color"> fires
@@ -360,54 +367,65 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             setShadowOpacityPercents([30]);
             setHighlightOpacityPercents([30]);
             setColorOverlayEnabled(true);
+            setSocialSizes(new Set());
           }}
           title={getV2Template(selectedMockup)?.name}
           subtitle={`Based on ${tileWidth.toFixed(1)} \u00d7 ${tileHeight.toFixed(1)} inch repeat`}
+          isDownloading={isCapturingFullRes}
           onDownload={async () => {
-            const allowed = await verifyProAccess();
-            if (!allowed) {
-              setIsUpgradeModalOpen(true);
-              return;
-            }
-
-            const mockupCanvas = document.querySelector(
-              '[data-mockup-modal] .mockup-canvas'
-            ) as HTMLCanvasElement | null;
-            if (mockupCanvas) {
-              const template = getV2Template(selectedMockup);
-              const templateSlug =
-                template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-              const baseName = originalFilename
-                ? `${originalFilename}-${templateSlug}`
-                : `mockup-${templateSlug}`;
-              const suggested = sanitizeFilename(baseName, 'mockup');
-              const userInput = window.prompt('Name your mockup file:', suggested);
-              if (!userInput) return;
-              const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
-              const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-              const stampBadge = shouldStampBadge({ isPaidPro: isPro, badgeEnabled });
-              if (wmActive || stampBadge) {
-                let composed: Blob = await new Promise((resolve, reject) =>
-                  mockupCanvas.toBlob(
-                    b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-                    'image/png',
-                  ),
-                );
-                if (wmActive) {
-                  composed = await applyWatermarkToBlob(
-                    composed, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
-                  );
-                }
-                if (stampBadge) {
-                  composed = await applyBadgeToBlob(
-                    composed, mockupCanvas.width, mockupCanvas.height, 'png',
-                  );
-                }
-                await downloadBlobAsImage(composed, filename);
-              } else {
-                await downloadCanvasAsImage(mockupCanvas, filename);
+            if (!proAllowed && !isFreeMockup(selectedMockup)) {
+              const allowed = await verifyProAccess();
+              if (!allowed) {
+                setIsUpgradeModalOpen(true);
+                return;
               }
             }
+
+            const template = getV2Template(selectedMockup);
+            const templateSlug =
+              template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+            const baseName = originalFilename
+              ? `${originalFilename}-${templateSlug}`
+              : `mockup-${templateSlug}`;
+            const suggested = sanitizeFilename(baseName, 'mockup');
+            const userInput = window.prompt('Name your mockup file:', suggested);
+            if (!userInput) return;
+            const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
+
+            downloadAfterRenderRef.current = async () => {
+              try {
+                const mockupCanvas = document.querySelector(
+                  '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
+                ) as HTMLCanvasElement | null;
+                if (!mockupCanvas) return;
+                const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
+                const stampBadge = shouldStampBadge({ isPaidPro: isPro, badgeEnabled });
+                if (wmActive || stampBadge) {
+                  let composed: Blob = await new Promise((resolve, reject) =>
+                    mockupCanvas.toBlob(
+                      b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+                      'image/png',
+                    ),
+                  );
+                  if (wmActive) {
+                    composed = await applyWatermarkToBlob(
+                      composed, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
+                    );
+                  }
+                  if (stampBadge) {
+                    composed = await applyBadgeToBlob(
+                      composed, mockupCanvas.width, mockupCanvas.height, 'png',
+                    );
+                  }
+                  await downloadBlobAsImage(composed, filename);
+                } else {
+                  await downloadCanvasAsImage(mockupCanvas, filename);
+                }
+              } finally {
+                setIsCapturingFullRes(false);
+              }
+            };
+            setIsCapturingFullRes(true);
           }}
         >
           <div className="flex flex-col gap-3">
@@ -560,6 +578,97 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               locked={!isPro}
             />
 
+            {/* Social export — clean mockup at social sizes */}
+            {(() => {
+              const v2Template = getV2Template(selectedMockup);
+              const mockupName = v2Template?.name || selectedMockup;
+              const onSocialExport = async () => {
+                if (socialSizes.size === 0) return;
+
+                if (!proAllowed && !isFreeMockup(selectedMockup)) {
+                  const allowed = await verifyProAccess();
+                  if (!allowed) { setIsUpgradeModalOpen(true); return; }
+                }
+
+                const presets = mockupSocialSizes().filter(p => socialSizes.has(p.slug));
+                const templateSlug = mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+                const baseName = sanitizeFilename(
+                  originalFilename ? `${originalFilename}-${templateSlug}` : `mockup-${templateSlug}`,
+                  'mockup',
+                );
+
+                downloadAfterRenderRef.current = async () => {
+                  try {
+                    const mockupCanvas = document.querySelector(
+                      '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
+                    ) as HTMLCanvasElement | null;
+                    if (!mockupCanvas) return;
+                    await downloadMockupSocialSizes(
+                      mockupCanvas,
+                      presets,
+                      { watermark, isPro: !!isPro, badgeEnabled },
+                      baseName,
+                    );
+                  } finally {
+                    setIsCapturingFullRes(false);
+                  }
+                };
+                setIsCapturingFullRes(true);
+              };
+
+              return (
+                <div className="flex flex-col gap-2 border-t border-[#92afa5]/30 pt-3">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
+                    Share to social — clean mockup
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {mockupSocialSizes().map(preset => {
+                      const locked = !isPro && !isFreeSocialSize(preset.slug);
+                      const checked = socialSizes.has(preset.slug);
+                      return (
+                        <button
+                          key={preset.slug}
+                          type="button"
+                          disabled={isCapturingFullRes}
+                          onClick={() => {
+                            if (locked) { setIsUpgradeModalOpen(true); return; }
+                            setSocialSizes(prev => {
+                              const next = new Set(prev);
+                              if (next.has(preset.slug)) { next.delete(preset.slug); } else { next.add(preset.slug); }
+                              return next;
+                            });
+                          }}
+                          className={`text-xs rounded-md px-2.5 py-1.5 border transition-colors ${
+                            locked
+                              ? 'border-[#e5e7eb] bg-[#f9fafb] text-[#9ca3af]'
+                              : checked
+                                ? 'border-[#e0c26e] bg-[#faf3e0] text-[#294051] font-semibold'
+                                : 'border-[#e5e7eb] bg-white text-[#374151]'
+                          }`}
+                          style={{ touchAction: 'manipulation' }}
+                        >
+                          {locked ? '🔒 ' : ''}{preset.label.replace('Instagram / Facebook ', '')} {preset.pxW}×{preset.pxH}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={socialSizes.size === 0 || isCapturingFullRes}
+                    onClick={onSocialExport}
+                    className="text-xs rounded-md px-3 py-2 bg-[#294051] text-white font-semibold disabled:opacity-50"
+                    style={{ touchAction: 'manipulation' }}
+                  >
+                    {isCapturingFullRes
+                      ? 'Generating…'
+                      : socialSizes.size > 0
+                        ? `Export ${socialSizes.size} social size${socialSizes.size === 1 ? '' : 's'}`
+                        : 'Export social sizes'}
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* Mockup preview */}
             <div className="flex items-center justify-center bg-white rounded-lg p-4">
               {/* Definite 600px wrapper width keeps the modal sized
@@ -622,6 +731,15 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                       colorOverlayEnabled={colorOverlayEnabled}
                       dragEnabled
                       fitContainer
+                      maxRenderDimension={isCapturingFullRes ? undefined : 1500}
+                      preview={!isCapturingFullRes}
+                      onRenderComplete={() => {
+                        if (downloadAfterRenderRef.current) {
+                          const cb = downloadAfterRenderRef.current;
+                          downloadAfterRenderRef.current = null;
+                          cb();
+                        }
+                      }}
                       />
                     </div>
                   );
