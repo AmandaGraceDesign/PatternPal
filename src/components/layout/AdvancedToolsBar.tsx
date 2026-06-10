@@ -12,11 +12,14 @@ import UpgradeModal from '@/components/export/UpgradeModal';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import {
   isFreeMockup,
+  isFreeSocialSize,
   FREE_EASYSCALE_SIZES,
   FREE_EASYSCALE_DPI,
   FREE_EASYSCALE_FORMAT,
 } from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
+import { mockupSocialSizes, type SizeSlug } from '@/lib/export/socialSizes';
+import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
 import { injectPngDpi } from '@/lib/utils/dpiMetadata';
@@ -157,6 +160,8 @@ export default function AdvancedToolsBar({
   const [mockupScaleOverride, setMockupScaleOverride] = useState<number | null>(null);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
   const [badgeEnabled, setBadgeEnabled] = useState(true);
+  // Selected social sizes for the clean-mockup export (Mockup Modal).
+  const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
 
   // Resize per-layer arrays to match the selected template's layer count.
   useEffect(() => {
@@ -171,6 +176,7 @@ export default function AdvancedToolsBar({
     setHighlightEnableds([true, ...Array.from({ length: highlightCount - 1 }, (_, i) => additionalHighlightDefaults[i] ?? true)]);
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
+    setSocialSizes(new Set());
   }, [selectedMockup]);
 
   // rAF-coalesce color picker updates. Native <input type="color"> fires
@@ -453,6 +459,7 @@ export default function AdvancedToolsBar({
           setShadowOpacityPercents([30]);
           setHighlightOpacityPercents([30]);
           setColorOverlayEnabled(true);
+          setSocialSizes(new Set());
         }}
         onSelectMockup={(type) => {
           setSelectedMockup(type);
@@ -474,6 +481,41 @@ export default function AdvancedToolsBar({
         const v2Template = getV2Template(selectedMockup);
         const mockupName = v2Template?.name || selectedMockup;
 
+        const onSocialExport = async () => {
+          if (socialSizes.size === 0) return;
+
+          // Free users may export the free mockups; locked templates need Pro.
+          if (!proAllowed && !isFreeMockup(selectedMockup)) {
+            const allowed = await verifyProAccess();
+            if (!allowed) { setIsUpgradeModalOpen(true); return; }
+          }
+
+          const presets = mockupSocialSizes().filter(p => socialSizes.has(p.slug));
+          const templateSlug = mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+          const baseName = sanitizeFilename(
+            originalFilename ? `${originalFilename}-${templateSlug}` : `mockup-${templateSlug}`,
+            'mockup',
+          );
+
+          downloadAfterRenderRef.current = async () => {
+            try {
+              const mockupCanvas = document.querySelector(
+                '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
+              ) as HTMLCanvasElement | null;
+              if (!mockupCanvas) return;
+              await downloadMockupSocialSizes(
+                mockupCanvas,
+                presets,
+                { watermark, isPro: !!isPro, badgeEnabled },
+                baseName,
+              );
+            } finally {
+              setIsCapturingFullRes(false);
+            }
+          };
+          setIsCapturingFullRes(true);
+        };
+
         return (
           <MockupModal
             isOpen={!!selectedMockup}
@@ -481,6 +523,7 @@ export default function AdvancedToolsBar({
               setSelectedMockup(null);
               setMockupColorOverride(null);
               setMockupScaleOverride(null);
+              setSocialSizes(new Set());
             }}
             title={mockupName}
             subtitle={`Based on ${effectiveTileWidth.toFixed(1)} × ${effectiveTileHeight.toFixed(1)} inch repeat`}
@@ -755,6 +798,57 @@ export default function AdvancedToolsBar({
                 onChange={setBadgeEnabled}
                 locked={!isPro}
               />
+
+              {/* Social export — clean mockup at social sizes */}
+              <div className="flex flex-col gap-2 border-t border-[#92afa5]/30 pt-3">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
+                  Share to social — clean mockup
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {mockupSocialSizes().map(preset => {
+                    const locked = !isPro && !isFreeSocialSize(preset.slug);
+                    const checked = socialSizes.has(preset.slug);
+                    return (
+                      <button
+                        key={preset.slug}
+                        type="button"
+                        disabled={isCapturingFullRes}
+                        onClick={() => {
+                          if (locked) { setIsUpgradeModalOpen(true); return; }
+                          setSocialSizes(prev => {
+                            const next = new Set(prev);
+                            if (next.has(preset.slug)) { next.delete(preset.slug); } else { next.add(preset.slug); }
+                            return next;
+                          });
+                        }}
+                        className={`text-xs rounded-md px-2.5 py-1.5 border transition-colors ${
+                          locked
+                            ? 'border-[#e5e7eb] bg-[#f9fafb] text-[#9ca3af]'
+                            : checked
+                              ? 'border-[#e0c26e] bg-[#faf3e0] text-[#294051] font-semibold'
+                              : 'border-[#e5e7eb] bg-white text-[#374151]'
+                        }`}
+                        style={{ touchAction: 'manipulation' }}
+                      >
+                        {locked ? '🔒 ' : ''}{preset.label.replace('Instagram / Facebook ', '')} {preset.pxW}×{preset.pxH}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={socialSizes.size === 0 || isCapturingFullRes}
+                  onClick={onSocialExport}
+                  className="text-xs rounded-md px-3 py-2 bg-[#294051] text-white font-semibold disabled:opacity-50"
+                  style={{ touchAction: 'manipulation' }}
+                >
+                  {isCapturingFullRes
+                    ? 'Generating…'
+                    : socialSizes.size > 0
+                      ? `Export ${socialSizes.size} social size${socialSizes.size === 1 ? '' : 's'}`
+                      : 'Export social sizes'}
+                </button>
+              </div>
 
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
                 {/* Definite 600px wrapper width keeps the modal from
