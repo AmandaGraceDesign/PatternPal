@@ -56,3 +56,15 @@ export const FULL_SIZE_PRESET: SocialSizePreset = {
 export function mockupDownloadSizes(): SocialSizePreset[] {
   return [FULL_SIZE_PRESET, ...mockupSocialSizes()];
 }
+
+/** Aspect of the full mockup render (3000×4500). */
+export const MOCKUP_SRC_ASPECT = 2 / 3;
+
+/** True when cover-cropping this size from the 2:3 mockup removes top/bottom — i.e.
+ *  a vertical Top/Center/Bottom anchor changes the output. Square and Portrait only:
+ *  Pinterest is the same 2:3 (no crop), Story crops the sides, Full size isn't cropped.
+ *  Mirrors the taller-source branch of computeCoverCropRect. */
+export function cropsVertically(preset: SocialSizePreset): boolean {
+  if (preset.slug === FULL_SIZE_SLUG) return false;
+  return MOCKUP_SRC_ASPECT < preset.pxW / preset.pxH;
+}

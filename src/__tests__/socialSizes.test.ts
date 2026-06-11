@@ -5,6 +5,8 @@ import {
   MOCKUP_INELIGIBLE_SLUGS,
   mockupDownloadSizes,
   FULL_SIZE_SLUG,
+  FULL_SIZE_PRESET,
+  cropsVertically,
 } from '../lib/export/socialSizes';
 
 describe('mockupSocialSizes', () => {
@@ -47,5 +49,30 @@ describe('mockupDownloadSizes', () => {
   it('does not leak full-size into the Social Export presets', () => {
     // SOCIAL_SIZE_PRESETS feeds the (separate) Social Export modal — must stay 5 platform sizes.
     expect(SOCIAL_SIZE_PRESETS.map(p => p.slug)).not.toContain('full-size');
+  });
+});
+
+describe('cropsVertically', () => {
+  const bySlug = (slug: string) =>
+    mockupDownloadSizes().find(p => p.slug === slug)!;
+
+  it('is true for square (instagram-post) — crops top/bottom', () => {
+    expect(cropsVertically(bySlug('instagram-post'))).toBe(true);
+  });
+
+  it('is true for portrait (instagram-portrait)', () => {
+    expect(cropsVertically(bySlug('instagram-portrait'))).toBe(true);
+  });
+
+  it('is false for pinterest-pin — same 2:3 as source, no crop', () => {
+    expect(cropsVertically(bySlug('pinterest-pin'))).toBe(false);
+  });
+
+  it('is false for story — crops sides, not top/bottom', () => {
+    expect(cropsVertically(bySlug('story'))).toBe(false);
+  });
+
+  it('is false for full size — never cropped', () => {
+    expect(cropsVertically(FULL_SIZE_PRESET)).toBe(false);
   });
 });
