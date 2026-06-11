@@ -57,7 +57,7 @@ export default function MockupDownloadMenu({
         isBusy={isBusy}
       />
 
-      <div className="flex flex-col">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         {sizes.map(preset => {
           const locked = isLocked(preset);
           const checked = selected.has(preset.slug);
@@ -68,8 +68,8 @@ export default function MockupDownloadMenu({
           return (
             <div
               key={preset.slug}
-              className={`flex items-center gap-3 py-2 border-t border-[#f0ece2] first:border-t-0 ${
-                isActive ? 'bg-[#f4e8c8] rounded-md px-1' : ''
+              className={`flex items-center gap-3 py-2 rounded-md ${
+                isActive ? 'bg-[#f4e8c8] px-1' : ''
               }`}
             >
               {/* Select toggle */}
