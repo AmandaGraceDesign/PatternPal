@@ -18,8 +18,9 @@ import {
   FREE_EASYSCALE_FORMAT,
 } from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
-import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug } from '@/lib/export/socialSizes';
-import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
+import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { downloadMockupSocialSizes, type VAnchor } from '@/lib/utils/mockupSocialExport';
+import MockupDownloadMenu from '@/components/mockups/MockupDownloadMenu';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
@@ -36,6 +37,15 @@ import { useEffect } from 'react';
 // if it's Pro-locked (free user on a paid template), start with nothing selected.
 function defaultDownloadSelection(canFullSize: boolean): Set<SizeSlug> {
   return canFullSize ? new Set<SizeSlug>([FULL_SIZE_SLUG]) : new Set<SizeSlug>();
+}
+
+// All per-size crop anchors default to 'center' so an untouched export is
+// byte-identical to the pre-anchor behavior.
+function allCenterAnchors(): Record<SizeSlug, VAnchor> {
+  return mockupDownloadSizes().reduce((acc, p) => {
+    acc[p.slug] = 'center';
+    return acc;
+  }, {} as Record<SizeSlug, VAnchor>);
 }
 
 /** Debounces a value — returns the input only after it has stopped changing for `delay` ms. */
@@ -166,6 +176,10 @@ export default function AdvancedToolsBar({
   const [badgeEnabled, setBadgeEnabled] = useState(true);
   // Selected sizes for the unified Mockup Modal download menu (Full size + social sizes).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
+  const [socialAnchors, setSocialAnchors] = useState<Record<SizeSlug, VAnchor>>(
+    () => allCenterAnchors(),
+  );
+  const [mockupSnapshotUrl, setMockupSnapshotUrl] = useState<string | null>(null);
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
 
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
@@ -185,6 +199,8 @@ export default function AdvancedToolsBar({
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
     setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup)));
+    setSocialAnchors(allCenterAnchors());
+    setMockupSnapshotUrl(null);
   }, [selectedMockup, proAllowed]);
 
   // rAF-coalesce color picker updates. Native <input type="color"> fires
@@ -464,6 +480,8 @@ export default function AdvancedToolsBar({
           setHighlightOpacityPercents([30]);
           setColorOverlayEnabled(true);
           setSocialSizes(defaultDownloadSelection(proAllowed || (!!selectedMockup && isFreeMockup(selectedMockup))));
+          setSocialAnchors(allCenterAnchors());
+          setMockupSnapshotUrl(null);
         }}
         onSelectMockup={(type) => {
           setSelectedMockup(type);
@@ -514,7 +532,7 @@ export default function AdvancedToolsBar({
               await downloadMockupSocialSizes(
                 mockupCanvas,
                 presets,
-                { watermark, isPro: !!isPro, badgeEnabled },
+                { watermark, isPro: !!isPro, badgeEnabled, anchors: socialAnchors },
                 baseName,
               );
             } finally {
@@ -532,6 +550,8 @@ export default function AdvancedToolsBar({
               setMockupColorOverride(null);
               setMockupScaleOverride(null);
               setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup!)));
+              setSocialAnchors(allCenterAnchors());
+              setMockupSnapshotUrl(null);
             }}
             title={mockupName}
             subtitle={`Based on ${effectiveTileWidth.toFixed(1)} × ${effectiveTileHeight.toFixed(1)} inch repeat`}
@@ -728,58 +748,29 @@ export default function AdvancedToolsBar({
               />
 
               {/* Unified download menu — Full size first, then social sizes */}
-              <div className="flex flex-col gap-2 border-t border-[#92afa5]/30 pt-3">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
-                  Download mockup
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {mockupDownloadSizes().map(preset => {
-                    const locked = preset.slug === FULL_SIZE_SLUG
-                      ? (!isPro && !isFreeMockup(selectedMockup))
-                      : (!isPro && !isFreeSocialSize(preset.slug));
-                    const checked = socialSizes.has(preset.slug);
-                    const label = preset.slug === FULL_SIZE_SLUG
-                      ? 'Full size'
-                      : preset.label.replace('Instagram / Facebook ', '');
-                    return (
-                      <button
-                        key={preset.slug}
-                        type="button"
-                        disabled={isCapturingFullRes}
-                        onClick={() => {
-                          if (locked) { setIsUpgradeModalOpen(true); return; }
-                          setSocialSizes(prev => {
-                            const next = new Set(prev);
-                            if (next.has(preset.slug)) { next.delete(preset.slug); } else { next.add(preset.slug); }
-                            return next;
-                          });
-                        }}
-                        className={`text-xs rounded-md px-2.5 py-1.5 border transition-colors ${
-                          locked
-                            ? 'border-[#e5e7eb] bg-[#f9fafb] text-[#9ca3af]'
-                            : checked
-                              ? 'border-[#e0c26e] bg-[#faf3e0] text-[#294051] font-semibold'
-                              : 'border-[#e5e7eb] bg-white text-[#374151]'
-                        }`}
-                        style={{ touchAction: 'manipulation' }}
-                      >
-                        {locked ? '🔒 ' : ''}{label} {preset.pxW}×{preset.pxH}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  type="button"
-                  disabled={socialSizes.size === 0 || isCapturingFullRes}
-                  onClick={onDownloadExport}
-                  className="text-xs rounded-md px-3 py-2 bg-[#294051] text-white font-semibold disabled:opacity-50"
-                  style={{ touchAction: 'manipulation' }}
-                >
-                  {isCapturingFullRes
-                    ? 'Generating…'
-                    : `Download ${socialSizes.size || ''} file${socialSizes.size === 1 ? '' : 's'}`.replace('  ', ' ')}
-                </button>
-              </div>
+              <MockupDownloadMenu
+                selected={socialSizes}
+                onToggleSize={(slug) =>
+                  setSocialSizes(prev => {
+                    const next = new Set(prev);
+                    if (next.has(slug)) next.delete(slug); else next.add(slug);
+                    return next;
+                  })
+                }
+                anchors={socialAnchors}
+                onSetAnchor={(slug, anchor) =>
+                  setSocialAnchors(prev => ({ ...prev, [slug]: anchor }))
+                }
+                snapshotUrl={mockupSnapshotUrl}
+                isLocked={(preset: SocialSizePreset) =>
+                  preset.slug === FULL_SIZE_SLUG
+                    ? (!isPro && !isFreeMockup(selectedMockup))
+                    : (!isPro && !isFreeSocialSize(preset.slug))
+                }
+                onLockedClick={() => setIsUpgradeModalOpen(true)}
+                isBusy={isCapturingFullRes}
+                onDownload={onDownloadExport}
+              />
 
               <div className="flex items-center justify-center bg-white rounded-lg p-4">
                 {/* Definite 600px wrapper width keeps the modal from
@@ -845,6 +836,14 @@ export default function AdvancedToolsBar({
                           const cb = downloadAfterRenderRef.current;
                           downloadAfterRenderRef.current = null;
                           cb();
+                        }
+                        // Snapshot the preview canvas for the crop thumbnails.
+                        // Skip during full-res capture (huge canvas, mid-download).
+                        if (!isCapturingFullRes) {
+                          const c = document.querySelector(
+                            '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
+                          ) as HTMLCanvasElement | null;
+                          if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
                         }
                       }}
                       />
