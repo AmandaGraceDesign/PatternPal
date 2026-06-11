@@ -6,7 +6,7 @@ import JSZip from 'jszip';
 import { downloadBlob } from './downloadCanvas';
 import { applyWatermarkToBlob, type WatermarkConfig } from '../watermark/watermark';
 import { applyBadgeToBlob, shouldStampBadge } from '../badge/patternpalBadge';
-import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset } from '../export/socialSizes';
+import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset, type SizeSlug } from '../export/socialSizes';
 import { injectPngDpi } from './dpiMetadata';
 
 /** Vertical crop anchor for cover-cropping a portrait mockup into a shorter target.
@@ -53,8 +53,9 @@ export async function coverCropToBlob(
   source: HTMLCanvasElement,
   targetW: number,
   targetH: number,
+  anchor: VAnchor = 'center',
 ): Promise<Blob> {
-  const r = computeCoverCropRect(source.width, source.height, targetW, targetH);
+  const r = computeCoverCropRect(source.width, source.height, targetW, targetH, anchor);
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
@@ -75,6 +76,9 @@ export interface MockupSocialOpts {
   watermark: WatermarkConfig;
   isPro: boolean;
   badgeEnabled: boolean;
+  /** Per-size vertical anchor. Missing slug => 'center'. Ignored by full size and
+   *  by sizes whose crop is horizontal. */
+  anchors?: Partial<Record<SizeSlug, VAnchor>>;
 }
 
 /** Produce one social-sized clean-mockup PNG blob: cover-crop -> watermark -> badge. */
@@ -85,7 +89,8 @@ export async function exportMockupSocialBlob(
 ): Promise<Blob> {
   const w = preset.pxW * SOCIAL_EXPORT_SCALE;
   const h = preset.pxH * SOCIAL_EXPORT_SCALE;
-  let blob = await coverCropToBlob(source, w, h);
+  const anchor = opts.anchors?.[preset.slug] ?? 'center';
+  let blob = await coverCropToBlob(source, w, h, anchor);
   const wm = opts.watermark;
   if (wm.enabled && (wm.text.trim() || wm.logoDataUrl)) {
     blob = await applyWatermarkToBlob(blob, w, h, wm, 'png');
