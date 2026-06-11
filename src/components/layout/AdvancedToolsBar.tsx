@@ -164,7 +164,7 @@ export default function AdvancedToolsBar({
   const [mockupScaleOverride, setMockupScaleOverride] = useState<number | null>(null);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
   const [badgeEnabled, setBadgeEnabled] = useState(true);
-  // Selected social sizes for the clean-mockup export (Mockup Modal).
+  // Selected sizes for the unified Mockup Modal download menu (Full size + social sizes).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
 

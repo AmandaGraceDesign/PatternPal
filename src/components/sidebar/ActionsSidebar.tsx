@@ -62,6 +62,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const [badgeEnabled, setBadgeEnabled] = useState(true);
   const [isCapturingFullRes, setIsCapturingFullRes] = useState(false);
   const downloadAfterRenderRef = useRef<(() => void) | null>(null);
+  // Selected sizes for the unified Mockup Modal download menu (Full size + social sizes).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
