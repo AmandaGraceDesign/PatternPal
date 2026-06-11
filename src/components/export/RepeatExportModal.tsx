@@ -473,6 +473,12 @@ function SocialPreviewSlide({
         )}
       </div>
 
+      {/* Signpost: clean full-size mockup lives in the Mockup Modal */}
+      <p className="text-[11px] text-[#6b7280] leading-snug mt-1">
+        💡 Want just the mockup at full size (no pattern background)?
+        Export it from the Mockup Modal.
+      </p>
+
       {/* Info */}
       <div className="text-center space-y-1">
         <div className="text-xs text-[#555]">
