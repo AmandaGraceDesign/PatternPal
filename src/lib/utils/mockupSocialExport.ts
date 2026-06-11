@@ -6,7 +6,8 @@ import JSZip from 'jszip';
 import { downloadBlob } from './downloadCanvas';
 import { applyWatermarkToBlob, type WatermarkConfig } from '../watermark/watermark';
 import { applyBadgeToBlob, shouldStampBadge } from '../badge/patternpalBadge';
-import { SOCIAL_EXPORT_SCALE, type SocialSizePreset } from '../export/socialSizes';
+import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset } from '../export/socialSizes';
+import { injectPngDpi } from './dpiMetadata';
 
 export interface CoverCropRect {
   sx: number;
@@ -85,6 +86,41 @@ export async function exportMockupSocialBlob(
   return blob;
 }
 
+/** Full-DPI output for the full-size mockup download. Matches the prior header-Download. */
+const FULL_SIZE_OUTPUT_DPI = 150;
+
+/** Full-size clean mockup: downscale the full render by ½ (3000×4500 → 1500×2250),
+ *  composite watermark/badge, inject 150 DPI. NOT cover-cropped — it's the whole shot. */
+export async function exportFullSizeMockupBlob(
+  source: HTMLCanvasElement,
+  opts: MockupSocialOpts,
+): Promise<Blob> {
+  const w = Math.round(source.width / 2);
+  const h = Math.round(source.height / 2);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('exportFullSizeMockupBlob: no 2d context');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, w, h);
+  let blob: Blob = await new Promise((resolve, reject) =>
+    canvas.toBlob(
+      b => (b ? resolve(b) : reject(new Error('exportFullSizeMockupBlob: toBlob returned null'))),
+      'image/png',
+    ),
+  );
+  const wm = opts.watermark;
+  if (wm.enabled && (wm.text.trim() || wm.logoDataUrl)) {
+    blob = await applyWatermarkToBlob(blob, w, h, wm, 'png');
+  }
+  if (shouldStampBadge({ isPaidPro: opts.isPro, badgeEnabled: opts.badgeEnabled })) {
+    blob = await applyBadgeToBlob(blob, w, h, 'png');
+  }
+  return injectPngDpi(blob, FULL_SIZE_OUTPUT_DPI);
+}
+
 /** Export all selected sizes. One file -> direct download; many -> a single zip.
  *  Mirrors the Social Export modal's download behavior. Returns any sizes that failed. */
 export async function downloadMockupSocialSizes(
@@ -96,7 +132,10 @@ export async function downloadMockupSocialSizes(
   const results: { preset: SocialSizePreset; blob: Blob | null }[] = [];
   for (const preset of presets) {
     try {
-      results.push({ preset, blob: await exportMockupSocialBlob(source, preset, opts) });
+      const blob = preset.slug === FULL_SIZE_SLUG
+        ? await exportFullSizeMockupBlob(source, opts)
+        : await exportMockupSocialBlob(source, preset, opts);
+      results.push({ preset, blob });
     } catch (err) {
       console.error(`[mockupSocialExport] failed for "${preset.slug}":`, err);
       results.push({ preset, blob: null });
