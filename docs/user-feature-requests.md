@@ -6,6 +6,17 @@ Running list of features and improvements requested by PatternPAL Pro users. Whe
 
 ## Open Requests
 
+### 3. Crop anchor (Top/Center/Bottom) + per-size previews for mockup social sizes
+**Requested:** 2026-06-11
+**User:** Mandy
+**Summary:** The unified "Download mockup" social sizes use an auto-**centered** cover-crop, so on a 1:1 square the focal subject can be clipped wrong — e.g. a dress mockup keeps the full hanger but cuts off the dress hem. User wants (a) a **preview thumbnail per size** showing the actual crop framing, and (b) the ability to **anchor the crop Top / Center / Bottom** per size so she can keep the hem and drop the hanger. Other templates have similar framing mismatches.
+**Context:** Comes right after the unified Mockup Download Menu shipped (branch `feat/mockup-social-exports`). User picked **anchor presets** over free-drag (lighter UI, solves the case) and chose to build it in a **fresh brainstorm session**.
+**Related existing code:** Cover-crop geometry auto-centers in [src/lib/utils/mockupSocialExport.ts](src/lib/utils/mockupSocialExport.ts) — the crop-rect helper (~lines 30–38) computes `sy = (srcH - sHeight)/2` (vertical center) / `sx = (srcW - sWidth)/2` (horizontal center). Anchor = swap the centered offset for Top (`0`), Center (centered), Bottom (`srcH - sHeight`), threaded through `coverCropToBlob` → `exportMockupSocialBlob` → `downloadMockupSocialSizes`. Preview = render the same crop rect into a small canvas in the unified list rows ([AdvancedToolsBar.tsx](src/components/layout/AdvancedToolsBar.tsx) + [ActionsSidebar.tsx](src/components/sidebar/ActionsSidebar.tsx)).
+**Seed/handoff:** [docs/superpowers/SEED-mockup-crop-anchor.md](docs/superpowers/SEED-mockup-crop-anchor.md)
+**Suggested approach:** Add a per-size `anchor: 'top' | 'center' | 'bottom'` (default `center` = today's behavior) to the crop math; surface a tiny Top/Center/Bottom toggle + live preview thumbnail on each selected size row. Brainstorm the UX (vertical anchor only vs also horizontal; per-size vs per-template default) before planning.
+
+---
+
 ### 1. Custom filename on export (Easyscale + Pattern Fill)
 **Requested:** 2026-04-18
 **User:** (unspecified)
