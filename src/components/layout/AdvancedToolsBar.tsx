@@ -18,21 +18,25 @@ import {
   FREE_EASYSCALE_FORMAT,
 } from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
-import { mockupSocialSizes, type SizeSlug } from '@/lib/export/socialSizes';
+import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug } from '@/lib/export/socialSizes';
 import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
-import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
-import { injectPngDpi } from '@/lib/utils/dpiMetadata';
-import { WatermarkConfig, DEFAULT_WATERMARK, applyWatermarkToBlob } from '@/lib/watermark/watermark';
+import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
 import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
-import { applyBadgeToBlob, shouldStampBadge } from '@/lib/badge/patternpalBadge';
+import { shouldStampBadge } from '@/lib/badge/patternpalBadge';
 import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { useEffect } from 'react';
+
+// Full size is preselected when it's downloadable for the current template/user;
+// if it's Pro-locked (free user on a paid template), start with nothing selected.
+function defaultDownloadSelection(canFullSize: boolean): Set<SizeSlug> {
+  return canFullSize ? new Set<SizeSlug>([FULL_SIZE_SLUG]) : new Set<SizeSlug>();
+}
 
 /** Debounces a value — returns the input only after it has stopped changing for `delay` ms. */
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -162,6 +166,10 @@ export default function AdvancedToolsBar({
   const [badgeEnabled, setBadgeEnabled] = useState(true);
   // Selected social sizes for the clean-mockup export (Mockup Modal).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
+  const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
+
+  const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
+  const proAllowed = isPro || proAccess === 'allowed';
 
   // Resize per-layer arrays to match the selected template's layer count.
   useEffect(() => {
@@ -176,8 +184,8 @@ export default function AdvancedToolsBar({
     setHighlightEnableds([true, ...Array.from({ length: highlightCount - 1 }, (_, i) => additionalHighlightDefaults[i] ?? true)]);
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
-    setSocialSizes(new Set());
-  }, [selectedMockup]);
+    setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup)));
+  }, [selectedMockup, proAllowed]);
 
   // rAF-coalesce color picker updates. Native <input type="color"> fires
   // onChange continuously during a picker drag; each setState kicks off a
@@ -212,10 +220,6 @@ export default function AdvancedToolsBar({
   const [compositionAnalysis, setCompositionAnalysis] = useState<CompositionAnalysis | null>(null);
   const [colorHarmonyAnalysis, setColorHarmonyAnalysis] = useState<ColorHarmonyAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
-
-  const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
-  const proAllowed = isPro || proAccess === 'allowed';
 
   const verifyProAccess = async () => {
     if (!isSignedIn) {
@@ -459,7 +463,7 @@ export default function AdvancedToolsBar({
           setShadowOpacityPercents([30]);
           setHighlightOpacityPercents([30]);
           setColorOverlayEnabled(true);
-          setSocialSizes(new Set());
+          setSocialSizes(defaultDownloadSelection(proAllowed || (!!selectedMockup && isFreeMockup(selectedMockup))));
         }}
         onSelectMockup={(type) => {
           setSelectedMockup(type);
@@ -481,16 +485,20 @@ export default function AdvancedToolsBar({
         const v2Template = getV2Template(selectedMockup);
         const mockupName = v2Template?.name || selectedMockup;
 
-        const onSocialExport = async () => {
+        const onDownloadExport = async () => {
           if (socialSizes.size === 0) return;
 
-          // Free users may export the free mockups; locked templates need Pro.
-          if (!proAllowed && !isFreeMockup(selectedMockup)) {
+          const presets = mockupDownloadSizes().filter(p => socialSizes.has(p.slug));
+
+          // Any selected row that isn't free for this user requires Pro.
+          const needsPro = presets.some(p =>
+            p.slug === FULL_SIZE_SLUG ? !isFreeMockup(selectedMockup) : !isFreeSocialSize(p.slug),
+          );
+          if (needsPro && !proAllowed) {
             const allowed = await verifyProAccess();
             if (!allowed) { setIsUpgradeModalOpen(true); return; }
           }
 
-          const presets = mockupSocialSizes().filter(p => socialSizes.has(p.slug));
           const templateSlug = mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
           const baseName = sanitizeFilename(
             originalFilename ? `${originalFilename}-${templateSlug}` : `mockup-${templateSlug}`,
@@ -523,90 +531,10 @@ export default function AdvancedToolsBar({
               setSelectedMockup(null);
               setMockupColorOverride(null);
               setMockupScaleOverride(null);
-              setSocialSizes(new Set());
+              setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup!)));
             }}
             title={mockupName}
             subtitle={`Based on ${effectiveTileWidth.toFixed(1)} × ${effectiveTileHeight.toFixed(1)} inch repeat`}
-            isDownloading={isCapturingFullRes}
-            onDownload={async () => {
-              // Skip the server re-verify if the client-side Pro check already
-              // passed (she sees the gallery, so proAllowed must be true). The
-              // re-verify was paranoid defense and was incorrectly blocking
-              // real Pro users when /api/pro/verify intermittently returned
-              // 401/403 — needs separate investigation, but don't gate
-              // legitimate downloads on it.
-              // Free users may download the curated free mockups (badge stays
-              // stamped). Locked templates still require Pro verification.
-              if (!proAllowed && !isFreeMockup(selectedMockup)) {
-                const allowed = await verifyProAccess();
-                if (!allowed) {
-                  setIsUpgradeModalOpen(true);
-                  return;
-                }
-              }
-
-              // Prompt for filename BEFORE triggering the full-res re-render so
-              // the user doesn't watch a blank/stale canvas while waiting for
-              // the prompt.
-              const templateSlug =
-                mockupName?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-              const baseName = originalFilename
-                ? `${originalFilename}-${templateSlug}`
-                : `mockup-${templateSlug}`;
-              const suggested = sanitizeFilename(baseName, 'mockup');
-              const userInput = window.prompt('Name your mockup file:', suggested);
-              if (!userInput) return;
-              const filename = `${sanitizeFilename(userInput, 'mockup')}.png`;
-
-              // Queue the actual capture+download to fire once the canvas
-              // finishes its full-res render. MockupRendererV2's
-              // onRenderComplete will invoke this callback exactly once.
-              downloadAfterRenderRef.current = async () => {
-                try {
-                  const mockupCanvas = document.querySelector(
-                    '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
-                  ) as HTMLCanvasElement | null;
-                  if (!mockupCanvas) return;
-
-                  // Downscale to half (3000×4500 → 1500×2250) for 150 DPI
-                  // output. Mockups are portfolio/social/web-display assets, so
-                  // 150 DPI cuts file size ~4× and still beats every social
-                  // target (Pinterest 1000×1500, IG 1080×1350). Source template
-                  // assets stay at 300 DPI rendering, so this is reversible by
-                  // dropping the divide and switching the DPI back to `dpi`.
-                  const OUTPUT_DPI = 150;
-                  const dl = document.createElement('canvas');
-                  dl.width = Math.round(mockupCanvas.width / 2);
-                  dl.height = Math.round(mockupCanvas.height / 2);
-                  const dctx = dl.getContext('2d');
-                  if (!dctx) return;
-                  dctx.imageSmoothingEnabled = true;
-                  dctx.imageSmoothingQuality = 'high';
-                  dctx.drawImage(mockupCanvas, 0, 0, dl.width, dl.height);
-
-                  const sourceBlob: Blob = await new Promise((resolve, reject) =>
-                    dl.toBlob(
-                      b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-                      'image/png',
-                    ),
-                  );
-                  const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-                  let composedBlob = wmActive
-                    ? await applyWatermarkToBlob(
-                        sourceBlob, dl.width, dl.height, watermark, 'png',
-                      )
-                    : sourceBlob;
-                  if (shouldStampBadge({ isPaidPro: isPro, badgeEnabled })) {
-                    composedBlob = await applyBadgeToBlob(composedBlob, dl.width, dl.height, 'png');
-                  }
-                  const finalBlob = await injectPngDpi(composedBlob, OUTPUT_DPI);
-                  await downloadBlobAsImage(finalBlob, filename);
-                } finally {
-                  setIsCapturingFullRes(false);
-                }
-              };
-              setIsCapturingFullRes(true);
-            }}
           >
             <div className="flex flex-col gap-3">
               {(() => {
@@ -799,15 +727,20 @@ export default function AdvancedToolsBar({
                 locked={!isPro}
               />
 
-              {/* Social export — clean mockup at social sizes */}
+              {/* Unified download menu — Full size first, then social sizes */}
               <div className="flex flex-col gap-2 border-t border-[#92afa5]/30 pt-3">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
-                  Share to social — clean mockup
+                  Download mockup
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {mockupSocialSizes().map(preset => {
-                    const locked = !isPro && !isFreeSocialSize(preset.slug);
+                  {mockupDownloadSizes().map(preset => {
+                    const locked = preset.slug === FULL_SIZE_SLUG
+                      ? (!isPro && !isFreeMockup(selectedMockup))
+                      : (!isPro && !isFreeSocialSize(preset.slug));
                     const checked = socialSizes.has(preset.slug);
+                    const label = preset.slug === FULL_SIZE_SLUG
+                      ? 'Full size'
+                      : preset.label.replace('Instagram / Facebook ', '');
                     return (
                       <button
                         key={preset.slug}
@@ -830,7 +763,7 @@ export default function AdvancedToolsBar({
                         }`}
                         style={{ touchAction: 'manipulation' }}
                       >
-                        {locked ? '🔒 ' : ''}{preset.label.replace('Instagram / Facebook ', '')} {preset.pxW}×{preset.pxH}
+                        {locked ? '🔒 ' : ''}{label} {preset.pxW}×{preset.pxH}
                       </button>
                     );
                   })}
@@ -838,15 +771,13 @@ export default function AdvancedToolsBar({
                 <button
                   type="button"
                   disabled={socialSizes.size === 0 || isCapturingFullRes}
-                  onClick={onSocialExport}
+                  onClick={onDownloadExport}
                   className="text-xs rounded-md px-3 py-2 bg-[#294051] text-white font-semibold disabled:opacity-50"
                   style={{ touchAction: 'manipulation' }}
                 >
                   {isCapturingFullRes
                     ? 'Generating…'
-                    : socialSizes.size > 0
-                      ? `Export ${socialSizes.size} social size${socialSizes.size === 1 ? '' : 's'}`
-                      : 'Export social sizes'}
+                    : `Download ${socialSizes.size || ''} file${socialSizes.size === 1 ? '' : 's'}`.replace('  ', ' ')}
                 </button>
               </div>
 
