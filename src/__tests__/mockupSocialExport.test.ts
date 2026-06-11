@@ -26,4 +26,25 @@ describe('computeCoverCropRect', () => {
     const r = computeCoverCropRect(SRC_W, SRC_H, 1000, 2000);
     expect(r).toEqual({ sx: 375, sy: 0, sWidth: 2250, sHeight: 4500 });
   });
+
+  it('anchors a square crop to the TOP (sy = 0)', () => {
+    const r = computeCoverCropRect(SRC_W, SRC_H, 1000, 1000, 'top');
+    expect(r).toEqual({ sx: 0, sy: 0, sWidth: 3000, sHeight: 3000 });
+  });
+
+  it('anchors a square crop to CENTER by default (sy = 750)', () => {
+    const r = computeCoverCropRect(SRC_W, SRC_H, 1000, 1000);
+    expect(r).toEqual({ sx: 0, sy: 750, sWidth: 3000, sHeight: 3000 });
+  });
+
+  it('anchors a square crop to the BOTTOM (sy = srcH - sHeight = 1500)', () => {
+    const r = computeCoverCropRect(SRC_W, SRC_H, 1000, 1000, 'bottom');
+    expect(r).toEqual({ sx: 0, sy: 1500, sWidth: 3000, sHeight: 3000 });
+  });
+
+  it('ignores the anchor when the crop is horizontal (tall target)', () => {
+    // 1:2 target crops the SIDES — vertical anchor must be a no-op.
+    const r = computeCoverCropRect(SRC_W, SRC_H, 1000, 2000, 'bottom');
+    expect(r).toEqual({ sx: 375, sy: 0, sWidth: 2250, sHeight: 4500 });
+  });
 });

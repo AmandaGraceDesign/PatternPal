@@ -9,6 +9,10 @@ import { applyBadgeToBlob, shouldStampBadge } from '../badge/patternpalBadge';
 import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset } from '../export/socialSizes';
 import { injectPngDpi } from './dpiMetadata';
 
+/** Vertical crop anchor for cover-cropping a portrait mockup into a shorter target.
+ *  Only affects sizes whose crop removes top/bottom (square, portrait). */
+export type VAnchor = 'top' | 'center' | 'bottom';
+
 export interface CoverCropRect {
   sx: number;
   sy: number;
@@ -16,26 +20,32 @@ export interface CoverCropRect {
   sHeight: number;
 }
 
-/** Centered "cover" crop: the largest centered sub-rectangle of the source that
- *  has the target's aspect ratio. Draw it onto the full target canvas to fill it
- *  edge-to-edge with no distortion. */
+/** Cover crop: the largest sub-rectangle of the source that has the target's aspect
+ *  ratio. The `anchor` parameter controls vertical placement when the source is taller
+ *  than the target (square/landscape targets). Draw it onto the full target canvas to
+ *  fill it edge-to-edge with no distortion. */
 export function computeCoverCropRect(
   srcW: number,
   srcH: number,
   targetW: number,
   targetH: number,
+  anchor: VAnchor = 'center',
 ): CoverCropRect {
   const srcAspect = srcW / srcH;
   const targetAspect = targetW / targetH;
 
   if (srcAspect > targetAspect) {
-    // Source is wider than target -> crop left/right.
+    // Source is wider than target -> crop left/right. Vertical anchor is a no-op here.
     const sWidth = Math.round(srcH * targetAspect);
     return { sx: Math.round((srcW - sWidth) / 2), sy: 0, sWidth, sHeight: srcH };
   }
-  // Source is taller than (or equal to) target -> crop top/bottom.
+  // Source is taller than (or equal to) target -> crop top/bottom; anchor picks which.
   const sHeight = Math.round(srcW / targetAspect);
-  return { sx: 0, sy: Math.round((srcH - sHeight) / 2), sWidth: srcW, sHeight };
+  const sy =
+    anchor === 'top'    ? 0
+    : anchor === 'bottom' ? srcH - sHeight
+    : Math.round((srcH - sHeight) / 2);
+  return { sx: 0, sy, sWidth: srcW, sHeight };
 }
 
 /** Cover-crop the source canvas into a fresh targetW×targetH canvas, returns PNG blob. */
