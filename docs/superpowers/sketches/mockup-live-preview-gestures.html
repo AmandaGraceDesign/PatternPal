@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Mockup modal — live preview + gesture sketch</title>
+<style>
+  :root{
+    --navy:#294051; --gold:#e0c26e; --cream:#f4e8c8; --sage:#92afa5; --brown:#705046;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#e9e4da;color:var(--navy);padding:18px;}
+  h1{font-size:16px;margin:0 0 4px;}
+  .sub{font-size:12px;color:var(--brown);margin:0 0 16px;}
+  .modal{max-width:760px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(41,64,81,.18);overflow:hidden;}
+  .modal-head{background:var(--navy);color:#fff;padding:12px 16px;font-weight:700;font-size:14px;}
+  .modal-head span{display:block;font-weight:400;font-size:11px;opacity:.7;margin-top:2px;}
+  .body{display:flex;gap:16px;padding:16px;flex-wrap:wrap;}
+  .stage-col{flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;gap:10px;align-items:center;}
+
+  /* segmented toggle */
+  .seg{display:inline-flex;border:2px solid var(--navy);border-radius:999px;overflow:hidden;font-size:12px;font-weight:600;}
+  .seg button{border:0;background:#fff;color:var(--navy);padding:6px 14px;cursor:pointer;}
+  .seg button.on{background:var(--navy);color:#fff;}
+  .mode-note{font-size:11px;color:var(--brown);}
+
+  /* live preview */
+  .preview{position:relative;width:300px;aspect-ratio:2/3;border-radius:10px;overflow:hidden;touch-action:none;
+    background:#cdd8d2;box-shadow:inset 0 0 0 1px rgba(41,64,81,.12);cursor:grab;}
+  .preview.grabbing{cursor:grabbing;}
+  /* the "product" with a tiled pattern — pattern offset moves via background-position */
+  .product{position:absolute;inset:8% 14%;border-radius:6px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.25);}
+  .pattern{position:absolute;inset:-50%;background-image:
+      repeating-linear-gradient(45deg,#d98ca0 0 18px,#f4c4d0 18px 36px),
+      repeating-linear-gradient(-45deg,rgba(41,64,81,.10) 0 18px,transparent 18px 36px);
+    background-size:36px 36px;}
+  .leaf{position:absolute;width:22px;height:22px;border-radius:0 50% 50% 50%;background:#7a9b6f;opacity:.85;}
+
+  /* crop overlay */
+  .dim{position:absolute;left:0;right:0;background:rgba(41,64,81,.45);pointer-events:none;}
+  .cropbox{position:absolute;left:0;right:0;border:3px solid var(--gold);cursor:grab;}
+  .cropbox.grabbing{cursor:grabbing;}
+  .handle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:54px;height:26px;border-radius:8px;background:var(--gold);
+    display:flex;align-items:center;justify-content:center;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,.25);}
+  .handle i{width:18px;height:2px;background:var(--navy);border-radius:2px;display:block;}
+  .handle .bars{display:flex;flex-direction:column;gap:3px;}
+
+  /* floating action label */
+  .actionlabel{position:absolute;left:8px;bottom:8px;background:rgba(41,64,81,.82);color:#fff;
+    font-size:11px;padding:4px 8px;border-radius:6px;pointer-events:none;max-width:84%;}
+
+  /* fake watermark to show it rides along */
+  .wm{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;
+    background:rgba(0,0,0,.25);padding:2px 6px;border-radius:4px;pointer-events:none;}
+
+  /* size list */
+  .sizes{flex:1 1 220px;min-width:200px;display:flex;flex-direction:column;gap:6px;}
+  .sizes h3{font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px;}
+  .sizerow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;}
+  .sizerow.active{background:var(--cream);border-color:var(--gold);}
+  .thumb{flex:none;width:46px;background:#cdd8d2;border:1px solid #cbb37a;border-radius:4px;
+    background-image:repeating-linear-gradient(45deg,#d98ca0 0 9px,#f4c4d0 9px 18px);background-size:18px 18px;}
+  .sizerow b{font-size:12px;}.sizerow small{display:block;color:#9aa3ab;font-size:10px;}
+  .scale{margin-top:12px;}
+  .scale label{font-size:11px;font-weight:600;}
+  .scale input{width:100%;}
+  .legend{max-width:760px;margin:14px auto 0;font-size:12px;color:var(--brown);line-height:1.5;}
+  .legend b{color:var(--navy);}
+  kbd{background:#fff;border:1px solid #cbb37a;border-radius:4px;padding:1px 5px;font-size:11px;}
+</style>
+</head>
+<body>
+  <h1>Mockup modal — live preview + framing (sketch)</h1>
+  <p class="sub">One live, draggable preview. Crop framing rides on top of it. Try both gesture models below.</p>
+
+  <div class="modal">
+    <div class="modal-head">Mockup preview <span>Based on 8.0 × 8.0 inch repeat</span></div>
+    <div class="body">
+      <div class="stage-col">
+        <div class="seg" id="seg" style="display:none;">
+          <button data-mode="pattern" class="on">Move pattern</button>
+          <button data-mode="crop">Frame crop</button>
+        </div>
+        <div class="mode-note" id="modeNote">Drag anywhere to move the pattern.</div>
+
+        <div class="preview" id="preview">
+          <div class="product">
+            <div class="pattern" id="pattern"></div>
+          </div>
+          <div class="wm">YOUR LOGO</div>
+
+          <!-- crop overlay (hidden until a croppable size is picked) -->
+          <div class="dim" id="dimTop" style="display:none;"></div>
+          <div class="dim" id="dimBot" style="display:none;"></div>
+          <div class="cropbox" id="cropbox" style="display:none;">
+            <div class="handle"><div class="bars"><i></i><i></i><i></i></div></div>
+          </div>
+          <div class="actionlabel" id="actionLabel">Drag anywhere to move the pattern.</div>
+        </div>
+      </div>
+
+      <div class="sizes">
+        <h3>Download size</h3>
+        <div class="sizerow active" data-slug="full" data-crop="none"><div class="thumb" style="height:69px"></div><div><b>Full size</b><small>1500×2250 · no crop</small></div></div>
+        <div class="sizerow" data-slug="square" data-crop="v"><div class="thumb" style="height:46px"></div><div><b>Square</b><small>1080×1080 · drag to frame</small></div></div>
+        <div class="sizerow" data-slug="portrait" data-crop="v"><div class="thumb" style="height:58px"></div><div><b>Portrait</b><small>1080×1350 · drag to frame</small></div></div>
+        <div class="sizerow" data-slug="story" data-crop="h"><div class="thumb" style="height:82px"></div><div><b>Story</b><small>1080×1920 · auto crop</small></div></div>
+        <div class="sizerow" data-slug="pinterest" data-crop="none"><div class="thumb" style="height:69px"></div><div><b>Pinterest</b><small>1000×1500 · no crop</small></div></div>
+
+        <div class="scale">
+          <label>Pattern scale</label>
+          <input type="range" id="scale" min="18" max="60" value="36" />
+          <div class="mode-note">Moves smoothly now — no snapshot lag.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend" id="legend">
+    <b>Model A — Smart (contextual):</b> the toggle is hidden. Pattern-drag is default. Pick Square/Portrait and a crop box appears;
+    grab the <b>gold handle (or box)</b> to slide the frame, drag <b>outside the box</b> to move the pattern. Watch the label update.
+    <br><br>
+    <a href="#" id="toggleModel">▶ Switch to Model B — Explicit toggle</a> (shows a “Move pattern / Frame crop” switch instead).
+  </div>
+
+<script>
+(function(){
+  var preview=document.getElementById('preview');
+  var pattern=document.getElementById('pattern');
+  var cropbox=document.getElementById('cropbox');
+  var dimTop=document.getElementById('dimTop');
+  var dimBot=document.getElementById('dimBot');
+  var actionLabel=document.getElementById('actionLabel');
+  var modeNote=document.getElementById('modeNote');
+  var seg=document.getElementById('seg');
+  var legend=document.getElementById('legend');
+  var toggleModel=document.getElementById('toggleModel');
+
+  var model='A';            // 'A' contextual, 'B' explicit toggle
+  var explicitMode='pattern'; // for model B
+  var crop='none';          // none | v (vertical) | h (horizontal)
+  var offset=0.5;           // crop vertical offset 0..1
+  var patY=0.5, patX=0.5;   // pattern position 0..1
+
+  function boxFrac(){ return crop==='v'? 0.5 : 1; } // square-ish demo: box is ~half height
+  function layoutCrop(){
+    var draggable = crop==='v';
+    cropbox.style.display = draggable?'block':'none';
+    dimTop.style.display = draggable?'block':'none';
+    dimBot.style.display = draggable?'block':'none';
+    if(!draggable) return;
+    var bh=boxFrac(), travel=1-bh, top=travel*offset;
+    cropbox.style.top=(top*100)+'%'; cropbox.style.height=(bh*100)+'%';
+    dimTop.style.top='0'; dimTop.style.height=(top*100)+'%';
+    dimBot.style.bottom='0'; dimBot.style.height=((travel-top)*100)+'%';
+  }
+  function paintPattern(){
+    pattern.style.backgroundPosition=(patX*100)+'% '+(patY*100)+'%';
+  }
+  function activeMode(onBox){
+    // What will a drag starting here do?
+    if(crop!=='v') return 'pattern';
+    if(model==='B') return explicitMode;
+    return onBox? 'crop':'pattern';
+  }
+  function setLabel(m){
+    var t = crop!=='v'
+      ? 'Drag anywhere to move the pattern.'
+      : (m==='crop' ? 'Sliding the crop frame ↕' : 'Moving the pattern · grab the gold box to frame');
+    actionLabel.textContent=t; modeNote.textContent=t;
+  }
+
+  // size selection
+  document.querySelectorAll('.sizerow').forEach(function(r){
+    r.addEventListener('click',function(){
+      document.querySelectorAll('.sizerow').forEach(x=>x.classList.remove('active'));
+      r.classList.add('active');
+      crop=r.getAttribute('data-crop');
+      layoutCrop(); setLabel(activeMode(false));
+    });
+  });
+
+  // model toggle
+  toggleModel.addEventListener('click',function(e){
+    e.preventDefault();
+    model = model==='A'?'B':'A';
+    seg.style.display = model==='B'?'inline-flex':'none';
+    toggleModel.textContent = model==='A'? '▶ Switch to Model B — Explicit toggle' : '◀ Back to Model A — Smart contextual';
+    setLabel(activeMode(false));
+  });
+  seg.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click',function(){
+      seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); explicitMode=b.getAttribute('data-mode');
+      setLabel(explicitMode);
+    });
+  });
+
+  // dragging
+  var drag=null;
+  function onDown(e){
+    var onBox = cropbox.style.display!=='none' && cropbox.contains(e.target);
+    var mode=activeMode(onBox);
+    drag={mode:mode, y:e.clientY, x:e.clientX, offset:offset, patY:patY, patX:patX};
+    preview.classList.add('grabbing'); if(onBox)cropbox.classList.add('grabbing');
+    preview.setPointerCapture(e.pointerId); setLabel(mode); e.preventDefault();
+  }
+  function onMove(e){
+    if(!drag) return;
+    var rect=preview.getBoundingClientRect();
+    if(drag.mode==='crop'){
+      var bh=boxFrac(), travel=1-bh;
+      var dy=(e.clientY-drag.y)/rect.height;
+      offset=Math.max(0,Math.min(1, drag.offset + dy/Math.max(travel,0.0001)*1));
+      layoutCrop();
+    }else{
+      var dyp=(e.clientY-drag.y)/rect.height;
+      var dxp=(e.clientX-drag.x)/rect.width;
+      patY=Math.max(0,Math.min(1, drag.patY + dyp));
+      patX=Math.max(0,Math.min(1, drag.patX + dxp));
+      paintPattern();
+    }
+  }
+  function onUp(){ drag=null; preview.classList.remove('grabbing'); cropbox.classList.remove('grabbing'); }
+  preview.addEventListener('pointerdown',onDown);
+  preview.addEventListener('pointermove',onMove);
+  window.addEventListener('pointerup',onUp);
+
+  // scale slider — just resizes the tile, smoothly
+  document.getElementById('scale').addEventListener('input',function(e){
+    var s=e.target.value+'px'; pattern.style.backgroundSize=s+' '+s;
+  });
+
+  layoutCrop(); paintPattern(); setLabel('pattern');
+})();
+</script>
+</body>
+</html>
