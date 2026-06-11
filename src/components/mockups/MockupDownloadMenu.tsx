@@ -93,9 +93,9 @@ export default function MockupDownloadMenu({
               <button
                 type="button"
                 onClick={() => onSetActive(preset.slug)}
-                aria-label={`Frame ${rowLabel(preset)}`}
+                aria-label={`Adjust framing for ${rowLabel(preset)}`}
                 aria-pressed={isActive}
-                className={`flex-none rounded border overflow-hidden ${
+                className={`flex-none rounded border overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#294051] ${
                   isActive ? 'border-[#e0c26e] ring-2 ring-[#e0c26e]' : 'border-[#cbb37a]'
                 }`}
                 style={{
