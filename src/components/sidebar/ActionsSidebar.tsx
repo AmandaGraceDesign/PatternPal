@@ -15,8 +15,9 @@ import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipelin
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { isFreeMockup, isFreeSocialSize } from '@/lib/mockups/freeTier';
-import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug } from '@/lib/export/socialSizes';
-import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
+import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { downloadMockupSocialSizes, type VAnchor } from '@/lib/utils/mockupSocialExport';
+import MockupDownloadMenu from '@/components/mockups/MockupDownloadMenu';
 import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
@@ -28,6 +29,15 @@ import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOver
 // if it's Pro-locked (free user on a paid template), start with nothing selected.
 function defaultDownloadSelection(canFullSize: boolean): Set<SizeSlug> {
   return canFullSize ? new Set<SizeSlug>([FULL_SIZE_SLUG]) : new Set<SizeSlug>();
+}
+
+// All per-size crop anchors default to 'center' so an untouched export is
+// byte-identical to the pre-anchor behavior.
+function allCenterAnchors(): Record<SizeSlug, VAnchor> {
+  return mockupDownloadSizes().reduce((acc, p) => {
+    acc[p.slug] = 'center';
+    return acc;
+  }, {} as Record<SizeSlug, VAnchor>);
 }
 
 interface ActionsSidebarProps {
@@ -64,6 +74,10 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const downloadAfterRenderRef = useRef<(() => void) | null>(null);
   // Selected sizes for the unified Mockup Modal download menu (Full size + social sizes).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
+  const [socialAnchors, setSocialAnchors] = useState<Record<SizeSlug, VAnchor>>(
+    () => allCenterAnchors(),
+  );
+  const [mockupSnapshotUrl, setMockupSnapshotUrl] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
@@ -126,6 +140,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
     setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup)));
+    setSocialAnchors(allCenterAnchors());
+    setMockupSnapshotUrl(null);
   }, [selectedMockup, proAllowed]);
 
   // rAF-coalesce color picker updates. Native <input type="color"> fires
@@ -217,6 +233,50 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
       setIsAnalyzing(false);
     }
   }, [image, dpi, tileWidth, tileHeight, proAllowed]);
+
+  // Unified mockup download handler. Lifted to component scope so the shared
+  // <MockupDownloadMenu> can receive it as a prop. Captures the live preview at
+  // full res, then exports every selected size with its per-size crop anchor.
+  const onDownloadExport = async () => {
+    if (!selectedMockup || socialSizes.size === 0) return;
+    const mockupId = selectedMockup;
+
+    const presets = mockupDownloadSizes().filter(p => socialSizes.has(p.slug));
+
+    // Any selected row that isn't free for this user requires Pro.
+    const needsPro = presets.some(p =>
+      p.slug === FULL_SIZE_SLUG ? !isFreeMockup(mockupId) : !isFreeSocialSize(p.slug),
+    );
+    if (needsPro && !proAllowed) {
+      const allowed = await verifyProAccess();
+      if (!allowed) { setIsUpgradeModalOpen(true); return; }
+    }
+
+    const template = getV2Template(mockupId);
+    const templateSlug = template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
+    const baseName = sanitizeFilename(
+      originalFilename ? `${originalFilename}-${templateSlug}` : `mockup-${templateSlug}`,
+      'mockup',
+    );
+
+    downloadAfterRenderRef.current = async () => {
+      try {
+        const mockupCanvas = document.querySelector(
+          '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
+        ) as HTMLCanvasElement | null;
+        if (!mockupCanvas) return;
+        await downloadMockupSocialSizes(
+          mockupCanvas,
+          presets,
+          { watermark, isPro: !!isPro, badgeEnabled, anchors: socialAnchors },
+          baseName,
+        );
+      } finally {
+        setIsCapturingFullRes(false);
+      }
+    };
+    setIsCapturingFullRes(true);
+  };
 
   // Tool button component for consistent styling
   const ToolButton = ({ onClick, disabled, icon, label, description, proOnly }: {
@@ -374,6 +434,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             setHighlightOpacityPercents([30]);
             setColorOverlayEnabled(true);
             setSocialSizes(defaultDownloadSelection(proAllowed || (!!selectedMockup && isFreeMockup(selectedMockup))));
+            setSocialAnchors(allCenterAnchors());
+            setMockupSnapshotUrl(null);
           }}
           title={getV2Template(selectedMockup)?.name}
           subtitle={`Based on ${tileWidth.toFixed(1)} \u00d7 ${tileHeight.toFixed(1)} inch repeat`}
@@ -529,102 +591,29 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             />
 
             {/* Unified download menu — Full size first, then social sizes */}
-            {(() => {
-              const onDownloadExport = async () => {
-                if (socialSizes.size === 0) return;
-
-                const presets = mockupDownloadSizes().filter(p => socialSizes.has(p.slug));
-
-                // Any selected row that isn't free for this user requires Pro.
-                const needsPro = presets.some(p =>
-                  p.slug === FULL_SIZE_SLUG ? !isFreeMockup(selectedMockup) : !isFreeSocialSize(p.slug),
-                );
-                if (needsPro && !proAllowed) {
-                  const allowed = await verifyProAccess();
-                  if (!allowed) { setIsUpgradeModalOpen(true); return; }
-                }
-
-                const template = getV2Template(selectedMockup);
-                const templateSlug = template?.name?.toLowerCase().replace(/\s+/g, '-') || 'mockup';
-                const baseName = sanitizeFilename(
-                  originalFilename ? `${originalFilename}-${templateSlug}` : `mockup-${templateSlug}`,
-                  'mockup',
-                );
-
-                downloadAfterRenderRef.current = async () => {
-                  try {
-                    const mockupCanvas = document.querySelector(
-                      '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
-                    ) as HTMLCanvasElement | null;
-                    if (!mockupCanvas) return;
-                    await downloadMockupSocialSizes(
-                      mockupCanvas,
-                      presets,
-                      { watermark, isPro: !!isPro, badgeEnabled },
-                      baseName,
-                    );
-                  } finally {
-                    setIsCapturingFullRes(false);
-                  }
-                };
-                setIsCapturingFullRes(true);
-              };
-
-              return (
-                <div className="flex flex-col gap-2 border-t border-[#92afa5]/30 pt-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
-                    Download mockup
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {mockupDownloadSizes().map(preset => {
-                      const locked = preset.slug === FULL_SIZE_SLUG
-                        ? (!isPro && !isFreeMockup(selectedMockup))
-                        : (!isPro && !isFreeSocialSize(preset.slug));
-                      const checked = socialSizes.has(preset.slug);
-                      const label = preset.slug === FULL_SIZE_SLUG
-                        ? 'Full size'
-                        : preset.label.replace('Instagram / Facebook ', '');
-                      return (
-                        <button
-                          key={preset.slug}
-                          type="button"
-                          disabled={isCapturingFullRes}
-                          onClick={() => {
-                            if (locked) { setIsUpgradeModalOpen(true); return; }
-                            setSocialSizes(prev => {
-                              const next = new Set(prev);
-                              if (next.has(preset.slug)) { next.delete(preset.slug); } else { next.add(preset.slug); }
-                              return next;
-                            });
-                          }}
-                          className={`text-xs rounded-md px-2.5 py-1.5 border transition-colors ${
-                            locked
-                              ? 'border-[#e5e7eb] bg-[#f9fafb] text-[#9ca3af]'
-                              : checked
-                                ? 'border-[#e0c26e] bg-[#faf3e0] text-[#294051] font-semibold'
-                                : 'border-[#e5e7eb] bg-white text-[#374151]'
-                          }`}
-                          style={{ touchAction: 'manipulation' }}
-                        >
-                          {locked ? '🔒 ' : ''}{label} {preset.pxW}×{preset.pxH}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={socialSizes.size === 0 || isCapturingFullRes}
-                    onClick={onDownloadExport}
-                    className="text-xs rounded-md px-3 py-2 bg-[#294051] text-white font-semibold disabled:opacity-50"
-                    style={{ touchAction: 'manipulation' }}
-                  >
-                    {isCapturingFullRes
-                      ? 'Generating…'
-                      : `Download ${socialSizes.size || ''} file${socialSizes.size === 1 ? '' : 's'}`.replace('  ', ' ')}
-                  </button>
-                </div>
-              );
-            })()}
+            <MockupDownloadMenu
+              selected={socialSizes}
+              onToggleSize={(slug) =>
+                setSocialSizes(prev => {
+                  const next = new Set(prev);
+                  if (next.has(slug)) next.delete(slug); else next.add(slug);
+                  return next;
+                })
+              }
+              anchors={socialAnchors}
+              onSetAnchor={(slug, anchor) =>
+                setSocialAnchors(prev => ({ ...prev, [slug]: anchor }))
+              }
+              snapshotUrl={mockupSnapshotUrl}
+              isLocked={(preset: SocialSizePreset) =>
+                preset.slug === FULL_SIZE_SLUG
+                  ? (!isPro && !isFreeMockup(selectedMockup))
+                  : (!isPro && !isFreeSocialSize(preset.slug))
+              }
+              onLockedClick={() => setIsUpgradeModalOpen(true)}
+              isBusy={isCapturingFullRes}
+              onDownload={onDownloadExport}
+            />
 
             {/* Mockup preview */}
             <div className="flex items-center justify-center bg-white rounded-lg p-4">
@@ -695,6 +684,14 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                           const cb = downloadAfterRenderRef.current;
                           downloadAfterRenderRef.current = null;
                           cb();
+                        }
+                        // Snapshot the preview canvas for the crop thumbnails.
+                        // Skip during full-res capture (huge canvas, mid-download).
+                        if (!isCapturingFullRes) {
+                          const c = document.querySelector(
+                            '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
+                          ) as HTMLCanvasElement | null;
+                          if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
                         }
                       }}
                       />
