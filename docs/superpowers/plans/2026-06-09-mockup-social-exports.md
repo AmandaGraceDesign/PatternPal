@@ -16,11 +16,11 @@
 - [x] **Task 2 — DONE** (`dddafcd`): pure `computeCoverCropRect` + 4 TDD tests. Spec ✅ + quality ✅.
 - [x] **Task 3 — DONE** (`243ade4`): canvas blob + multi-size download/zip helper (+ `console.error` from review). Spec ✅ + quality ✅.
 - [x] **Task 4 — DONE** (`d4f09de`): Mockup Modal UI + handler in AdvancedToolsBar (+ stale-selection reset + label fix from review). Spec ✅ + quality ✅.
-- [~] **Task 5 — COMMITTED, AWAITING SCOPE DECISION** (`68aca30`): ActionsSidebar social export is spec-compliant, but it also rewired the existing "Download mockup" button (preview-res → full 3000×4500). See `docs/superpowers/HANDOFF-mockup-social-exports.md` → "THE DECISION TO MAKE FIRST" (Options 1/2/3). Resume here.
-- [ ] Task 6 — Social signpost note (RepeatExportModal)
+- [x] **Task 5 — DONE** (`68aca30` + `aad95cd`): ActionsSidebar social export wired in; scope decision resolved as **Option 2 — unify both Mockup-Modal download buttons to 1500×2250 @ 150 DPI** (`aad95cd`). Spec ✅ + quality ✅.
+- [x] **Task 6 — DONE** (`a0bd119`): Social Export modal signpost note (RepeatExportModal). Spec ✅ + quality ✅.
 - [ ] Task 7 — Manual verification (desktop + iPad); user tests before any merge/push.
 
-**Resume:** read `docs/superpowers/HANDOFF-mockup-social-exports.md`, re-ask the Task 5 scope decision, then finalize Task 5 → Task 6 → Task 7 via superpowers:subagent-driven-development on `feat/mockup-social-exports`. Don't push/merge.
+**Resume:** All code tasks (1–6) complete & green on `feat/mockup-social-exports`. Only **Task 7 (manual verification, desktop + iPad)** remains — the user does this before any merge/push. Don't push/merge.
 
 ---
 
