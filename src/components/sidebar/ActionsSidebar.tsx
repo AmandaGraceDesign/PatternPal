@@ -16,7 +16,7 @@ import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { isFreeMockup, isFreeSocialSize } from '@/lib/mockups/freeTier';
 import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
-import { downloadMockupSocialSizes, type VAnchor } from '@/lib/utils/mockupSocialExport';
+import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import MockupDownloadMenu from '@/components/mockups/MockupDownloadMenu';
 import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
@@ -31,13 +31,13 @@ function defaultDownloadSelection(canFullSize: boolean): Set<SizeSlug> {
   return canFullSize ? new Set<SizeSlug>([FULL_SIZE_SLUG]) : new Set<SizeSlug>();
 }
 
-// All per-size crop anchors default to 'center' so an untouched export is
-// byte-identical to the pre-anchor behavior.
-function allCenterAnchors(): Record<SizeSlug, VAnchor> {
+// All per-size crop offsets default to 0.5 (center) so an untouched export is
+// byte-identical to the pre-crop behavior.
+function allCenterOffsets(): Record<SizeSlug, number> {
   return mockupDownloadSizes().reduce((acc, p) => {
-    acc[p.slug] = 'center';
+    acc[p.slug] = 0.5;
     return acc;
-  }, {} as Record<SizeSlug, VAnchor>);
+  }, {} as Record<SizeSlug, number>);
 }
 
 interface ActionsSidebarProps {
@@ -74,9 +74,10 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const downloadAfterRenderRef = useRef<(() => void) | null>(null);
   // Selected sizes for the unified Mockup Modal download menu (Full size + social sizes).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
-  const [socialAnchors, setSocialAnchors] = useState<Record<SizeSlug, VAnchor>>(
-    () => allCenterAnchors(),
+  const [socialOffsets, setSocialOffsets] = useState<Record<SizeSlug, number>>(
+    () => allCenterOffsets(),
   );
+  const [activeSlug, setActiveSlug] = useState<SizeSlug>(FULL_SIZE_SLUG);
   const [mockupSnapshotUrl, setMockupSnapshotUrl] = useState<string | null>(null);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
@@ -140,7 +141,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
     setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup)));
-    setSocialAnchors(allCenterAnchors());
+    setSocialOffsets(allCenterOffsets());
+    setActiveSlug(FULL_SIZE_SLUG);
     setMockupSnapshotUrl(null);
   }, [selectedMockup, proAllowed]);
 
@@ -268,7 +270,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
         await downloadMockupSocialSizes(
           mockupCanvas,
           presets,
-          { watermark, isPro: !!isPro, badgeEnabled, anchors: socialAnchors },
+          { watermark, isPro: !!isPro, badgeEnabled, offsets: socialOffsets },
           baseName,
         );
       } finally {
@@ -434,7 +436,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             setHighlightOpacityPercents([30]);
             setColorOverlayEnabled(true);
             setSocialSizes(defaultDownloadSelection(proAllowed || (!!selectedMockup && isFreeMockup(selectedMockup))));
-            setSocialAnchors(allCenterAnchors());
+            setSocialOffsets(allCenterOffsets());
+            setActiveSlug(FULL_SIZE_SLUG);
             setMockupSnapshotUrl(null);
           }}
           title={getV2Template(selectedMockup)?.name}
@@ -600,10 +603,12 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                   return next;
                 })
               }
-              anchors={socialAnchors}
-              onSetAnchor={(slug, anchor) =>
-                setSocialAnchors(prev => ({ ...prev, [slug]: anchor }))
+              offsets={socialOffsets}
+              onSetOffset={(slug, offset) =>
+                setSocialOffsets(prev => ({ ...prev, [slug]: offset }))
               }
+              activeSlug={activeSlug}
+              onSetActive={setActiveSlug}
               snapshotUrl={mockupSnapshotUrl}
               isLocked={(preset: SocialSizePreset) =>
                 preset.slug === FULL_SIZE_SLUG
@@ -615,8 +620,15 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               onDownload={onDownloadExport}
             />
 
-            {/* Mockup preview */}
-            <div className="flex items-center justify-center bg-white rounded-lg p-4">
+            {/* Snapshot source for the crop stage/thumbnails. Kept mounted &
+                rendering, but moved off-screen — the crop stage is now the visible
+                preview. (Pattern-drag on this preview is intentionally retired; see
+                plan risk note.) */}
+            <div
+              aria-hidden
+              className="bg-white"
+              style={{ position: 'absolute', left: '-10000px', top: 0, width: 600, pointerEvents: 'none' }}
+            >
               {/* Definite 600px wrapper width keeps the modal sized
                   predictably even before the canvas mounts (otherwise the
                   whole modal collapses). `flex justify-center` centers the
