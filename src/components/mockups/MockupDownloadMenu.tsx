@@ -1,6 +1,7 @@
 'use client';
 
 import { mockupDownloadSizes, cropsVertically, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { WatermarkConfig } from '@/lib/watermark/watermark';
 import MockupCropStage from './MockupCropStage';
 
 export interface MockupDownloadMenuProps {
@@ -18,6 +19,10 @@ export interface MockupDownloadMenuProps {
   onLockedClick: () => void;
   isBusy: boolean;
   onDownload: () => void;
+  /** Watermark config — previewed over the crop region in the stage. */
+  watermark: WatermarkConfig;
+  /** Whether the PatternPAL badge will be stamped on export. */
+  badgeVisible: boolean;
 }
 
 function rowLabel(preset: SocialSizePreset): string {
@@ -38,6 +43,8 @@ export default function MockupDownloadMenu({
   onLockedClick,
   isBusy,
   onDownload,
+  watermark,
+  badgeVisible,
 }: MockupDownloadMenuProps) {
   const sizes = mockupDownloadSizes();
   const activePreset = sizes.find(p => p.slug === activeSlug) ?? sizes[0];
@@ -55,6 +62,8 @@ export default function MockupDownloadMenu({
         offset={offsets[activeSlug] ?? 0.5}
         onChangeOffset={next => onSetOffset(activeSlug, next)}
         isBusy={isBusy}
+        watermark={watermark}
+        badgeVisible={badgeVisible}
       />
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">

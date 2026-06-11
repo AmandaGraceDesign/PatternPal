@@ -618,6 +618,8 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               onLockedClick={() => setIsUpgradeModalOpen(true)}
               isBusy={isCapturingFullRes}
               onDownload={onDownloadExport}
+              watermark={watermark}
+              badgeVisible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })}
             />
 
             {/* Snapshot source for the crop stage/thumbnails. Kept mounted &

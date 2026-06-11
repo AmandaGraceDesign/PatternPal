@@ -776,6 +776,8 @@ export default function AdvancedToolsBar({
                 onLockedClick={() => setIsUpgradeModalOpen(true)}
                 isBusy={isCapturingFullRes}
                 onDownload={onDownloadExport}
+                watermark={watermark}
+                badgeVisible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })}
               />
 
               {/* Snapshot source for the crop stage/thumbnails. Kept mounted &
