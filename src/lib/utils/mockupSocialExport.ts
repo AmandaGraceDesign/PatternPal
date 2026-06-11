@@ -9,10 +9,6 @@ import { applyBadgeToBlob, shouldStampBadge } from '../badge/patternpalBadge';
 import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset, type SizeSlug } from '../export/socialSizes';
 import { injectPngDpi } from './dpiMetadata';
 
-/** Vertical crop anchor for cover-cropping a portrait mockup into a shorter target.
- *  Only affects sizes whose crop removes top/bottom (square, portrait). */
-export type VAnchor = 'top' | 'center' | 'bottom';
-
 export interface CoverCropRect {
   sx: number;
   sy: number;
@@ -20,31 +16,31 @@ export interface CoverCropRect {
   sHeight: number;
 }
 
+/** Clamp helper for the 0..1 vertical crop offset. */
+const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
+
 /** Cover crop: the largest sub-rectangle of the source that has the target's aspect
- *  ratio. The `anchor` parameter controls vertical placement when the source is taller
- *  than the target (square/landscape targets). Draw it onto the full target canvas to
- *  fill it edge-to-edge with no distortion. */
+ *  ratio. `offset` (0..1) places that rectangle vertically when the source is taller
+ *  than the target (square/portrait targets): 0 = top, 0.5 = center, 1 = bottom.
+ *  It is a no-op when the source is wider than the target (the crop is horizontal). */
 export function computeCoverCropRect(
   srcW: number,
   srcH: number,
   targetW: number,
   targetH: number,
-  anchor: VAnchor = 'center',
+  offset = 0.5,
 ): CoverCropRect {
   const srcAspect = srcW / srcH;
   const targetAspect = targetW / targetH;
 
   if (srcAspect > targetAspect) {
-    // Source is wider than target -> crop left/right. Vertical anchor is a no-op here.
+    // Source is wider than target -> crop left/right. Vertical offset is a no-op here.
     const sWidth = Math.round(srcH * targetAspect);
     return { sx: Math.round((srcW - sWidth) / 2), sy: 0, sWidth, sHeight: srcH };
   }
-  // Source is taller than (or equal to) target -> crop top/bottom; anchor picks which.
+  // Source is taller than (or equal to) target -> crop top/bottom; offset picks which.
   const sHeight = Math.round(srcW / targetAspect);
-  const sy =
-    anchor === 'top'    ? 0
-    : anchor === 'bottom' ? srcH - sHeight
-    : Math.round((srcH - sHeight) / 2);
+  const sy = Math.round((srcH - sHeight) * clamp01(offset));
   return { sx: 0, sy, sWidth: srcW, sHeight };
 }
 
@@ -53,9 +49,9 @@ export async function coverCropToBlob(
   source: HTMLCanvasElement,
   targetW: number,
   targetH: number,
-  anchor: VAnchor = 'center',
+  offset = 0.5,
 ): Promise<Blob> {
-  const r = computeCoverCropRect(source.width, source.height, targetW, targetH, anchor);
+  const r = computeCoverCropRect(source.width, source.height, targetW, targetH, offset);
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
@@ -76,9 +72,9 @@ export interface MockupSocialOpts {
   watermark: WatermarkConfig;
   isPro: boolean;
   badgeEnabled: boolean;
-  /** Per-size vertical anchor. Missing slug => 'center'. Ignored by full size and
-   *  by sizes whose crop is horizontal. */
-  anchors?: Partial<Record<SizeSlug, VAnchor>>;
+  /** Per-size vertical crop offset 0..1 (0.5 = center). Missing slug => 0.5.
+   *  Ignored by full size and by sizes whose crop is horizontal. */
+  offsets?: Partial<Record<SizeSlug, number>>;
 }
 
 /** Produce one social-sized clean-mockup PNG blob: cover-crop -> watermark -> badge. */
@@ -89,8 +85,8 @@ export async function exportMockupSocialBlob(
 ): Promise<Blob> {
   const w = preset.pxW * SOCIAL_EXPORT_SCALE;
   const h = preset.pxH * SOCIAL_EXPORT_SCALE;
-  const anchor = opts.anchors?.[preset.slug] ?? 'center';
-  let blob = await coverCropToBlob(source, w, h, anchor);
+  const offset = opts.offsets?.[preset.slug] ?? 0.5;
+  let blob = await coverCropToBlob(source, w, h, offset);
   const wm = opts.watermark;
   if (wm.enabled && (wm.text.trim() || wm.logoDataUrl)) {
     blob = await applyWatermarkToBlob(blob, w, h, wm, 'png');
