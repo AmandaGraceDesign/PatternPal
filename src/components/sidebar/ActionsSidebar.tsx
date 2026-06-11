@@ -14,7 +14,8 @@ import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRe
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
-import { downloadCanvasAsImage, downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
+import { downloadBlobAsImage } from '@/lib/utils/downloadCanvas';
+import { injectPngDpi } from '@/lib/utils/dpiMetadata';
 import { isFreeMockup, isFreeSocialSize } from '@/lib/mockups/freeTier';
 import { mockupSocialSizes, type SizeSlug } from '@/lib/export/socialSizes';
 import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
@@ -398,29 +399,40 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                   '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas'
                 ) as HTMLCanvasElement | null;
                 if (!mockupCanvas) return;
+
+                // Downscale to half (3000×4500 → 1500×2250) for 150 DPI
+                // output. Mockups are portfolio/social/web-display assets, so
+                // 150 DPI cuts file size ~4× and still beats every social
+                // target (Pinterest 1000×1500, IG 1080×1350). Source template
+                // assets stay at 300 DPI rendering, so this is reversible by
+                // dropping the divide and switching the DPI back to `dpi`.
+                const OUTPUT_DPI = 150;
+                const dl = document.createElement('canvas');
+                dl.width = Math.round(mockupCanvas.width / 2);
+                dl.height = Math.round(mockupCanvas.height / 2);
+                const dctx = dl.getContext('2d');
+                if (!dctx) return;
+                dctx.imageSmoothingEnabled = true;
+                dctx.imageSmoothingQuality = 'high';
+                dctx.drawImage(mockupCanvas, 0, 0, dl.width, dl.height);
+
+                const sourceBlob: Blob = await new Promise((resolve, reject) =>
+                  dl.toBlob(
+                    b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+                    'image/png',
+                  ),
+                );
                 const wmActive = watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl);
-                const stampBadge = shouldStampBadge({ isPaidPro: isPro, badgeEnabled });
-                if (wmActive || stampBadge) {
-                  let composed: Blob = await new Promise((resolve, reject) =>
-                    mockupCanvas.toBlob(
-                      b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-                      'image/png',
-                    ),
-                  );
-                  if (wmActive) {
-                    composed = await applyWatermarkToBlob(
-                      composed, mockupCanvas.width, mockupCanvas.height, watermark, 'png',
-                    );
-                  }
-                  if (stampBadge) {
-                    composed = await applyBadgeToBlob(
-                      composed, mockupCanvas.width, mockupCanvas.height, 'png',
-                    );
-                  }
-                  await downloadBlobAsImage(composed, filename);
-                } else {
-                  await downloadCanvasAsImage(mockupCanvas, filename);
+                let composedBlob = wmActive
+                  ? await applyWatermarkToBlob(
+                      sourceBlob, dl.width, dl.height, watermark, 'png',
+                    )
+                  : sourceBlob;
+                if (shouldStampBadge({ isPaidPro: isPro, badgeEnabled })) {
+                  composedBlob = await applyBadgeToBlob(composedBlob, dl.width, dl.height, 'png');
                 }
+                const finalBlob = await injectPngDpi(composedBlob, OUTPUT_DPI);
+                await downloadBlobAsImage(finalBlob, filename);
               } finally {
                 setIsCapturingFullRes(false);
               }
