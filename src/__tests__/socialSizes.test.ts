@@ -3,6 +3,8 @@ import {
   SOCIAL_SIZE_PRESETS,
   mockupSocialSizes,
   MOCKUP_INELIGIBLE_SLUGS,
+  mockupDownloadSizes,
+  FULL_SIZE_SLUG,
 } from '../lib/export/socialSizes';
 
 describe('mockupSocialSizes', () => {
@@ -23,5 +25,27 @@ describe('mockupSocialSizes', () => {
     expect(mockupSocialSizes().length).toBe(
       SOCIAL_SIZE_PRESETS.length - MOCKUP_INELIGIBLE_SLUGS.length,
     );
+  });
+});
+
+describe('mockupDownloadSizes', () => {
+  it('lists Full size first, then the four croppable social sizes', () => {
+    const slugs = mockupDownloadSizes().map(p => p.slug);
+    expect(slugs).toEqual([
+      'full-size',
+      'instagram-post',
+      'instagram-portrait',
+      'story',
+      'pinterest-pin',
+    ]);
+  });
+  it('full-size descriptor outputs 1500×2250', () => {
+    const full = mockupDownloadSizes().find(p => p.slug === FULL_SIZE_SLUG);
+    expect(full).toBeDefined();
+    expect([full!.pxW, full!.pxH]).toEqual([1500, 2250]);
+  });
+  it('does not leak full-size into the Social Export presets', () => {
+    // SOCIAL_SIZE_PRESETS feeds the (separate) Social Export modal — must stay 5 platform sizes.
+    expect(SOCIAL_SIZE_PRESETS.map(p => p.slug)).not.toContain('full-size');
   });
 });

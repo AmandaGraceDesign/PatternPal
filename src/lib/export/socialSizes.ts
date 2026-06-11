@@ -7,7 +7,8 @@ export type SizeSlug =
   | 'instagram-portrait'
   | 'story'
   | 'pinterest-pin'
-  | 'facebook-cover';
+  | 'facebook-cover'
+  | 'full-size';
 
 export interface SocialSizePreset {
   slug: SizeSlug;
@@ -36,4 +37,22 @@ export const MOCKUP_INELIGIBLE_SLUGS: SizeSlug[] = ['facebook-cover'];
 /** Social sizes eligible for the clean-mockup export (all except FB Cover). */
 export function mockupSocialSizes(): SocialSizePreset[] {
   return SOCIAL_SIZE_PRESETS.filter(p => !MOCKUP_INELIGIBLE_SLUGS.includes(p.slug));
+}
+
+/** Slug for the non-cropped, full-size mockup download (the whole product shot). */
+export const FULL_SIZE_SLUG = 'full-size' as const;
+
+/** Full-size mockup output: ½ of the 3000×4500 render = 1500×2250 @ 150 DPI.
+ *  Deliberately NOT in SOCIAL_SIZE_PRESETS so the Social Export modal's size list is unaffected. */
+export const FULL_SIZE_PRESET: SocialSizePreset = {
+  slug: FULL_SIZE_SLUG,
+  label: 'Full size',
+  pxW: 1500,
+  pxH: 2250,
+};
+
+/** Ordered list for the unified Mockup Modal download menu: Full size first, then the
+ *  four croppable social sizes (no FB Cover). */
+export function mockupDownloadSizes(): SocialSizePreset[] {
+  return [FULL_SIZE_PRESET, ...mockupSocialSizes()];
 }
