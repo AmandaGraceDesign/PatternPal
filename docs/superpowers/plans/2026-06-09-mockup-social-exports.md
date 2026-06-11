@@ -12,15 +12,15 @@
 
 ## Execution progress
 
-- [x] **Task 1 — DONE** (commit `04df5d8`): shared `socialSizes.ts` module + test created, `RepeatExportModal` rewired to import it. Verified: 51 tests pass, `tsc` clean, no leftover local defs.
-- [ ] Task 2 — Cover-crop geometry (next)
-- [ ] Task 3 — Canvas export + download helper
-- [ ] Task 4 — Mockup Modal UI (AdvancedToolsBar)
-- [ ] Task 5 — ActionsSidebar entry
-- [ ] Task 6 — Social signpost note
-- [ ] Task 7 — Manual verification
+- [x] **Task 1 — DONE** (`04df5d8`): shared `socialSizes.ts` module + test; `RepeatExportModal` rewired.
+- [x] **Task 2 — DONE** (`dddafcd`): pure `computeCoverCropRect` + 4 TDD tests. Spec ✅ + quality ✅.
+- [x] **Task 3 — DONE** (`243ade4`): canvas blob + multi-size download/zip helper (+ `console.error` from review). Spec ✅ + quality ✅.
+- [x] **Task 4 — DONE** (`d4f09de`): Mockup Modal UI + handler in AdvancedToolsBar (+ stale-selection reset + label fix from review). Spec ✅ + quality ✅.
+- [~] **Task 5 — COMMITTED, AWAITING SCOPE DECISION** (`68aca30`): ActionsSidebar social export is spec-compliant, but it also rewired the existing "Download mockup" button (preview-res → full 3000×4500). See `docs/superpowers/HANDOFF-mockup-social-exports.md` → "THE DECISION TO MAKE FIRST" (Options 1/2/3). Resume here.
+- [ ] Task 6 — Social signpost note (RepeatExportModal)
+- [ ] Task 7 — Manual verification (desktop + iPad); user tests before any merge/push.
 
-**Resume:** continue from Task 2 via superpowers:subagent-driven-development on branch `feat/mockup-social-exports`.
+**Resume:** read `docs/superpowers/HANDOFF-mockup-social-exports.md`, re-ask the Task 5 scope decision, then finalize Task 5 → Task 6 → Task 7 via superpowers:subagent-driven-development on `feat/mockup-social-exports`. Don't push/merge.
 
 ---
 
