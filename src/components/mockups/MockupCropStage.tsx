@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { cropsVertically, FULL_SIZE_SLUG, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { cropsVertically, FULL_SIZE_SLUG, MOCKUP_SRC_ASPECT, type SocialSizePreset } from '@/lib/export/socialSizes';
 
 export interface MockupCropStageProps {
   /** Data-URL snapshot of the live mockup canvas; null until first render. */
@@ -28,14 +28,14 @@ export default function MockupCropStage({
   const draggable = cropsVertically(preset);
 
   // The crop box keeps full source WIDTH and has the target's aspect, so its
-  // height as a fraction of the (2:3) snapshot height is what slides vertically.
+  // height as a fraction of the snapshot height is what slides vertically.
   // boxHeightFraction = (snapshotAspect) / (targetAspect)
-  //   snapshotAspect = srcW/srcH (≈0.667 for the 2:3 render)
+  //   snapshotAspect = MOCKUP_SRC_ASPECT (srcW/srcH for the mockup render)
   //   targetAspect   = preset.pxW/preset.pxH
-  // We don't know srcW/srcH here, but the snapshot is the 2:3 render, so use 2/3.
-  const SNAP_ASPECT = 2 / 3;
+  // Use the exported MOCKUP_SRC_ASPECT so this stays in sync with the render
+  // aspect that cropsVertically() uses — no re-hardcode.
   const targetAspect = preset.pxW / preset.pxH;
-  const boxHeightFraction = draggable ? clamp01(SNAP_ASPECT / targetAspect) : 1;
+  const boxHeightFraction = draggable ? clamp01(MOCKUP_SRC_ASPECT / targetAspect) : 1;
   const travel = 1 - boxHeightFraction; // fraction of stage height the box can move
   const boxTopFraction = travel * clamp01(offset);
 
