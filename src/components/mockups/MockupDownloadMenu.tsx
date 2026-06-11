@@ -1,25 +1,17 @@
 'use client';
 
 import { mockupDownloadSizes, cropsVertically, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
-import type { VAnchor } from '@/lib/utils/mockupSocialExport';
-
-const ANCHOR_POSITION: Record<VAnchor, string> = {
-  top: '50% 0%',
-  center: '50% 50%',
-  bottom: '50% 100%',
-};
-
-const ANCHORS: { value: VAnchor; label: string }[] = [
-  { value: 'top', label: 'Top' },
-  { value: 'center', label: 'Center' },
-  { value: 'bottom', label: 'Bottom' },
-];
+import MockupCropStage from './MockupCropStage';
 
 export interface MockupDownloadMenuProps {
   selected: Set<SizeSlug>;
   onToggleSize: (slug: SizeSlug) => void;
-  anchors: Record<SizeSlug, VAnchor>;
-  onSetAnchor: (slug: SizeSlug, anchor: VAnchor) => void;
+  /** Per-size vertical crop offset 0..1 (0.5 = center). */
+  offsets: Record<SizeSlug, number>;
+  onSetOffset: (slug: SizeSlug, offset: number) => void;
+  /** Which size is being framed in the crop stage. */
+  activeSlug: SizeSlug;
+  onSetActive: (slug: SizeSlug) => void;
   /** Data-URL snapshot of the live mockup canvas; null until first render completes. */
   snapshotUrl: string | null;
   isLocked: (preset: SocialSizePreset) => boolean;
@@ -37,33 +29,50 @@ function rowLabel(preset: SocialSizePreset): string {
 export default function MockupDownloadMenu({
   selected,
   onToggleSize,
-  anchors,
-  onSetAnchor,
+  offsets,
+  onSetOffset,
+  activeSlug,
+  onSetActive,
   snapshotUrl,
   isLocked,
   onLockedClick,
   isBusy,
   onDownload,
 }: MockupDownloadMenuProps) {
+  const sizes = mockupDownloadSizes();
+  const activePreset = sizes.find(p => p.slug === activeSlug) ?? sizes[0];
+
   return (
-    <div className="flex flex-col gap-2 border-t border-[#92afa5]/30 pt-3">
+    <div className="flex flex-col gap-3 border-t border-[#92afa5]/30 pt-3">
       <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
         Download mockup
       </span>
 
+      {/* Crop stage for the active size (replaces the old bottom preview). */}
+      <MockupCropStage
+        snapshotUrl={snapshotUrl}
+        preset={activePreset}
+        offset={offsets[activeSlug] ?? 0.5}
+        onChangeOffset={next => onSetOffset(activeSlug, next)}
+        isBusy={isBusy}
+      />
+
       <div className="flex flex-col">
-        {mockupDownloadSizes().map(preset => {
+        {sizes.map(preset => {
           const locked = isLocked(preset);
           const checked = selected.has(preset.slug);
-          const anchor = anchors[preset.slug] ?? 'center';
-          const showAnchor = cropsVertically(preset);
+          const offset = offsets[preset.slug] ?? 0.5;
+          const isActive = preset.slug === activeSlug;
+          const draggable = cropsVertically(preset);
 
           return (
             <div
               key={preset.slug}
-              className="flex items-center gap-3 py-2 border-t border-[#f0ece2] first:border-t-0"
+              className={`flex items-center gap-3 py-2 border-t border-[#f0ece2] first:border-t-0 ${
+                isActive ? 'bg-[#f4e8c8] rounded-md px-1' : ''
+              }`}
             >
-              {/* Select toggle (checkbox-as-button for big tap target) */}
+              {/* Select toggle */}
               <button
                 type="button"
                 disabled={isBusy}
@@ -80,18 +89,25 @@ export default function MockupDownloadMenu({
                 {locked ? '🔒' : checked ? '✓' : ''}
               </button>
 
-              {/* Crop-framed thumbnail */}
-              <div
-                className="flex-none rounded border border-[#cbb37a] bg-[#f4e8c8] overflow-hidden"
+              {/* Bigger crop-framed thumbnail — tap to make this size active */}
+              <button
+                type="button"
+                onClick={() => onSetActive(preset.slug)}
+                aria-label={`Frame ${rowLabel(preset)}`}
+                aria-pressed={isActive}
+                className={`flex-none rounded border overflow-hidden ${
+                  isActive ? 'border-[#e0c26e] ring-2 ring-[#e0c26e]' : 'border-[#cbb37a]'
+                }`}
                 style={{
-                  width: 40,
+                  width: 64,
                   aspectRatio: `${preset.pxW} / ${preset.pxH}`,
+                  backgroundColor: '#f4e8c8',
                   backgroundImage: snapshotUrl ? `url(${snapshotUrl})` : undefined,
                   backgroundSize: 'cover',
-                  backgroundPosition: ANCHOR_POSITION[anchor],
+                  backgroundPosition: `50% ${offset * 100}%`,
                   backgroundRepeat: 'no-repeat',
+                  touchAction: 'manipulation',
                 }}
-                aria-hidden
               />
 
               {/* Name + dims */}
@@ -101,35 +117,9 @@ export default function MockupDownloadMenu({
                 </div>
                 <div className="text-[11px] text-[#9aa3ab] tabular-nums">
                   {preset.pxW}×{preset.pxH}
+                  {draggable ? (isActive ? ' · editing' : '') : ' · no crop'}
                 </div>
               </div>
-
-              {/* Anchor toggle — only where the crop is vertical */}
-              {showAnchor ? (
-                <div className="flex-none inline-flex rounded-md border border-[#cbb37a] overflow-hidden">
-                  {ANCHORS.map(a => (
-                    <button
-                      key={a.value}
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => onSetAnchor(preset.slug, a.value)}
-                      aria-pressed={anchor === a.value}
-                      className={`text-[11px] px-2.5 py-1.5 font-medium ${
-                        anchor === a.value
-                          ? 'bg-[#e0c26e] text-[#294051]'
-                          : 'bg-white text-[#705046]'
-                      } disabled:opacity-50`}
-                      style={{ touchAction: 'manipulation' }}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <span className="flex-none text-[11px] text-[#bdc4ca] pr-1">
-                  {preset.slug === FULL_SIZE_SLUG ? 'no crop' : 'no anchor'}
-                </span>
-              )}
             </div>
           );
         })}
