@@ -19,7 +19,7 @@ import {
 } from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
-import { downloadMockupSocialSizes, type VAnchor } from '@/lib/utils/mockupSocialExport';
+import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import MockupDownloadMenu from '@/components/mockups/MockupDownloadMenu';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
@@ -39,13 +39,13 @@ function defaultDownloadSelection(canFullSize: boolean): Set<SizeSlug> {
   return canFullSize ? new Set<SizeSlug>([FULL_SIZE_SLUG]) : new Set<SizeSlug>();
 }
 
-// All per-size crop anchors default to 'center' so an untouched export is
-// byte-identical to the pre-anchor behavior.
-function allCenterAnchors(): Record<SizeSlug, VAnchor> {
+// All per-size crop offsets default to 0.5 (center) so an untouched export is
+// byte-identical to the pre-crop behavior.
+function allCenterOffsets(): Record<SizeSlug, number> {
   return mockupDownloadSizes().reduce((acc, p) => {
-    acc[p.slug] = 'center';
+    acc[p.slug] = 0.5;
     return acc;
-  }, {} as Record<SizeSlug, VAnchor>);
+  }, {} as Record<SizeSlug, number>);
 }
 
 /** Debounces a value — returns the input only after it has stopped changing for `delay` ms. */
@@ -176,9 +176,10 @@ export default function AdvancedToolsBar({
   const [badgeEnabled, setBadgeEnabled] = useState(true);
   // Selected sizes for the unified Mockup Modal download menu (Full size + social sizes).
   const [socialSizes, setSocialSizes] = useState<Set<SizeSlug>>(new Set());
-  const [socialAnchors, setSocialAnchors] = useState<Record<SizeSlug, VAnchor>>(
-    () => allCenterAnchors(),
+  const [socialOffsets, setSocialOffsets] = useState<Record<SizeSlug, number>>(
+    () => allCenterOffsets(),
   );
+  const [activeSlug, setActiveSlug] = useState<SizeSlug>(FULL_SIZE_SLUG);
   const [mockupSnapshotUrl, setMockupSnapshotUrl] = useState<string | null>(null);
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
 
@@ -199,7 +200,8 @@ export default function AdvancedToolsBar({
     setHighlightOpacityPercents(Array(highlightCount).fill(30));
     setColorOverlayEnabled(v2?.colorOverlayDefaultEnabled ?? true);
     setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup)));
-    setSocialAnchors(allCenterAnchors());
+    setSocialOffsets(allCenterOffsets());
+    setActiveSlug(FULL_SIZE_SLUG);
     setMockupSnapshotUrl(null);
   }, [selectedMockup, proAllowed]);
 
@@ -480,7 +482,8 @@ export default function AdvancedToolsBar({
           setHighlightOpacityPercents([30]);
           setColorOverlayEnabled(true);
           setSocialSizes(defaultDownloadSelection(proAllowed || (!!selectedMockup && isFreeMockup(selectedMockup))));
-          setSocialAnchors(allCenterAnchors());
+          setSocialOffsets(allCenterOffsets());
+          setActiveSlug(FULL_SIZE_SLUG);
           setMockupSnapshotUrl(null);
         }}
         onSelectMockup={(type) => {
@@ -532,7 +535,7 @@ export default function AdvancedToolsBar({
               await downloadMockupSocialSizes(
                 mockupCanvas,
                 presets,
-                { watermark, isPro: !!isPro, badgeEnabled, anchors: socialAnchors },
+                { watermark, isPro: !!isPro, badgeEnabled, offsets: socialOffsets },
                 baseName,
               );
             } finally {
@@ -550,7 +553,8 @@ export default function AdvancedToolsBar({
               setMockupColorOverride(null);
               setMockupScaleOverride(null);
               setSocialSizes(defaultDownloadSelection(proAllowed || isFreeMockup(selectedMockup!)));
-              setSocialAnchors(allCenterAnchors());
+              setSocialOffsets(allCenterOffsets());
+              setActiveSlug(FULL_SIZE_SLUG);
               setMockupSnapshotUrl(null);
             }}
             title={mockupName}
@@ -757,10 +761,12 @@ export default function AdvancedToolsBar({
                     return next;
                   })
                 }
-                anchors={socialAnchors}
-                onSetAnchor={(slug, anchor) =>
-                  setSocialAnchors(prev => ({ ...prev, [slug]: anchor }))
+                offsets={socialOffsets}
+                onSetOffset={(slug, offset) =>
+                  setSocialOffsets(prev => ({ ...prev, [slug]: offset }))
                 }
+                activeSlug={activeSlug}
+                onSetActive={setActiveSlug}
                 snapshotUrl={mockupSnapshotUrl}
                 isLocked={(preset: SocialSizePreset) =>
                   preset.slug === FULL_SIZE_SLUG
@@ -772,7 +778,15 @@ export default function AdvancedToolsBar({
                 onDownload={onDownloadExport}
               />
 
-              <div className="flex items-center justify-center bg-white rounded-lg p-4">
+              {/* Snapshot source for the crop stage/thumbnails. Kept mounted &
+                  rendering, but moved off-screen — the crop stage is now the visible
+                  preview. (Pattern-drag on this preview is intentionally retired; see
+                  plan risk note.) */}
+              <div
+                aria-hidden
+                className="bg-white"
+                style={{ position: 'absolute', left: '-10000px', top: 0, width: 600, pointerEvents: 'none' }}
+              >
                 {/* Definite 600px wrapper width keeps the modal from
                     collapsing before the canvas mounts. `flex justify-center`
                     centers the canvas when fitContainer shrinks it below
