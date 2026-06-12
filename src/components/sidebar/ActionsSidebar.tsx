@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
 import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
+import MockupCropStage from '@/components/mockups/MockupCropStage';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import EasyscaleExportModal from '@/components/export/EasyscaleExportModal';
@@ -15,15 +16,14 @@ import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipelin
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { isFreeMockup, isFreeSocialSize } from '@/lib/mockups/freeTier';
-import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { mockupDownloadSizes, FULL_SIZE_SLUG, FULL_SIZE_PRESET, SOCIAL_SIZE_PRESETS, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { createTrailingThrottle } from '@/lib/utils/trailingThrottle';
 import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import MockupDownloadMenu from '@/components/mockups/MockupDownloadMenu';
 import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
-import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
 import { shouldStampBadge } from '@/lib/badge/patternpalBadge';
-import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 
 // Full size is preselected when it's downloadable for the current template/user;
 // if it's Pro-locked (free user on a paid template), start with nothing selected.
@@ -79,6 +79,18 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   );
   const [activeSlug, setActiveSlug] = useState<SizeSlug>(FULL_SIZE_SLUG);
   const [mockupSnapshotUrl, setMockupSnapshotUrl] = useState<string | null>(null);
+  // Throttled snapshot of the live preview canvas → feeds the size-grid thumbnails.
+  // Lazily created once; reads the on-screen mockup canvas and stores a PNG data URL.
+  const snapshotThrottleRef = useRef<ReturnType<typeof createTrailingThrottle> | null>(null);
+  if (!snapshotThrottleRef.current) {
+    snapshotThrottleRef.current = createTrailingThrottle(() => {
+      const c = document.querySelector(
+        '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
+      ) as HTMLCanvasElement | null;
+      if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
+    }, 350);
+  }
+  useEffect(() => () => snapshotThrottleRef.current?.cancel(), []);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
@@ -88,6 +100,12 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
   const proAllowed = isPro || proAccess === 'allowed';
+
+  // The size preset currently being framed on the live preview (drives MockupCropStage).
+  const activePreset =
+    activeSlug === FULL_SIZE_SLUG
+      ? FULL_SIZE_PRESET
+      : (SOCIAL_SIZE_PRESETS.find(p => p.slug === activeSlug) ?? FULL_SIZE_PRESET);
 
   const verifyProAccess = async () => {
     if (!isSignedIn) {
@@ -617,20 +635,16 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
               onDownload={onDownloadExport}
             />
 
-            {/* Snapshot source for the crop stage/thumbnails. Kept mounted &
-                rendering, but moved off-screen — the crop stage is now the visible
-                preview. (Pattern-drag on this preview is intentionally retired; see
-                plan risk note.) */}
-            <div
-              aria-hidden
-              className="bg-white"
-              style={{ position: 'absolute', left: '-10000px', top: 0, width: 600, pointerEvents: 'none' }}
-            >
-              {/* Definite 600px wrapper width keeps the modal sized
-                  predictably even before the canvas mounts (otherwise the
-                  whole modal collapses). `flex justify-center` centers the
-                  canvas horizontally when fitContainer shrinks it below
-                  600px wide (e.g. tall 2:3 mockup capped by 60vh height). */}
+            {/* Live mockup preview. The MockupRendererV2 canvas is the visible
+                preview; MockupCropStage overlays it to frame the active size and
+                also doubles as the snapshot source for the size-grid thumbnails
+                (read via the [data-mockup-modal] canvas selector). */}
+            <div className="bg-white w-full flex justify-center">
+              {/* Definite wrapper width keeps the modal sized predictably even
+                  before the canvas mounts (otherwise the whole modal collapses).
+                  `flex justify-center` centers the canvas horizontally when
+                  fitContainer shrinks it below 600px wide (e.g. tall 2:3 mockup
+                  capped by 60vh height). */}
               <div className="w-[600px] max-w-full relative flex justify-center">
                 {(() => {
                   const v2Tmpl = getV2Template(selectedMockup);
@@ -664,8 +678,6 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                         containerType: 'inline-size',
                       }}
                     >
-                      <WatermarkPreviewOverlay watermark={watermark} />
-                      <BadgePreviewOverlay visible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })} />
                       <MockupRendererV2
                       template={v2Tmpl}
                       patternImage={image}
@@ -694,15 +706,17 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                           downloadAfterRenderRef.current = null;
                           cb();
                         }
-                        // Snapshot the preview canvas for the crop thumbnails.
-                        // Skip during full-res capture (huge canvas, mid-download).
-                        if (!isCapturingFullRes) {
-                          const c = document.querySelector(
-                            '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
-                          ) as HTMLCanvasElement | null;
-                          if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
-                        }
+                        // Snapshot for the size-grid thumbnails only — throttled off the render hot path.
+                        if (!isCapturingFullRes) snapshotThrottleRef.current?.call();
                       }}
+                      />
+                      <MockupCropStage
+                        preset={activePreset}
+                        offset={socialOffsets[activeSlug] ?? 0.5}
+                        onChangeOffset={next => setSocialOffsets(prev => ({ ...prev, [activeSlug]: next }))}
+                        isBusy={isCapturingFullRes}
+                        watermark={watermark}
+                        badgeVisible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })}
                       />
                     </div>
                   );
