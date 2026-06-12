@@ -41,4 +41,19 @@ describe('createTrailingThrottle', () => {
     vi.advanceTimersByTime(300);
     expect(fn).toHaveBeenCalledTimes(1);
   });
+
+  it('re-arms the window after a trailing run to honor a call that lands during it', () => {
+    const fn = vi.fn();
+    const t = createTrailingThrottle(fn, 300);
+    t.call(); // leading -> 1
+    t.call(); // queues trailing
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(300);
+    expect(fn).toHaveBeenCalledTimes(2); // trailing #1 fires, window re-arms
+    t.call(); // lands during re-armed window -> queues another trailing
+    vi.advanceTimersByTime(300);
+    expect(fn).toHaveBeenCalledTimes(3); // trailing #2 fires
+    vi.advanceTimersByTime(300);
+    expect(fn).toHaveBeenCalledTimes(3); // chain terminates cleanly when idle
+  });
 });
