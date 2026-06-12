@@ -1,19 +1,18 @@
 'use client';
 
-import { useRef } from 'react';
-import { cropsVertically, FULL_SIZE_SLUG, MOCKUP_SRC_ASPECT, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { useRef, useState } from 'react';
+import { FULL_SIZE_SLUG, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { computePreviewCropFractions } from '@/lib/export/cropFraming';
 import { WatermarkConfig } from '@/lib/watermark/watermark';
 import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
 
 export interface MockupCropStageProps {
-  /** Data-URL snapshot of the live mockup canvas; null until first render. */
-  snapshotUrl: string | null;
-  /** The size currently being framed. */
+  /** The size currently being framed on the live preview. */
   preset: SocialSizePreset;
   /** Current vertical offset 0..1 for this size (0.5 = center). */
   offset: number;
-  /** Called with the new clamped offset as the user drags. */
+  /** Called with the new clamped offset as the user drags the frame. */
   onChangeOffset: (next: number) => void;
   isBusy: boolean;
   /** Watermark config — previewed over the crop region exactly where export stamps it. */
@@ -24,8 +23,15 @@ export interface MockupCropStageProps {
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 
+/**
+ * Transparent crop-framing overlay drawn over the live MockupRendererV2 canvas.
+ * `absolute inset-0` over the 2:3 canvas wrapper (containerType: inline-size).
+ *
+ * Model A gesture split: every element here is pointer-events:none EXCEPT the center
+ * grab-bar handle, so pointerdowns anywhere else fall through to the renderer's pattern
+ * drag. Grabbing the handle slides the vertical crop offset.
+ */
 export default function MockupCropStage({
-  snapshotUrl,
   preset,
   offset,
   onChangeOffset,
@@ -34,32 +40,10 @@ export default function MockupCropStage({
   badgeVisible,
 }: MockupCropStageProps) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const draggable = cropsVertically(preset);
+  const [draggingCrop, setDraggingCrop] = useState(false);
 
-  // The crop region is the sub-rectangle of the snapshot that gets exported. The
-  // stage frame and snapshot are both 2:3 (MOCKUP_SRC_ASPECT), so frame fractions
-  // map 1:1 to the snapshot. We mirror computeCoverCropRect with srcAspect =
-  // MOCKUP_SRC_ASPECT so the crop box, the offset drag, AND the watermark/badge
-  // overlay all coincide with the exported PNG.
-  //   - vertical crop (square/portrait): full width, height slides with offset
-  //   - horizontal crop (story): full height, centered narrower width
-  //   - no crop (pinterest / full size): the whole frame
-  const targetAspect = preset.pxW / preset.pxH;
-  const horizontalCrop = !draggable && MOCKUP_SRC_ASPECT > targetAspect;
-
-  let widthFraction = 1;
-  let heightFraction = 1;
-  let leftFraction = 0;
-  let topFraction = 0;
-  if (draggable) {
-    heightFraction = clamp01(MOCKUP_SRC_ASPECT / targetAspect);
-    topFraction = (1 - heightFraction) * clamp01(offset);
-  } else if (horizontalCrop) {
-    widthFraction = clamp01(targetAspect / MOCKUP_SRC_ASPECT);
-    leftFraction = (1 - widthFraction) / 2;
-  }
-
-  const travel = 1 - heightFraction; // fraction of stage height the box can move
+  const { mode, leftFraction, topFraction, widthFraction, heightFraction, travel } =
+    computePreviewCropFractions(preset, offset);
 
   function offsetFromClientY(clientY: number): number {
     const el = frameRef.current;
@@ -71,81 +55,123 @@ export default function MockupCropStage({
     return clamp01(top / travel);
   }
 
-  function handlePointerDown(e: React.PointerEvent) {
-    if (!draggable || isBusy) return;
+  function handleDown(e: React.PointerEvent) {
+    if (mode !== 'vertical' || isBusy) return;
     e.preventDefault();
+    e.stopPropagation(); // never let the renderer also start a pattern drag
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setDraggingCrop(true);
     onChangeOffset(offsetFromClientY(e.clientY));
   }
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!draggable || isBusy) return;
-    if (e.buttons === 0) return; // not dragging
+  function handleMove(e: React.PointerEvent) {
+    if (mode !== 'vertical' || isBusy) return;
+    if (e.buttons === 0) return;
+    e.stopPropagation();
     onChangeOffset(offsetFromClientY(e.clientY));
+  }
+  function handleUp(e: React.PointerEvent) {
+    if (mode !== 'vertical') return;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    setDraggingCrop(false);
   }
 
-  if (!snapshotUrl) {
-    return (
-      <div className="flex items-center justify-center rounded-lg bg-[#f4e8c8] text-[12px] text-[#9aa3ab]"
-           style={{ aspectRatio: '2 / 3', width: 240 }}>
-        Rendering preview…
-      </div>
-    );
-  }
+  // Handle sits centered on the crop box; ≥44px tall touch target.
+  const boxCenterPct = (topFraction + heightFraction / 2) * 100;
+
+  const label =
+    preset.slug === FULL_SIZE_SLUG
+      ? 'Full size — drag to move the pattern'
+      : mode === 'vertical'
+        ? draggingCrop
+          ? 'Sliding the crop frame ↕'
+          : 'Moving the pattern · grab the gold bar to frame'
+        : mode === 'horizontal'
+          ? 'This size frames automatically · drag to move the pattern'
+          : 'Drag to move the pattern';
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div
-        ref={frameRef}
-        className="relative overflow-hidden rounded-lg select-none"
-        style={{
-          width: 240,
-          aspectRatio: '2 / 3',
-          backgroundImage: `url(${snapshotUrl})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          touchAction: 'none',
-        }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-      >
-        {/* Watermark + badge previewed inside the crop region. `containerType:
-            inline-size` makes the overlays' cqw units reference the crop width,
-            so the logo lands exactly where the export stamps it on the cropped
-            PNG. pointer-events:none keeps the crop drag working through it. */}
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            left: `${leftFraction * 100}%`,
-            top: `${topFraction * 100}%`,
-            width: `${widthFraction * 100}%`,
-            height: `${heightFraction * 100}%`,
-            containerType: 'inline-size',
-          }}
-        >
-          <WatermarkPreviewOverlay watermark={watermark} />
-          <BadgePreviewOverlay visible={badgeVisible} />
-        </div>
+    <div ref={frameRef} className="pointer-events-none absolute inset-0 select-none">
+      {mode === 'vertical' && (
+        <>
+          {/* dim above + below the crop box */}
+          <div
+            className="absolute left-0 right-0 top-0 bg-[#294051]/45"
+            style={{ height: `${topFraction * 100}%` }}
+          />
+          <div
+            className="absolute left-0 right-0 bottom-0 bg-[#294051]/45"
+            style={{ height: `${(travel - topFraction) * 100}%` }}
+          />
+          {/* gold crop box (visual only) */}
+          <div
+            className="absolute left-0 right-0 border-[3px] border-[#e0c26e]"
+            style={{ top: `${topFraction * 100}%`, height: `${heightFraction * 100}%` }}
+          />
+          {/* center grab-bar handle — the ONLY crop-grab target */}
+          <div
+            className="pointer-events-auto absolute left-1/2 flex items-center justify-center gap-1 rounded-full bg-[#e0c26e] shadow-md cursor-grab active:cursor-grabbing"
+            style={{
+              top: `${boxCenterPct}%`,
+              transform: 'translate(-50%, -50%)',
+              width: 72,
+              height: 44,
+              touchAction: 'none',
+            }}
+            onPointerDown={handleDown}
+            onPointerMove={handleMove}
+            onPointerUp={handleUp}
+            onPointerCancel={handleUp}
+            aria-label="Drag to frame this size vertically"
+          >
+            <span className="block h-[3px] w-5 rounded-full bg-[#294051]/70" />
+            <span className="block h-[3px] w-5 rounded-full bg-[#294051]/70" />
+          </div>
+        </>
+      )}
 
-        {draggable ? (
-          <>
-            {/* dim above + below the box */}
-            <div className="absolute left-0 right-0 top-0 bg-[#294051]/45"
-                 style={{ height: `${topFraction * 100}%` }} />
-            <div className="absolute left-0 right-0 bottom-0 bg-[#294051]/45"
-                 style={{ height: `${(travel - topFraction) * 100}%` }} />
-            {/* crop box */}
-            <div className="absolute left-0 right-0 border-[3px] border-[#e0c26e] cursor-grab active:cursor-grabbing"
-                 style={{ top: `${topFraction * 100}%`, height: `${heightFraction * 100}%` }} />
-          </>
-        ) : null}
+      {mode === 'horizontal' && (
+        <>
+          {/* dim left + right of the centered band */}
+          <div
+            className="absolute top-0 bottom-0 left-0 bg-[#294051]/45"
+            style={{ width: `${leftFraction * 100}%` }}
+          />
+          <div
+            className="absolute top-0 bottom-0 right-0 bg-[#294051]/45"
+            style={{ width: `${leftFraction * 100}%` }}
+          />
+          <div
+            className="absolute top-0 bottom-0 border-[3px] border-[#e0c26e]"
+            style={{ left: `${leftFraction * 100}%`, width: `${widthFraction * 100}%` }}
+          />
+        </>
+      )}
+
+      {/* Watermark + badge previewed inside the crop region. containerType: inline-size
+          makes the overlays' cqw units reference the crop width, so the logo lands where
+          the export stamps it on the cropped PNG. */}
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          left: `${leftFraction * 100}%`,
+          top: `${topFraction * 100}%`,
+          width: `${widthFraction * 100}%`,
+          height: `${heightFraction * 100}%`,
+          containerType: 'inline-size',
+        }}
+      >
+        <WatermarkPreviewOverlay watermark={watermark} />
+        <BadgePreviewOverlay visible={badgeVisible} />
       </div>
-      <p className="text-[12px] text-[#705046] text-center max-w-[240px]">
-        {preset.slug === FULL_SIZE_SLUG
-          ? 'Full size — the whole mockup, no crop.'
-          : draggable
-            ? 'Drag the box up or down to frame this size.'
-            : 'This size frames automatically — no manual crop.'}
-      </p>
+
+      {/* Live action label */}
+      <div className="pointer-events-none absolute left-1/2 bottom-2 -translate-x-1/2">
+        <span className="rounded-full bg-[#294051]/80 px-3 py-1 text-[11px] font-medium text-white whitespace-nowrap">
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
