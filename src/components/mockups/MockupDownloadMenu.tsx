@@ -1,28 +1,21 @@
 'use client';
 
 import { mockupDownloadSizes, cropsVertically, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
-import { WatermarkConfig } from '@/lib/watermark/watermark';
-import MockupCropStage from './MockupCropStage';
 
 export interface MockupDownloadMenuProps {
   selected: Set<SizeSlug>;
   onToggleSize: (slug: SizeSlug) => void;
-  /** Per-size vertical crop offset 0..1 (0.5 = center). */
+  /** Per-size vertical crop offset 0..1 (0.5 = center) — frames the row thumbnails. */
   offsets: Record<SizeSlug, number>;
-  onSetOffset: (slug: SizeSlug, offset: number) => void;
-  /** Which size is being framed in the crop stage. */
+  /** Which size the live preview overlay is framing (highlighted in the grid). */
   activeSlug: SizeSlug;
   onSetActive: (slug: SizeSlug) => void;
-  /** Data-URL snapshot of the live mockup canvas; null until first render completes. */
+  /** Throttled data-URL snapshot of the live mockup canvas; null until first render. */
   snapshotUrl: string | null;
   isLocked: (preset: SocialSizePreset) => boolean;
   onLockedClick: () => void;
   isBusy: boolean;
   onDownload: () => void;
-  /** Watermark config — previewed over the crop region in the stage. */
-  watermark: WatermarkConfig;
-  /** Whether the PatternPAL badge will be stamped on export. */
-  badgeVisible: boolean;
 }
 
 function rowLabel(preset: SocialSizePreset): string {
@@ -35,7 +28,6 @@ export default function MockupDownloadMenu({
   selected,
   onToggleSize,
   offsets,
-  onSetOffset,
   activeSlug,
   onSetActive,
   snapshotUrl,
@@ -43,28 +35,14 @@ export default function MockupDownloadMenu({
   onLockedClick,
   isBusy,
   onDownload,
-  watermark,
-  badgeVisible,
 }: MockupDownloadMenuProps) {
   const sizes = mockupDownloadSizes();
-  const activePreset = sizes.find(p => p.slug === activeSlug) ?? sizes[0];
 
   return (
     <div className="flex flex-col gap-3 border-t border-[#92afa5]/30 pt-3">
       <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
         Download mockup
       </span>
-
-      {/* Crop stage for the active size (replaces the old bottom preview). */}
-      <MockupCropStage
-        snapshotUrl={snapshotUrl}
-        preset={activePreset}
-        offset={offsets[activeSlug] ?? 0.5}
-        onChangeOffset={next => onSetOffset(activeSlug, next)}
-        isBusy={isBusy}
-        watermark={watermark}
-        badgeVisible={badgeVisible}
-      />
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         {sizes.map(preset => {
