@@ -8,6 +8,7 @@ import { openSeamInspector } from '@/lib/seam-inspector/openSeamInspector';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
+import MockupCropStage from '@/components/mockups/MockupCropStage';
 import UpgradeModal from '@/components/export/UpgradeModal';
 import { getV2Template } from '@/lib/mockups/mockupEngineV2/templates/templateRegistry';
 import {
@@ -18,16 +19,15 @@ import {
   FREE_EASYSCALE_FORMAT,
 } from '@/lib/mockups/freeTier';
 import { extractDominantColor } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
-import { mockupDownloadSizes, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { mockupDownloadSizes, FULL_SIZE_SLUG, FULL_SIZE_PRESET, SOCIAL_SIZE_PRESETS, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
+import { createTrailingThrottle } from '@/lib/utils/trailingThrottle';
 import { downloadMockupSocialSizes } from '@/lib/utils/mockupSocialExport';
 import MockupDownloadMenu from '@/components/mockups/MockupDownloadMenu';
 import { sanitizeFilename } from '@/lib/utils/sanitizeFilename';
 import { WatermarkConfig, DEFAULT_WATERMARK } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
-import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
 import { shouldStampBadge } from '@/lib/badge/patternpalBadge';
-import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 import { analyzeContrast, analyzeComposition, analyzeColorHarmony, ContrastAnalysis, CompositionAnalysis, ColorHarmonyAnalysis } from '@/lib/analysis/patternAnalyzer';
 import { useUser } from '@clerk/nextjs';
 import { checkClientProStatus } from '@/lib/utils/checkProStatus';
@@ -181,10 +181,28 @@ export default function AdvancedToolsBar({
   );
   const [activeSlug, setActiveSlug] = useState<SizeSlug>(FULL_SIZE_SLUG);
   const [mockupSnapshotUrl, setMockupSnapshotUrl] = useState<string | null>(null);
+  // Throttled snapshot of the live preview canvas → feeds the size-grid thumbnails.
+  // Lazily created once; reads the on-screen mockup canvas and stores a PNG data URL.
+  const snapshotThrottleRef = useRef<ReturnType<typeof createTrailingThrottle> | null>(null);
+  if (!snapshotThrottleRef.current) {
+    snapshotThrottleRef.current = createTrailingThrottle(() => {
+      const c = document.querySelector(
+        '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
+      ) as HTMLCanvasElement | null;
+      if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
+    }, 350);
+  }
+  useEffect(() => () => snapshotThrottleRef.current?.cancel(), []);
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
 
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const proAllowed = isPro || proAccess === 'allowed';
+
+  // The size preset currently being framed on the live preview (drives MockupCropStage).
+  const activePreset =
+    activeSlug === FULL_SIZE_SLUG
+      ? FULL_SIZE_PRESET
+      : (SOCIAL_SIZE_PRESETS.find(p => p.slug === activeSlug) ?? FULL_SIZE_PRESET);
 
   // Resize per-layer arrays to match the selected template's layer count.
   useEffect(() => {
@@ -775,19 +793,16 @@ export default function AdvancedToolsBar({
                 onDownload={onDownloadExport}
               />
 
-              {/* Snapshot source for the crop stage/thumbnails. Kept mounted &
-                  rendering, but moved off-screen — the crop stage is now the visible
-                  preview. (Pattern-drag on this preview is intentionally retired; see
-                  plan risk note.) */}
-              <div
-                aria-hidden
-                className="bg-white"
-                style={{ position: 'absolute', left: '-10000px', top: 0, width: 600, pointerEvents: 'none' }}
-              >
-                {/* Definite 600px wrapper width keeps the modal from
-                    collapsing before the canvas mounts. `flex justify-center`
-                    centers the canvas when fitContainer shrinks it below
-                    600px wide to honor the 60vh height cap. */}
+              {/* Live mockup preview. The MockupRendererV2 canvas is the visible
+                  preview; MockupCropStage overlays it to frame the active size and
+                  also doubles as the snapshot source for the size-grid thumbnails
+                  (read via the [data-mockup-modal] canvas selector). */}
+              <div className="bg-white w-full flex justify-center">
+                {/* Definite wrapper width keeps the modal sized predictably even
+                    before the canvas mounts (otherwise the whole modal collapses).
+                    `flex justify-center` centers the canvas horizontally when
+                    fitContainer shrinks it below 600px wide (e.g. tall 2:3 mockup
+                    capped by 60vh height). */}
                 <div className="w-[600px] max-w-full relative flex justify-center">
                   {/* Tight wrapper that shrinks to the rendered mockup canvas
                       (NOT the 600px outer box). It mirrors the canvas's own CSS
@@ -818,8 +833,6 @@ export default function AdvancedToolsBar({
                         containerType: 'inline-size',
                       }}
                     >
-                      <WatermarkPreviewOverlay watermark={watermark} />
-                      <BadgePreviewOverlay visible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })} />
                       <MockupRendererV2
                       template={v2Template}
                       patternImage={image}
@@ -848,15 +861,17 @@ export default function AdvancedToolsBar({
                           downloadAfterRenderRef.current = null;
                           cb();
                         }
-                        // Snapshot the preview canvas for the crop thumbnails.
-                        // Skip during full-res capture (huge canvas, mid-download).
-                        if (!isCapturingFullRes) {
-                          const c = document.querySelector(
-                            '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
-                          ) as HTMLCanvasElement | null;
-                          if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
-                        }
+                        // Snapshot for the size-grid thumbnails only — throttled off the render hot path.
+                        if (!isCapturingFullRes) snapshotThrottleRef.current?.call();
                       }}
+                      />
+                      <MockupCropStage
+                        preset={activePreset}
+                        offset={socialOffsets[activeSlug] ?? 0.5}
+                        onChangeOffset={next => setSocialOffsets(prev => ({ ...prev, [activeSlug]: next }))}
+                        isBusy={isCapturingFullRes}
+                        watermark={watermark}
+                        badgeVisible={shouldStampBadge({ isPaidPro: isPro, badgeEnabled })}
                       />
                     </div>
                   )}
