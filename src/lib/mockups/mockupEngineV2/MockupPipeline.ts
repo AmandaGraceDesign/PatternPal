@@ -57,6 +57,55 @@ function getAlphaMaskCanvas(mask: HTMLImageElement): HTMLCanvasElement {
   return c;
 }
 
+/**
+ * Cache of color-overlay accent masks converted to alpha-RGBA form.
+ *
+ * Accent masks (trim/bow/etc.) use the OPPOSITE convention to zone masks:
+ * opaque (or bright) = the accent region. Like getAlphaMaskCanvas this runs a
+ * full-canvas getImageData + per-pixel loop, which on color-overlay templates
+ * (onesie, wrapping-paper, curtain) was being recomputed on EVERY preview
+ * render (scale/drag/color). The mask never changes render-to-render, so convert
+ * once and cache. Output RGB is black (0,0,0); only alpha is meaningful — every
+ * downstream use composites it via destination-in.
+ *
+ * Separate WeakMap from alphaMaskCache because the alpha convention is inverted
+ * (a mask could in principle feed both paths and must not collide).
+ */
+const colorOverlayMaskCache = new WeakMap<HTMLImageElement, HTMLCanvasElement>();
+
+function getColorOverlayMaskCanvas(mask: HTMLImageElement): HTMLCanvasElement {
+  const cached = colorOverlayMaskCache.get(mask);
+  if (cached) return cached;
+
+  const w = mask.naturalWidth || mask.width;
+  const h = mask.naturalHeight || mask.height;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.drawImage(mask, 0, 0);
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const md = imageData.data;
+  const total = md.length / 4;
+  let transparent = 0;
+  for (let i = 3; i < md.length; i += 4) {
+    if (md[i] < 10) transparent++;
+  }
+  const isAlphaMask = transparent / total > 0.1;
+  for (let i = 0; i < md.length; i += 4) {
+    const finalAlpha = isAlphaMask
+      ? md[i + 3]
+      : Math.round((md[i] + md[i + 1] + md[i + 2]) / 3);
+    md[i] = 0;
+    md[i + 1] = 0;
+    md[i + 2] = 0;
+    md[i + 3] = finalAlpha;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  colorOverlayMaskCache.set(mask, c);
+  return c;
+}
+
 /** Extract dominant background color from a pattern image (same approach as V1). */
 export function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement): string {
   const sampleSize = 48;
@@ -480,31 +529,11 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         ? extractDominantColor(patternImage)
         : template.colorOverlay.defaultColor);
 
-    // Convert overlay mask to alpha mask, handling both formats
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = width;
-    maskCanvas.height = height;
-    const maskCtx = maskCanvas.getContext('2d')!;
-    maskCtx.drawImage(overlayMask, 0, 0, width, height);
-    const maskData = maskCtx.getImageData(0, 0, width, height);
-    const md = maskData.data;
-    const overlayTotal = md.length / 4;
-    let overlayTransparent = 0;
-    for (let i = 3; i < md.length; i += 4) {
-      if (md[i] < 10) overlayTransparent++;
-    }
-    const isOverlayAlphaMask = overlayTransparent / overlayTotal > 0.1;
-    for (let i = 0; i < md.length; i += 4) {
-      let finalAlpha: number;
-      if (isOverlayAlphaMask) {
-        finalAlpha = md[i + 3];
-      } else {
-        finalAlpha = Math.round((md[i] + md[i + 1] + md[i + 2]) / 3);
-      }
-      md[i] = 0; md[i + 1] = 0; md[i + 2] = 0;
-      md[i + 3] = finalAlpha;
-    }
-    maskCtx.putImageData(maskData, 0, 0);
+    // Convert overlay mask to alpha mask (handles both conventions). Cached on
+    // the source image so this heavy getImageData + per-pixel pass runs once
+    // rather than every preview render. The cached canvas is at the mask's
+    // natural size; downstream draws scale it to the canvas (width × height).
+    const maskCanvas = getColorOverlayMaskCanvas(overlayMask);
 
     // Default: flat multiply (matches a vanilla PSD Color Fill + Multiply layer).
     // Set flatMultiply: false on a template to opt back into the legacy
@@ -534,13 +563,13 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       }
       shadingCtx.putImageData(shadingData, 0, 0);
       shadingCtx.globalCompositeOperation = 'destination-in';
-      shadingCtx.drawImage(maskCanvas, 0, 0);
+      shadingCtx.drawImage(maskCanvas, 0, 0, width, height);
 
       colorCtx.globalCompositeOperation = 'multiply';
       colorCtx.drawImage(shadingLayer, 0, 0);
     }
     colorCtx.globalCompositeOperation = 'destination-in';
-    colorCtx.drawImage(maskCanvas, 0, 0);
+    colorCtx.drawImage(maskCanvas, 0, 0, width, height);
 
     // Composite accent color into the photo. Default multiply at 100% darkens;
     // per-template overrides let photo lighting bleed through. 'linear-burn' is
@@ -577,7 +606,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       const phCtx = photoHighlightLayer.getContext('2d')!;
       phCtx.drawImage(productCanvas, 0, 0);
       phCtx.globalCompositeOperation = 'destination-in';
-      phCtx.drawImage(maskCanvas, 0, 0);
+      phCtx.drawImage(maskCanvas, 0, 0, width, height);
 
       finalCtx.globalCompositeOperation = 'soft-light';
       finalCtx.globalAlpha = 0.3;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { runPipeline, ROOT_ZONE_KEY } from '@/lib/mockups/mockupEngineV2/MockupPipeline';
 import { scaleTemplate, computeScaleFactor } from '@/lib/mockups/mockupEngineV2/scaleTemplate';
 import type { MockupV2Template } from '@/lib/mockups/mockupEngineV2/templates/types';
@@ -91,6 +91,25 @@ function toMediumPath(p: string): string {
   return p.replace('/mockups/v2/', '/mockups/v2/medium/');
 }
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+
+/**
+ * Single reused 1×1 canvas for mask hit-testing (see sampleMask). Allocating a
+ * fresh canvas + 2d context on every pointerdown sample is needless churn —
+ * sampling is synchronous, so one module-level sampler serves all callers.
+ * `willReadFrequently` hints the browser to keep the backing store readable
+ * (we getImageData on every sample).
+ */
+let hitTestCtx: CanvasRenderingContext2D | null = null;
+function getHitTestCtx(): CanvasRenderingContext2D | null {
+  if (!hitTestCtx) {
+    const c = document.createElement('canvas');
+    c.width = 1;
+    c.height = 1;
+    hitTestCtx = c.getContext('2d', { willReadFrequently: true });
+  }
+  return hitTestCtx;
+}
+
 function cachedLoadImage(src: string): Promise<HTMLImageElement | null> {
   const existing = imageCache.get(src);
   if (existing) {
@@ -108,6 +127,37 @@ function cachedLoadImage(src: string): Promise<HTMLImageElement | null> {
     imageCache.delete(oldest);
   }
   return p;
+}
+
+/**
+ * Warm the module image cache for every layer a template will need, so the
+ * eventual render decodes nothing cold. Fire-and-forget (errors resolve to null
+ * inside cachedLoadImage).
+ *
+ * `preview: true` warms the ≤800px medium set — cheap, used to pre-heat on
+ * gallery hover so opening a mockup paints instantly. Omit it to warm the full
+ * 3000×4500 set used by download: calling this when the modal opens means the
+ * full-res download capture no longer blocks the main thread decoding ~50-80MB
+ * of PNGs synchronously.
+ */
+export function preloadTemplateImages(template: MockupV2Template, opts?: { preview?: boolean }): void {
+  const preview = opts?.preview ?? false;
+  const conv = (p: string | null | undefined): string | null =>
+    p ? (preview ? toMediumPath(p) : p) : null;
+  const paths: Array<string | null> = [
+    template.productBase.type === 'image' ? conv(template.productBase.imagePath) : null,
+    template.productBase.type === 'image' ? conv(template.productBase.maskPath) : null,
+    conv(template.colorOverlay?.maskPath),
+    conv(template.displacementMapPath),
+    conv(template.shadowPath),
+    conv(template.highlightPath),
+    ...(template.additionalShadowPaths ?? []).map(conv),
+    ...(template.additionalHighlightPaths ?? []).map(conv),
+    ...(template.zones ?? []).map(z => conv(z.maskPath)),
+  ];
+  for (const p of paths) {
+    if (p) void cachedLoadImage(p);
+  }
 }
 
 export default function MockupRendererV2({
@@ -165,6 +215,17 @@ export default function MockupRendererV2({
   // Cache of loaded zone masks, populated after the render-effect resolves.
   // Used by pointerdown hit-testing without re-loading the masks.
   const zoneMasksRef = useRef<Record<string, HTMLImageElement>>({});
+
+  // Render-effect dep signatures. These objects/arrays are rebuilt by the
+  // parent on (or near) every render; stringifying them gives the effect a
+  // value-stable dependency so identical contents don't re-fire the pipeline.
+  // Memoized so the stringify only re-runs when the source reference changes —
+  // once the parent hands down stable (useMemo'd) props, these skip entirely.
+  const patternOffsetsSig = useMemo(() => JSON.stringify(patternOffsets), [patternOffsets]);
+  const additionalShadowEnabledsSig = useMemo(() => JSON.stringify(additionalShadowEnableds), [additionalShadowEnableds]);
+  const additionalShadowOpacityOverridesSig = useMemo(() => JSON.stringify(additionalShadowOpacityOverrides), [additionalShadowOpacityOverrides]);
+  const additionalHighlightEnabledsSig = useMemo(() => JSON.stringify(additionalHighlightEnableds), [additionalHighlightEnableds]);
+  const additionalHighlightOpacityOverridesSig = useMemo(() => JSON.stringify(additionalHighlightOpacityOverrides), [additionalHighlightOpacityOverrides]);
 
   // Reset all zone offsets when the template changes (different mockup selected).
   useEffect(() => {
@@ -334,13 +395,13 @@ export default function MockupRendererV2({
     colorOverride, shadowOpacityOverride, highlightOpacityOverride,
     shadowEnabled, highlightEnabled, colorOverlayEnabled,
     maxRenderDimension, preview, isDragging,
-    JSON.stringify(patternOffsets),
-    // Stringify array deps so identical contents don't trigger extra renders
-    // even when the parent rebuilds the array on each render.
-    JSON.stringify(additionalShadowEnableds),
-    JSON.stringify(additionalShadowOpacityOverrides),
-    JSON.stringify(additionalHighlightEnableds),
-    JSON.stringify(additionalHighlightOpacityOverrides),
+    // Value-stable signatures (memoized above) so identical contents don't
+    // re-fire the pipeline even when the parent rebuilds the source arrays.
+    patternOffsetsSig,
+    additionalShadowEnabledsSig,
+    additionalShadowOpacityOverridesSig,
+    additionalHighlightEnabledsSig,
+    additionalHighlightOpacityOverridesSig,
   ]);
 
   /** Sample a mask at a canvas-space (cx, cy) coord. Returns a 0-255
@@ -352,11 +413,11 @@ export default function MockupRendererV2({
     if (!maskW || !maskH) return 0;
     const mx = Math.max(0, Math.min(maskW - 1, Math.floor((cx / canvasW) * maskW)));
     const my = Math.max(0, Math.min(maskH - 1, Math.floor((cy / canvasH) * maskH)));
-    const c = document.createElement('canvas');
-    c.width = 1;
-    c.height = 1;
-    const ctx = c.getContext('2d');
+    const ctx = getHitTestCtx();
     if (!ctx) return 0;
+    // Clear first — the sampler is reused, and a transparent mask pixel drawn
+    // over a previous opaque sample would otherwise composite incorrectly.
+    ctx.clearRect(0, 0, 1, 1);
     ctx.drawImage(mask, mx, my, 1, 1, 0, 0, 1, 1);
     const d = ctx.getImageData(0, 0, 1, 1).data;
     const luminance = (d[0] + d[1] + d[2]) / 3;

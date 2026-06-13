@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { analyzeContrast, analyzeComposition, ContrastAnalysis, CompositionAnalysis } from '@/lib/analysis/patternAnalyzer';
-import MockupRendererV2 from '@/components/mockups/MockupRendererV2';
+import MockupRendererV2, { preloadTemplateImages } from '@/components/mockups/MockupRendererV2';
 import MockupCropStage from '@/components/mockups/MockupCropStage';
 import MockupModal from '@/components/mockups/MockupModal';
 import MockupGalleryModal from '@/components/mockups/MockupGalleryModal';
@@ -82,15 +82,35 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   // Throttled snapshot of the live preview canvas → feeds the size-grid thumbnails.
   // Lazily created once; reads the on-screen mockup canvas and stores a PNG data URL.
   const snapshotThrottleRef = useRef<ReturnType<typeof createTrailingThrottle> | null>(null);
+  // Holds the current object URL so we can revoke the previous one each refresh
+  // (and on unmount) — otherwise the blobs leak as the preview updates.
+  const snapshotUrlRef = useRef<string | null>(null);
   if (!snapshotThrottleRef.current) {
     snapshotThrottleRef.current = createTrailingThrottle(() => {
       const c = document.querySelector(
         '[data-mockup-modal] .mockup-canvas, [data-mockup-modal] canvas',
       ) as HTMLCanvasElement | null;
-      if (c) setMockupSnapshotUrl(c.toDataURL('image/png'));
+      if (!c) return;
+      // JPEG via toBlob + object URL instead of a multi-MB PNG data-URL string
+      // pushed through React state every 350ms. Thumbnails are ~64px so JPEG@0.8
+      // is visually identical, and toBlob encodes off the main thread.
+      c.toBlob(
+        (blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current);
+          snapshotUrlRef.current = url;
+          setMockupSnapshotUrl(url);
+        },
+        'image/jpeg',
+        0.8,
+      );
     }, 350);
   }
-  useEffect(() => () => snapshotThrottleRef.current?.cancel(), []);
+  useEffect(() => () => {
+    snapshotThrottleRef.current?.cancel();
+    if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current);
+  }, []);
   const [isEasyscaleModalOpen, setIsEasyscaleModalOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isMockupGalleryOpen, setIsMockupGalleryOpen] = useState(false);
@@ -100,6 +120,20 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   const isPro = isSignedIn && user ? checkClientProStatus(user.publicMetadata) : false;
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
   const proAllowed = isPro || proAccess === 'allowed';
+
+  // Stable handlers for the memoized download grid — value-stable refs let the
+  // per-row React.memo skip every row except the one whose framing changed.
+  const handleToggleSocialSize = useCallback((slug: SizeSlug) => {
+    // Checking a size also makes it the active (framed) one, so the crop slider
+    // pops up immediately instead of requiring a second tap on the thumbnail.
+    setActiveSlug(slug);
+    setSocialSizes(prev => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug); else next.add(slug);
+      return next;
+    });
+  }, []);
+  const handleDownloadMenuLockedClick = useCallback(() => setIsUpgradeModalOpen(true), []);
 
   // The size preset currently being framed on the live preview (drives MockupCropStage).
   const activePreset =
@@ -147,6 +181,11 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
   useEffect(() => {
     if (!selectedMockup) return;
     const v2 = getV2Template(selectedMockup);
+    // Warm the FULL-res layer cache as soon as the modal opens, so the eventual
+    // full-res download capture doesn't cold-decode ~50-80MB of PNGs on the main
+    // thread (which froze the UI). Fire-and-forget; the medium preview keeps
+    // rendering off the medium set meanwhile.
+    if (v2) preloadTemplateImages(v2);
     const shadowCount = 1 + (v2?.additionalShadowPaths?.length ?? 0);
     const highlightCount = 1 + (v2?.additionalHighlightPaths?.length ?? 0);
     // Primary shadow/highlight default on; additionals honor template defaults
@@ -614,13 +653,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
             {/* Unified download menu — Full size first, then social sizes */}
             <MockupDownloadMenu
               selected={socialSizes}
-              onToggleSize={(slug) =>
-                setSocialSizes(prev => {
-                  const next = new Set(prev);
-                  if (next.has(slug)) next.delete(slug); else next.add(slug);
-                  return next;
-                })
-              }
+              onToggleSize={handleToggleSocialSize}
               offsets={socialOffsets}
               activeSlug={activeSlug}
               onSetActive={setActiveSlug}
@@ -630,7 +663,7 @@ export default function ActionsSidebar({ image, dpi, tileWidth, tileHeight, repe
                   ? (!isPro && !isFreeMockup(selectedMockup))
                   : (!isPro && !isFreeSocialSize(preset.slug))
               }
-              onLockedClick={() => setIsUpgradeModalOpen(true)}
+              onLockedClick={handleDownloadMenuLockedClick}
               isBusy={isCapturingFullRes}
               onDownload={onDownloadExport}
             />

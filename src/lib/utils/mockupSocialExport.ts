@@ -140,18 +140,25 @@ export async function downloadMockupSocialSizes(
   opts: MockupSocialOpts,
   baseName: string,
 ): Promise<{ failed: SocialSizePreset[] }> {
-  const results: { preset: SocialSizePreset; blob: Blob | null }[] = [];
-  for (const preset of presets) {
-    try {
-      const blob = preset.slug === FULL_SIZE_SLUG
-        ? await exportFullSizeMockupBlob(source, opts)
-        : await exportMockupSocialBlob(source, preset, opts);
-      results.push({ preset, blob });
-    } catch (err) {
-      console.error(`[mockupSocialExport] failed for "${preset.slug}":`, err);
-      results.push({ preset, blob: null });
-    }
-  }
+  // Encode every selected size in parallel. Each size is an independent
+  // crop→watermark→badge→encode chain off the same source canvas, so there's no
+  // ordering dependency; running them serially just stacked their latencies.
+  // The selection is small (the few rows the user ticked, not the full grid), so
+  // this stays well within iPad's memory headroom. Per-size try/catch keeps one
+  // failure from sinking the rest.
+  const results = await Promise.all(
+    presets.map(async (preset): Promise<{ preset: SocialSizePreset; blob: Blob | null }> => {
+      try {
+        const blob = preset.slug === FULL_SIZE_SLUG
+          ? await exportFullSizeMockupBlob(source, opts)
+          : await exportMockupSocialBlob(source, preset, opts);
+        return { preset, blob };
+      } catch (err) {
+        console.error(`[mockupSocialExport] failed for "${preset.slug}":`, err);
+        return { preset, blob: null };
+      }
+    }),
+  );
   const ok = results.filter((r): r is { preset: SocialSizePreset; blob: Blob } => r.blob !== null);
   const failed = results.filter(r => r.blob === null).map(r => r.preset);
 

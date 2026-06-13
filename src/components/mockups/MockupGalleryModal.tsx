@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import MockupRendererV2 from './MockupRendererV2';
+import MockupRendererV2, { preloadTemplateImages } from './MockupRendererV2';
 import {
   getAllV2Templates,
   getV2TemplatesByCategory,
@@ -199,6 +199,9 @@ export default function MockupGalleryModal({
                   key={template.id}
                   className="group relative cursor-pointer rounded-xl overflow-hidden bg-gray-50 transition-transform hover:scale-[1.02] active:scale-[0.98]"
                   onClick={() => (locked ? onUpgrade() : onSelectMockup(template.id))}
+                  // Pre-heat the medium layer set on hover so the click → modal
+                  // paints from cache instead of a cold Promise.all decode.
+                  onPointerEnter={() => preloadTemplateImages(template, { preview: true })}
                 >
                   {/* Thumbnail area — aspect-square wrapper for visual consistency */}
                   <div className="relative aspect-square overflow-hidden bg-gray-100">
