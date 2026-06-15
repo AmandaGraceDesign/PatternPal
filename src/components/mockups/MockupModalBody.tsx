@@ -146,7 +146,94 @@ export default function MockupModalBody(props: MockupModalBodyProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col min-[880px]:flex-row min-[880px]:items-stretch gap-3 min-[880px]:gap-4">
+
+      {/* PREVIEW PANE — pinned beside/above its controls.
+          <880px: sticky to the top of the scrolling modal body, height-capped so it doesn't eat the screen.
+          ≥880px: fixed-width left pane (~52%), top-aligned. */}
+      <div className="min-[880px]:flex-[0_0_52%] min-[880px]:self-start sticky top-0 z-10 bg-white
+                      [--preview-cap:40vh] min-[880px]:[--preview-cap:60vh]">
+        {/* Live mockup preview. The MockupRendererV2 canvas is the visible
+            preview; MockupCropStage overlays it to frame the active size and
+            also doubles as the snapshot source for the size-grid thumbnails
+            (read via the [data-mockup-modal] canvas selector). */}
+        <div className="bg-white w-full flex justify-center">
+          {/* Definite wrapper width keeps the modal sized predictably even
+              before the canvas mounts (otherwise the whole modal collapses).
+              `flex justify-center` centers the canvas horizontally when
+              fitContainer shrinks it below 600px wide (e.g. tall 2:3 mockup
+              capped by 60vh height). */}
+          <div className="w-[600px] max-w-full relative flex justify-center">
+            {/* Tight wrapper that shrinks to the rendered mockup canvas
+                (NOT the 600px outer box). It mirrors the canvas's own CSS
+                sizing — aspect-ratio + 60vh height cap — so its width
+                equals the visible canvas width. `containerType:
+                inline-size` makes the overlays' `cqw` units reference the
+                canvas, putting the bottom-left badge over the product
+                image exactly where the export stamps it. */}
+            {v2Template && (
+              <div
+                className="relative"
+                style={{
+                  // WIDTH-DRIVEN, non-collapsing sizing. `width` is the
+                  // smaller of (a) the full 600px box width — `100%` — and
+                  // (b) the width that would make this 2:3 portrait box
+                  // exactly 60vh tall: `60vh * W / H`. Both are DEFINITE
+                  // lengths, so the wrapper can never collapse to 0 the way
+                  // a bare aspect-ratio + maxHeight box did (that had no
+                  // definite main-axis size, so width:100% on the canvas
+                  // resolved against a 0-width parent). `aspectRatio` then
+                  // sets the height, and the canvas (width:100%) fills this
+                  // box exactly — so `containerType: inline-size` makes the
+                  // overlay `cqw` units reference the REAL canvas width and
+                  // the badge lands on the canvas's bottom-left, not the
+                  // 600px box's margin.
+                  width: `min(100%, calc(var(--preview-cap) * ${v2Template.canvasSize.width} / ${v2Template.canvasSize.height}))`,
+                  aspectRatio: `${v2Template.canvasSize.width} / ${v2Template.canvasSize.height}`,
+                  containerType: 'inline-size',
+                }}
+              >
+                <MockupRendererV2
+                template={v2Template}
+                patternImage={image}
+                tileWidth={renderTileWidth}
+                tileHeight={renderTileHeight}
+                dpi={dpi}
+                repeatType={repeatType}
+                onClick={() => {}}
+                colorOverride={mockupColorOverride}
+                shadowEnabled={shadowEnableds[0] ?? true}
+                shadowOpacityOverride={(shadowOpacityPercents[0] ?? 30) / 100}
+                highlightEnabled={highlightEnableds[0] ?? true}
+                highlightOpacityOverride={(highlightOpacityPercents[0] ?? 30) / 100}
+                additionalShadowEnableds={shadowEnableds.slice(1)}
+                additionalShadowOpacityOverrides={shadowOpacityPercents.slice(1).map(p => p / 100)}
+                additionalHighlightEnableds={highlightEnableds.slice(1)}
+                additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
+                colorOverlayEnabled={colorOverlayEnabled}
+                dragEnabled
+                fitContainer
+                maxRenderDimension={isCapturingFullRes ? undefined : 1500}
+                preview={!isCapturingFullRes}
+                onRenderComplete={onRenderComplete}
+                />
+                <MockupCropStage
+                  preset={activePreset}
+                  offset={socialOffsets[activeSlug] ?? 0.5}
+                  onChangeOffset={next => setSocialOffsets(prev => ({ ...prev, [activeSlug]: next }))}
+                  isBusy={isCapturingFullRes}
+                  watermark={watermark}
+                  badgeVisible={badgeVisible}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* CONTROLS PANE — controls bar, watermark, badge, download grid.
+          ≥880px: takes remaining width and scrolls internally if it ever overflows (preview stays put). */}
+      <div className="flex flex-col gap-3 min-[880px]:flex-1 min-[880px]:overflow-y-auto min-[880px]:max-h-[80vh]">
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
         {/* Scale */}
         {scale && (
@@ -313,83 +400,8 @@ export default function MockupModalBody(props: MockupModalBodyProps) {
         isBusy={isBusy}
         onDownload={onDownload}
       />
-
-      {/* Live mockup preview. The MockupRendererV2 canvas is the visible
-          preview; MockupCropStage overlays it to frame the active size and
-          also doubles as the snapshot source for the size-grid thumbnails
-          (read via the [data-mockup-modal] canvas selector). */}
-      <div className="bg-white w-full flex justify-center">
-        {/* Definite wrapper width keeps the modal sized predictably even
-            before the canvas mounts (otherwise the whole modal collapses).
-            `flex justify-center` centers the canvas horizontally when
-            fitContainer shrinks it below 600px wide (e.g. tall 2:3 mockup
-            capped by 60vh height). */}
-        <div className="w-[600px] max-w-full relative flex justify-center">
-          {/* Tight wrapper that shrinks to the rendered mockup canvas
-              (NOT the 600px outer box). It mirrors the canvas's own CSS
-              sizing — aspect-ratio + 60vh height cap — so its width
-              equals the visible canvas width. `containerType:
-              inline-size` makes the overlays' `cqw` units reference the
-              canvas, putting the bottom-left badge over the product
-              image exactly where the export stamps it. */}
-          {v2Template && (
-            <div
-              className="relative"
-              style={{
-                // WIDTH-DRIVEN, non-collapsing sizing. `width` is the
-                // smaller of (a) the full 600px box width — `100%` — and
-                // (b) the width that would make this 2:3 portrait box
-                // exactly 60vh tall: `60vh * W / H`. Both are DEFINITE
-                // lengths, so the wrapper can never collapse to 0 the way
-                // a bare aspect-ratio + maxHeight box did (that had no
-                // definite main-axis size, so width:100% on the canvas
-                // resolved against a 0-width parent). `aspectRatio` then
-                // sets the height, and the canvas (width:100%) fills this
-                // box exactly — so `containerType: inline-size` makes the
-                // overlay `cqw` units reference the REAL canvas width and
-                // the badge lands on the canvas's bottom-left, not the
-                // 600px box's margin.
-                width: `min(100%, calc(60vh * ${v2Template.canvasSize.width} / ${v2Template.canvasSize.height}))`,
-                aspectRatio: `${v2Template.canvasSize.width} / ${v2Template.canvasSize.height}`,
-                containerType: 'inline-size',
-              }}
-            >
-              <MockupRendererV2
-              template={v2Template}
-              patternImage={image}
-              tileWidth={renderTileWidth}
-              tileHeight={renderTileHeight}
-              dpi={dpi}
-              repeatType={repeatType}
-              onClick={() => {}}
-              colorOverride={mockupColorOverride}
-              shadowEnabled={shadowEnableds[0] ?? true}
-              shadowOpacityOverride={(shadowOpacityPercents[0] ?? 30) / 100}
-              highlightEnabled={highlightEnableds[0] ?? true}
-              highlightOpacityOverride={(highlightOpacityPercents[0] ?? 30) / 100}
-              additionalShadowEnableds={shadowEnableds.slice(1)}
-              additionalShadowOpacityOverrides={shadowOpacityPercents.slice(1).map(p => p / 100)}
-              additionalHighlightEnableds={highlightEnableds.slice(1)}
-              additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
-              colorOverlayEnabled={colorOverlayEnabled}
-              dragEnabled
-              fitContainer
-              maxRenderDimension={isCapturingFullRes ? undefined : 1500}
-              preview={!isCapturingFullRes}
-              onRenderComplete={onRenderComplete}
-              />
-              <MockupCropStage
-                preset={activePreset}
-                offset={socialOffsets[activeSlug] ?? 0.5}
-                onChangeOffset={next => setSocialOffsets(prev => ({ ...prev, [activeSlug]: next }))}
-                isBusy={isCapturingFullRes}
-                watermark={watermark}
-                badgeVisible={badgeVisible}
-              />
-            </div>
-          )}
-        </div>
       </div>
+
     </div>
   );
 }

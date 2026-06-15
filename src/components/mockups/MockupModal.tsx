@@ -88,7 +88,7 @@ export default function MockupModal({ isOpen, onClose, children, title, subtitle
           onDragStart={handleDragStart}
           style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         >
-          <div className="max-w-4xl w-full my-auto">
+          <div className="max-w-6xl w-full my-auto">
             {children}
           </div>
         </div>
