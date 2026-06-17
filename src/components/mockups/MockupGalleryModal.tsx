@@ -228,7 +228,12 @@ export default function MockupGalleryModal({
                       tileHeight={tileHeight}
                       dpi={dpi}
                       repeatType={repeatType}
-                      maxRenderDimension={600}
+                      // Gallery cards display at ~200-320px wide (2-3 cols in a
+                      // max-w-2xl modal). 400px longest-side render stays crisp
+                      // when upscaled into that box while doing ~44% of the pixel
+                      // work of the old 600px — roughly halves per-card pipeline
+                      // cost across the 75-template "All" tab.
+                      maxRenderDimension={400}
                       preview
                       colorOverlayEnabled={template.colorOverlayDefaultEnabled ?? true}
                       additionalShadowEnableds={template.additionalShadowDefaultEnableds}
