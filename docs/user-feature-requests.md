@@ -6,6 +6,16 @@ Running list of features and improvements requested by PatternPAL Pro users. Whe
 
 ## Open Requests
 
+### 4. [BUG] EasyScale white-screen crash on iPad ("client-side exception")
+**Reported:** 2026-06-17
+**User:** Judi (jaymariedesignstudio@gmail.com) — iPad, Safari 26.5, 834×1210 (11" iPad portrait), signed in
+**Summary:** Using **EasyScale** on `pattern-tester.amandagracedesign.com` shows "Application error: a client-side exception has occurred" — "quite frequently recently." A full white-screen crash, not an in-app error.
+**Root cause (diagnosed):** iPad Safari/WebKit has a hard canvas ceiling (~4,096px/side, ~16.7M px area on 11" iPads). EasyScale allocates canvases sized `inches × DPI` (24"@300 DPI = 7,200px) and — since commit `9f5c637` (May 1, "lift upload cap to 15,000px") — allows source tiles up to 15,000px. Oversized canvases make `getContext('2d')` return null (code uses a `!` non-null assertion → throws) or OOM-kill the tab. The May-1 commit only guarded the full-drop path; the EasyScale scaling + includeOriginal canvases were left unprotected → the "recently" regression. **Device issue, not Safari-app-specific:** all iPad browsers use WebKit so they'd all crash; desktop browsers (more RAM, higher limits) would not. Input-dependent: large source tile and/or large size at 300 DPI triggers it.
+**Related existing code:** [src/lib/utils/imageScaler.ts](src/lib/utils/imageScaler.ts) (lines ~69–90), [src/lib/utils/exportScaled.ts](src/lib/utils/exportScaled.ts) (~79–97, 111), [src/lib/utils/easyscaleUtils.ts](src/lib/utils/easyscaleUtils.ts) (~42–44). Modal try/catch at [src/components/export/EasyscaleExportModal.tsx](src/components/export/EasyscaleExportModal.tsx) (~194) already catches throws → would show a friendly inline error once the canvas no longer OOMs.
+**Suggested approach:** Apply an iOS-only canvas ceiling (MAX_SIDE 4096 / MAX_AREA 16.7M, via existing `isIOS()` in [src/lib/utils/downloadCanvas.ts](src/lib/utils/downloadCanvas.ts)); null-check every `getContext('2d')` and reject on null `toBlob` with a friendly message ("This size is too large to export on this iPad — try a smaller size or 150 DPI."). Desktop untouched. Build in a fresh session with a test + iPad UAT over the tunnel before shipping. Stopgap for users: smaller size / 150 DPI, or export on a computer.
+
+---
+
 ### 3. Crop anchor (Top/Center/Bottom) + per-size previews for mockup social sizes
 **Requested:** 2026-06-11
 **User:** Mandy
