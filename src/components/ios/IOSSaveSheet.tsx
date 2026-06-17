@@ -9,8 +9,9 @@ import {
 
 // Mounted once at app root. When a task is queued, renders a sheet whose
 // "Save" button calls navigator.share synchronously — required by iOS to
-// preserve the user-activation token. If share fails or isn't available,
-// falls back to anchor-download.
+// preserve the user-activation token. A task may carry one file (shares to
+// Photos) or many (shares as a batch so iOS offers "Save N Images"). If share
+// fails or isn't available, falls back to anchor-download of each file.
 
 function anchorDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -26,6 +27,10 @@ function anchorDownload(blob: Blob, filename: string) {
   }
 }
 
+function anchorDownloadAll(task: IOSSaveTask) {
+  for (const f of task.files) anchorDownload(f.blob, f.filename);
+}
+
 export default function IOSSaveSheet() {
   const [task, setTask] = useState<IOSSaveTask | null>(null);
   const [status, setStatus] = useState<'idle' | 'sharing' | 'error'>('idle');
@@ -37,15 +42,27 @@ export default function IOSSaveSheet() {
 
   if (!task) return null;
 
+  const count = task.files.length;
+  const isMulti = count > 1;
+  const heading = isMulti ? `Ready to save ${count} files` : 'Ready to save';
+  const subtitle = isMulti ? `${count} images` : task.files[0]?.filename ?? '';
+  const saveLabel = status === 'sharing'
+    ? 'Opening…'
+    : status === 'error'
+      ? 'Downloaded to Files'
+      : isMulti
+        ? `Save ${count} images to Photos or Files`
+        : 'Save to Photos or Files';
+
   const handleShare = async () => {
     setStatus('sharing');
     try {
-      const file = new File([task.blob], task.filename, { type: task.mimeType });
+      const files = task.files.map((f) => new File([f.blob], f.filename, { type: f.mimeType }));
       // canShare may not exist on older iOS — proceed and let share() decide.
-      if (typeof navigator.canShare === 'function' && !navigator.canShare({ files: [file] })) {
+      if (typeof navigator.canShare === 'function' && !navigator.canShare({ files })) {
         throw new Error('canShare returned false');
       }
-      await navigator.share({ files: [file], title: task.filename });
+      await navigator.share({ files, title: isMulti ? `${count} images` : task.files[0].filename });
       completeCurrentIOSSaveTask();
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {
@@ -54,14 +71,14 @@ export default function IOSSaveSheet() {
         return;
       }
       // Any other failure → download to Files. Surface briefly so user knows.
-      anchorDownload(task.blob, task.filename);
+      anchorDownloadAll(task);
       setStatus('error');
       setTimeout(() => completeCurrentIOSSaveTask(), 900);
     }
   };
 
   const handleFallback = () => {
-    anchorDownload(task.blob, task.filename);
+    anchorDownloadAll(task);
     completeCurrentIOSSaveTask();
   };
 
@@ -78,9 +95,9 @@ export default function IOSSaveSheet() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 pt-5 pb-2">
-          <h3 className="text-lg font-bold text-[#294051]">Ready to save</h3>
-          <p className="text-xs text-gray-500 mt-1 truncate" title={task.filename}>
-            {task.filename}
+          <h3 className="text-lg font-bold text-[#294051]">{heading}</h3>
+          <p className="text-xs text-gray-500 mt-1 truncate" title={subtitle}>
+            {subtitle}
           </p>
         </div>
 
@@ -91,7 +108,7 @@ export default function IOSSaveSheet() {
             disabled={status === 'sharing'}
             className="w-full py-3 rounded-xl bg-[#4caf50] text-white font-semibold text-base disabled:opacity-60"
           >
-            {status === 'sharing' ? 'Opening…' : status === 'error' ? 'Downloaded to Files' : 'Save to Photos or Files'}
+            {saveLabel}
           </button>
           <button
             type="button"

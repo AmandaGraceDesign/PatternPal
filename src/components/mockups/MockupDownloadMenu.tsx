@@ -135,12 +135,17 @@ function MockupDownloadMenu({
   const sizes = useMemo(() => mockupDownloadSizes(), []);
 
   return (
-    <div className="flex flex-col gap-3 border-t border-[#92afa5]/30 pt-3">
+    <div className="@container flex flex-col gap-3 border-t border-[#92afa5]/30 pt-3">
       <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
         Download mockup
       </span>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+      {/* Single column until the pane is genuinely wide enough for two readable
+          rows (≈480px). In the two-pane layout the controls rail is ~440px on a
+          12.9" iPad portrait, where two columns starved the labels to "F.."/"P.."
+          and clipped the right column off the panel. Container query (not a
+          viewport breakpoint) because it's the rail width that matters here. */}
+      <div className="grid grid-cols-1 @[480px]:grid-cols-2 gap-x-4 gap-y-1">
         {sizes.map(preset => (
           <MockupDownloadRow
             key={preset.slug}

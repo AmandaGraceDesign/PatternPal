@@ -3,7 +3,8 @@
 // each target social size, then reuses the existing watermark + badge compositors.
 
 import JSZip from 'jszip';
-import { downloadBlob } from './downloadCanvas';
+import { downloadBlob, isIOS } from './downloadCanvas';
+import { pushIOSSaveTaskMulti } from './iosSaveQueue';
 import { applyWatermarkToBlob, type WatermarkConfig } from '../watermark/watermark';
 import { applyBadgeToBlob, shouldStampBadge } from '../badge/patternpalBadge';
 import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset, type SizeSlug } from '../export/socialSizes';
@@ -165,10 +166,24 @@ export async function downloadMockupSocialSizes(
   if (ok.length === 1) {
     await downloadBlob(ok[0].blob, `${baseName}-${ok[0].preset.slug}.png`, 'image/png');
   } else if (ok.length > 1) {
-    const zip = new JSZip();
-    for (const r of ok) zip.file(`${baseName}-${r.preset.slug}.png`, r.blob);
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    await downloadBlob(zipBlob, `${baseName}-mockup-social.zip`, 'application/zip');
+    // On iOS, share all images as a batch so the native sheet offers "Save N
+    // Images" straight to Photos. A zip can only land in Files, never Photos —
+    // which is exactly what users hit when downloading several mockup sizes at
+    // once. Desktop keeps the zip (one tidy file beats N save dialogs there).
+    if (isIOS() && typeof navigator.share === 'function') {
+      await pushIOSSaveTaskMulti(
+        ok.map(r => ({
+          blob: r.blob,
+          filename: `${baseName}-${r.preset.slug}.png`,
+          mimeType: 'image/png',
+        })),
+      );
+    } else {
+      const zip = new JSZip();
+      for (const r of ok) zip.file(`${baseName}-${r.preset.slug}.png`, r.blob);
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      await downloadBlob(zipBlob, `${baseName}-mockup-social.zip`, 'application/zip');
+    }
   }
   return { failed };
 }
