@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import AdvancedToolsBar from '@/components/layout/AdvancedToolsBar';
 
@@ -77,6 +77,8 @@ export default function PatternControlsTopBar({
   const MAX_FREE_TESTS = 3;
   const [freeTestsUsed, setFreeTestsUsed] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [scaleDraft, setScaleDraft] = useState<string>('');
+  const [scaleDraftActive, setScaleDraftActive] = useState(false);
 
   useEffect(() => {
     const readFreeTests = () => {
@@ -287,15 +289,32 @@ export default function PatternControlsTopBar({
               type="number"
               min="1"
               step="1"
-              value={scalePreviewSize ?? Math.max(1, Math.round(Math.max(originalTileWidth, originalTileHeight)))}
-              onChange={(e) => {
-                if (e.target.value === '') {
+              value={
+                scaleDraftActive
+                  ? scaleDraft
+                  : String(scalePreviewSize ?? Math.max(1, Math.round(Math.max(originalTileWidth, originalTileHeight))))
+              }
+              onFocus={(e) => {
+                setScaleDraftActive(true);
+                setScaleDraft(e.target.value);
+              }}
+              onChange={(e) => setScaleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              onBlur={() => {
+                setScaleDraftActive(false);
+                const raw = scaleDraft.trim();
+                if (raw === '') {
                   onScalePreviewChange(null);
                   onScalePreviewActiveChange(false);
                   return;
                 }
-                const value = parseFloat(e.target.value);
-                if (isNaN(value)) return;
+                const value = parseFloat(raw);
+                if (isNaN(value) || value < 1) {
+                  // ignore invalid entry; revert to last committed value
+                  return;
+                }
                 onScalePreviewChange(value);
                 onScalePreviewActiveChange(true);
               }}

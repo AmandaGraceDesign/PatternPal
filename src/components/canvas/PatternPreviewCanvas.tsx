@@ -113,7 +113,9 @@ export default function PatternPreviewCanvas({
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
         const scale = dist / pinchRef.current.startDist;
-        const newZoom = Math.max(1, pinchRef.current.startZoom * scale);
+        // Page clamps the committed user-zoom to 10–200%; keep the in-gesture
+        // actual-zoom strictly positive so the tile never collapses to 0px.
+        const newZoom = Math.max(0.5, pinchRef.current.startZoom * scale);
         onZoomChange(newZoom);
       }
     };
