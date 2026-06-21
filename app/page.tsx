@@ -63,6 +63,11 @@ export default function Home() {
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, [isFullscreen]);
 
+  // Dev-only INP measurement harness (no-op in production)
+  useEffect(() => {
+    import('@/lib/perf/inpHarness').then(({ startInpHarness }) => startInpHarness());
+  }, []);
+
   // Calculate scaled dimensions based on longest side input
   const getScaledDimensions = (longestSide: number) => {
     const originalLongest = Math.max(tileWidth, tileHeight);
