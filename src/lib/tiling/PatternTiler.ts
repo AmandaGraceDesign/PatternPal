@@ -1,5 +1,74 @@
 export type RepeatType = 'full-drop' | 'half-drop' | 'half-brick';
 
+export interface TilePos {
+  dx: number;
+  dy: number;
+}
+
+/**
+ * Pure tile-placement geometry shared by the full-res and pre-scaled render
+ * paths. Returns the top-left destination coordinate of every tile that can
+ * touch the viewport, including a 1-tile border, with the same rounding and
+ * half-drop / half-brick parity the renderers have always used.
+ */
+export function tilePositions(
+  repeatType: RepeatType,
+  scaledW: number,
+  scaledH: number,
+  panX: number,
+  panY: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): TilePos[] {
+  const positions: TilePos[] = [];
+  if (scaledW <= 0 || scaledH <= 0) return positions;
+
+  if (repeatType === 'half-brick') {
+    const startRow = Math.floor(-panY / scaledH) - 1;
+    const endRow = Math.ceil((viewportHeight - panY) / scaledH);
+    const startCol = Math.floor(-panX / scaledW) - 2;
+    const endCol = Math.ceil((viewportWidth - panX) / scaledW) + 1;
+    for (let row = startRow; row <= endRow; row++) {
+      const xOffset = (((row % 2) + 2) % 2 !== 0) ? Math.round(scaledW / 2) : 0;
+      for (let col = startCol; col <= endCol; col++) {
+        positions.push({
+          dx: Math.round(col * scaledW + xOffset + panX),
+          dy: Math.round(row * scaledH + panY),
+        });
+      }
+    }
+  } else if (repeatType === 'half-drop') {
+    const startCol = Math.floor(-panX / scaledW) - 1;
+    const endCol = Math.ceil((viewportWidth - panX) / scaledW);
+    const startRow = Math.floor(-panY / scaledH) - 2;
+    const endRow = Math.ceil((viewportHeight - panY) / scaledH) + 1;
+    for (let col = startCol; col <= endCol; col++) {
+      const yOffset = (((col % 2) + 2) % 2 !== 0) ? Math.round(scaledH / 2) : 0;
+      for (let row = startRow; row <= endRow; row++) {
+        positions.push({
+          dx: Math.round(col * scaledW + panX),
+          dy: Math.round(row * scaledH + yOffset + panY),
+        });
+      }
+    }
+  } else {
+    // full-drop
+    const startCol = Math.floor(-panX / scaledW) - 1;
+    const endCol = Math.ceil((viewportWidth - panX) / scaledW);
+    const startRow = Math.floor(-panY / scaledH) - 1;
+    const endRow = Math.ceil((viewportHeight - panY) / scaledH);
+    for (let col = startCol; col <= endCol; col++) {
+      for (let row = startRow; row <= endRow; row++) {
+        positions.push({
+          dx: Math.round(col * scaledW + panX),
+          dy: Math.round(row * scaledH + panY),
+        });
+      }
+    }
+  }
+  return positions;
+}
+
 export class PatternTiler {
   private ctx: CanvasRenderingContext2D;
   private viewportWidth: number;
@@ -50,15 +119,8 @@ export class PatternTiler {
     img: HTMLImageElement, srcW: number, srcH: number,
     scaledW: number, scaledH: number, panX: number, panY: number
   ) {
-    const startCol = Math.floor(-panX / scaledW) - 1;
-    const endCol = Math.ceil((this.viewportWidth - panX) / scaledW);
-    const startRow = Math.floor(-panY / scaledH) - 1;
-    const endRow = Math.ceil((this.viewportHeight - panY) / scaledH);
-
-    for (let col = startCol; col <= endCol; col++) {
-      for (let row = startRow; row <= endRow; row++) {
-        this.drawTile(img, srcW, srcH, Math.round(col * scaledW + panX), Math.round(row * scaledH + panY), scaledW, scaledH);
-      }
+    for (const { dx, dy } of tilePositions('full-drop', scaledW, scaledH, panX, panY, this.viewportWidth, this.viewportHeight)) {
+      this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
     }
   }
 
@@ -66,18 +128,8 @@ export class PatternTiler {
     img: HTMLImageElement, srcW: number, srcH: number,
     scaledW: number, scaledH: number, panX: number, panY: number
   ) {
-    const startCol = Math.floor(-panX / scaledW) - 1;
-    const endCol = Math.ceil((this.viewportWidth - panX) / scaledW);
-    const startRow = Math.floor(-panY / scaledH) - 2;
-    const endRow = Math.ceil((this.viewportHeight - panY) / scaledH) + 1;
-
-    for (let col = startCol; col <= endCol; col++) {
-      const yOffset = (((col % 2) + 2) % 2 !== 0) ? Math.round(scaledH / 2) : 0;
-      for (let row = startRow; row <= endRow; row++) {
-        const dx = Math.round(col * scaledW + panX);
-        const dy = Math.round(row * scaledH + yOffset + panY);
-        this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
-      }
+    for (const { dx, dy } of tilePositions('half-drop', scaledW, scaledH, panX, panY, this.viewportWidth, this.viewportHeight)) {
+      this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
     }
   }
 
@@ -85,18 +137,8 @@ export class PatternTiler {
     img: HTMLImageElement, srcW: number, srcH: number,
     scaledW: number, scaledH: number, panX: number, panY: number
   ) {
-    const startRow = Math.floor(-panY / scaledH) - 1;
-    const endRow = Math.ceil((this.viewportHeight - panY) / scaledH);
-    const startCol = Math.floor(-panX / scaledW) - 2;
-    const endCol = Math.ceil((this.viewportWidth - panX) / scaledW) + 1;
-
-    for (let row = startRow; row <= endRow; row++) {
-      const adjustedXOffset = (((row % 2) + 2) % 2 !== 0) ? Math.round(scaledW / 2) : 0;
-      for (let col = startCol; col <= endCol; col++) {
-        const dx = Math.round(col * scaledW + adjustedXOffset + panX);
-        const dy = Math.round(row * scaledH + panY);
-        this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
-      }
+    for (const { dx, dy } of tilePositions('half-brick', scaledW, scaledH, panX, panY, this.viewportWidth, this.viewportHeight)) {
+      this.drawTile(img, srcW, srcH, dx, dy, scaledW, scaledH);
     }
   }
 
