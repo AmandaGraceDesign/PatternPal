@@ -182,6 +182,36 @@ export class PatternTiler {
     }
   }
 
+  /**
+   * Tile the viewport by blitting an already-scaled tile canvas at a pan offset.
+   * Per-frame cost is N cheap same-size blits — no per-tile source downscale.
+   * `tileW`/`tileH` are the CSS-pixel destination size; the `tile` canvas may be
+   * backed at device resolution for crispness. Placement matches the full-res
+   * renderers exactly via the shared tilePositions().
+   */
+  renderPreScaledAt(
+    tile: HTMLCanvasElement,
+    tileW: number,
+    tileH: number,
+    repeatType: RepeatType,
+    panX: number,
+    panY: number,
+  ) {
+    this.clear();
+    if (tileW <= 0 || tileH <= 0) return;
+
+    // +1px overlap prevents sub-pixel anti-aliasing gaps between tiles
+    const dw = Math.ceil(tileW) + 1;
+    const dh = Math.ceil(tileH) + 1;
+
+    for (const { dx, dy } of tilePositions(
+      repeatType, tileW, tileH, panX, panY, this.viewportWidth, this.viewportHeight,
+    )) {
+      if (dx + dw <= 0 || dy + dh <= 0 || dx >= this.viewportWidth || dy >= this.viewportHeight) continue;
+      this.ctx.drawImage(tile, dx, dy, dw, dh);
+    }
+  }
+
   private drawTile(
     img: HTMLImageElement,
     srcW: number, srcH: number,
