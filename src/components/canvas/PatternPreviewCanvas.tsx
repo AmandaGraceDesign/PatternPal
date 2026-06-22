@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PatternTiler, RepeatType } from '@/lib/tiling/PatternTiler';
+import { computeWorkingSourceSize } from '@/lib/tiling/workingSource';
 import Ruler from './Ruler';
 
 interface PatternPreviewCanvasProps {
@@ -25,7 +26,8 @@ export default function PatternPreviewCanvas({
   image,
   repeatType,
   tileWidth,
-  tileHeight,
+  // tileHeight is part of the props contract but unused here — the render derives
+  // height from the source image's aspect ratio, not the prop.
   dpi,
   zoom,
   onZoomChange,
@@ -52,6 +54,14 @@ export default function PatternPreviewCanvas({
 
   // Pinch-to-zoom state
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+
+  // Cached placeholder image + its pre-scaled tile (landing-state perf)
+  const placeholderImgRef = useRef<HTMLImageElement | null>(null);
+  const placeholderTileRef = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
+
+  // Loaded-state caches: once-downsampled working source + current pre-scaled tile
+  const workingSourceRef = useRef<{ image: HTMLImageElement; canvas: HTMLCanvasElement } | null>(null);
+  const tileCacheRef = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -103,7 +113,9 @@ export default function PatternPreviewCanvas({
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
         const scale = dist / pinchRef.current.startDist;
-        const newZoom = Math.max(1, pinchRef.current.startZoom * scale);
+        // Page clamps the committed user-zoom to 10–200%; keep the in-gesture
+        // actual-zoom strictly positive so the tile never collapses to 0px.
+        const newZoom = Math.max(0.5, pinchRef.current.startZoom * scale);
         onZoomChange(newZoom);
       }
     };
@@ -209,68 +221,70 @@ export default function PatternPreviewCanvas({
     canvasCtx.imageSmoothingQuality = 'high';
 
     if (!image) {
-      // Render placeholder pattern (unchanged — small image, no pixelation concern)
-      const placeholderImg = new Image();
-      placeholderImg.onload = () => {
+      const drawPlaceholder = (pImg: HTMLImageElement) => {
         if (cancelled) return;
 
         const defaultDpi = 150;
         const defaultTileWidth = 18;
-        const placeholderWidth = placeholderImg.width;
-        const placeholderHeight = placeholderImg.height;
-
-        // Scale placeholder to appear as 18" tile at current zoom
         const scaleFactor = (zoom / 100) * (96 / defaultDpi);
         const targetSize = defaultTileWidth * defaultDpi;
-        const displayScale = (targetSize / placeholderWidth) * scaleFactor * 0.5;
+        const displayScale = (targetSize / pImg.width) * scaleFactor * 0.5;
 
-        const displayWidth = Math.round(placeholderWidth * displayScale);
-        const displayHeight = Math.round(placeholderHeight * displayScale);
+        const displayWidth = Math.max(1, Math.round(pImg.width * displayScale));
+        const displayHeight = Math.max(1, Math.round(pImg.height * displayScale));
 
-        const scaledCanvas = document.createElement('canvas');
-        scaledCanvas.width = displayWidth * dpr;
-        scaledCanvas.height = displayHeight * dpr;
+        // Build (or reuse) a device-resolution pre-scaled tile. Rebuild only when
+        // the display size or dpr changes — NOT every zoom tick.
+        const tileKey = `${displayWidth}x${displayHeight}@${currentDpr}`;
+        let cached = placeholderTileRef.current;
+        if (!cached || cached.key !== tileKey) {
+          const tileCanvas = document.createElement('canvas');
+          tileCanvas.width = Math.max(1, Math.round(displayWidth * currentDpr));
+          tileCanvas.height = Math.max(1, Math.round(displayHeight * currentDpr));
+          const tctx = tileCanvas.getContext('2d');
+          if (!tctx) return;
+          tctx.fillStyle = '#ffffff';
+          tctx.fillRect(0, 0, tileCanvas.width, tileCanvas.height);
+          tctx.imageSmoothingEnabled = true;
+          tctx.imageSmoothingQuality = 'high';
+          tctx.drawImage(pImg, 0, 0, tileCanvas.width, tileCanvas.height);
+          cached = { key: tileKey, canvas: tileCanvas };
+          placeholderTileRef.current = cached;
+        }
 
-        const scaledCtx = scaledCanvas.getContext('2d');
-        if (scaledCtx) {
-          scaledCtx.fillStyle = '#ffffff';
-          scaledCtx.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
-          scaledCtx.scale(dpr, dpr);
-          scaledCtx.imageSmoothingEnabled = true;
-          scaledCtx.imageSmoothingQuality = 'high';
-          scaledCtx.drawImage(placeholderImg, 0, 0, displayWidth, displayHeight);
+        canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+        canvasCtx.scale(currentDpr, currentDpr);
+        canvasCtx.fillStyle = '#0f172a';
+        canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
-          rafId = requestAnimationFrame(() => {
-            if (cancelled) return;
-            const scaledImg = new Image();
-            scaledImg.onload = () => {
-              if (cancelled) return;
-              canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
-              canvasCtx.scale(currentDpr, currentDpr);
-              canvasCtx.fillStyle = '#0f172a';
-              canvasCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+        const cols = Math.ceil(canvasSize.width / displayWidth) + 2;
+        const rows = Math.ceil(canvasSize.height / displayHeight) + 2;
+        for (let x = -1; x < cols; x++) {
+          for (let y = -1; y < rows; y++) {
+            canvasCtx.drawImage(cached.canvas, x * displayWidth, y * displayHeight, displayWidth, displayHeight);
+          }
+        }
 
-              // Use old tiling for placeholder (it's a small pre-scaled image)
-              const cols = Math.ceil(canvasSize.width / displayWidth) + 2;
-              const rows = Math.ceil(canvasSize.height / displayHeight) + 2;
-              for (let x = -1; x < cols; x++) {
-                for (let y = -1; y < rows; y++) {
-                  canvasCtx.drawImage(scaledImg, x * displayWidth, y * displayHeight, displayWidth, displayHeight);
-                }
-              }
-
-              if (showTileOutline) {
-                canvasCtx.strokeStyle = tileOutlineColor;
-                canvasCtx.lineWidth = 6;
-                canvasCtx.setLineDash([]);
-                canvasCtx.strokeRect(3, 3, displayWidth - 6, displayHeight - 6);
-              }
-            };
-            scaledImg.src = scaledCanvas.toDataURL('image/png');
-          });
+        if (showTileOutline) {
+          canvasCtx.strokeStyle = tileOutlineColor;
+          canvasCtx.lineWidth = 6;
+          canvasCtx.setLineDash([]);
+          canvasCtx.strokeRect(3, 3, displayWidth - 6, displayHeight - 6);
         }
       };
-      placeholderImg.src = '/place_design_here.jpg';
+
+      // Load the placeholder once; reuse the decoded image thereafter.
+      const cachedImg = placeholderImgRef.current;
+      if (cachedImg && cachedImg.complete) {
+        rafId = requestAnimationFrame(() => drawPlaceholder(cachedImg));
+      } else {
+        const placeholderImg = cachedImg ?? new Image();
+        placeholderImg.onload = () => {
+          placeholderImgRef.current = placeholderImg;
+          rafId = requestAnimationFrame(() => drawPlaceholder(placeholderImg));
+        };
+        if (!placeholderImg.src) placeholderImg.src = '/place_design_here.jpg';
+      }
       return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
     }
 
@@ -302,8 +316,56 @@ export default function PatternPreviewCanvas({
       offCtx.imageSmoothingEnabled = true;
       offCtx.imageSmoothingQuality = 'high';
 
-      const tiler = new PatternTiler(offCtx, canvasSize.width, canvasSize.height);
-      tiler.render(img, repeatType, scaleFactor, panX, panY);
+      // CSS-pixel display size of one tile (same value the full-res path used)
+      const scaledW = Math.ceil(img.naturalWidth * scaleFactor);
+      const scaledH = Math.ceil(img.naturalHeight * scaleFactor);
+
+      if (scaledW > 0 && scaledH > 0) {
+        // Device-pixel tile size = crispness target
+        const tileDevW = Math.max(1, Math.ceil(scaledW * currentDpr));
+        const tileDevH = Math.max(1, Math.ceil(scaledH * currentDpr));
+
+        // (1) Ensure a working downsample of the source large enough for this tile.
+        //     Grows on demand up to natural size; caps memory (iPad).
+        const need = computeWorkingSourceSize(img.naturalWidth, img.naturalHeight, tileDevW, tileDevH);
+        let ws = workingSourceRef.current;
+        if (!ws || ws.image !== img || ws.canvas.width < need.width || ws.canvas.height < need.height) {
+          const wc = document.createElement('canvas');
+          wc.width = need.width;
+          wc.height = need.height;
+          const wctx = wc.getContext('2d');
+          if (!wctx) return;
+          wctx.imageSmoothingEnabled = true;
+          wctx.imageSmoothingQuality = 'high';
+          wctx.drawImage(img, 0, 0, need.width, need.height);
+          ws = { image: img, canvas: wc };
+          workingSourceRef.current = ws;
+        }
+
+        // (2) Build the pre-scaled tile (ONE downscale) only when scale/image/dpr change.
+        //     Pan does not change tileKey -> tile is reused -> pan is pure blits.
+        const tileKey = `${img.src}|${tileDevW}x${tileDevH}`;
+        let tc = tileCacheRef.current;
+        if (!tc || tc.key !== tileKey) {
+          const tcv = document.createElement('canvas');
+          tcv.width = tileDevW;
+          tcv.height = tileDevH;
+          const tctx = tcv.getContext('2d');
+          if (!tctx) return;
+          tctx.imageSmoothingEnabled = true;
+          tctx.imageSmoothingQuality = 'high';
+          tctx.drawImage(ws.canvas, 0, 0, tileDevW, tileDevH);
+          tc = { key: tileKey, canvas: tcv };
+          tileCacheRef.current = tc;
+        }
+
+        // (3) Tile the viewport via cheap blits at the pan offset.
+        const tiler = new PatternTiler(offCtx, canvasSize.width, canvasSize.height);
+        tiler.renderPreScaledAt(tc.canvas, scaledW, scaledH, repeatType, panX, panY);
+      } else {
+        offCtx.fillStyle = '#ffffff';
+        offCtx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+      }
 
       if (showTileOutline) {
         const outlineW = Math.ceil(img.naturalWidth * scaleFactor);
@@ -334,7 +396,14 @@ export default function PatternPreviewCanvas({
     });
 
     return () => { cancelled = true; if (rafId !== undefined) cancelAnimationFrame(rafId); };
-  }, [image, repeatType, tileWidth, tileHeight, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr, panX, panY]);
+  }, [image, repeatType, tileWidth, zoom, dpi, showTileOutline, tileOutlineColor, canvasSize, dpr, panX, panY]);
+
+  // Drop cached working source + tile when the image changes (clear/replace) so a
+  // stale downsample is never reused and the memory is freed promptly (iPad ceiling).
+  useEffect(() => {
+    workingSourceRef.current = null;
+    tileCacheRef.current = null;
+  }, [image]);
 
   // Calculate pixels per unit for ruler
   const effectiveDpi = image ? image.naturalWidth / tileWidth : dpi;

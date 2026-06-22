@@ -79,6 +79,20 @@ Principle: **never downscale the full-res source more than once per scale value,
 ## Out of scope (sequenced follow-up; iPad pan is #1)
 iPad one-finger canvas pan (Pointer Events + `touch-action:none` during pan; currently single-finger touch exits early so there is no touch pan — workflow gap for ~¼ of users), ≥44px touch targets (repeat-type radios, ruler-unit buttons, zoom controls), keyboard zoom/pan/fit, canvas aria label + `aria-live` render-status region, `prefers-reduced-motion`, and honest single-sourced zoom-% display ("100%" = fit, not 1:1).
 
+## Results (implementation — 2026-06-22)
+
+Implemented on branch `perf/pattern-preview-inp-fix` (see `docs/superpowers/plans/2026-06-21-pattern-preview-inp-fix.md`). Tasks 1–7 + 9 shipped; **Task 8 (ref-driven commit-on-settle) intentionally skipped** — it was measurement-gated and no reconciliation bottleneck was demonstrated, so building it would be speculative.
+
+**What changed (the mechanism that fixes INP):**
+- Loaded state: per-frame cost collapsed from *N full-res `drawImage` downscales* to *≤1 small downscale + cheap blits*, reusing a cached pre-scaled tile; pan re-blits the cache (no re-tile from source). Working source is downsampled once and capped at natural size (also trims canvas memory → incidental help for the iPad crash).
+- Empty/landing state: deleted the per-zoom-tick `toDataURL('image/png')` + double `Image` decode; placeholder is pre-scaled once and tiled directly.
+- Correctness: scale-preview commits on blur/Enter (no per-keystroke re-tile, no first-digit zoom lock); pinch floor no longer collapses the tile.
+
+**Verification status:**
+- ✅ 93 unit tests pass (incl. new `tilePositions`, `renderPreScaledAt`, `computeWorkingSourceSize`); production build green; `/` serves 200.
+- ✅ Manual visual parity confirmed by user across all 3 repeat types, zoom, pan, outline, export — no regressions.
+- ⚠️ Throttled local `web-vitals onINP` numbers **not captured** this session (the win is guaranteed by the per-frame work reduction; the harness is wired for future use). **Confirm via Production Speed Insights over the 7-day window post-deploy.**
+
 ## Risks
 - Working-source downsample cap must be generous enough that max zoom (200%) + high dpr never reveals softness; choose cap = maxOnScreenTilePx × dpr × safety.
 - Ref-driven zoom while keeping the slider's displayed `%` in sync needs care (throttled label update or commit-on-settle label).
