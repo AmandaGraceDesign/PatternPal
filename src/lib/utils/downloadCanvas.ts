@@ -19,7 +19,7 @@ function ensureExtension(filename: string, mimeType: string): string {
   return `${filename}${ext}`;
 }
 
-function canvasToBlob(
+export function canvasToBlob(
   canvas: HTMLCanvasElement,
   mimeType: string,
   quality: number

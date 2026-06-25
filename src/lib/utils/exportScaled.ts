@@ -3,7 +3,8 @@ import { scaleImage, calculateOriginalSize, detectOriginalDPI } from './imageSca
 import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
 import { sanitizeFilename } from './sanitizeFilename';
 import { convertToFullDrop } from './convertToFullDrop';
-import { downloadBlob } from './downloadCanvas';
+import { downloadBlob, canvasToBlob } from './downloadCanvas';
+import { assertExportCanvasWithinLimits } from './imageUtils';
 import { FREE_EASYSCALE_SIZES } from '../mockups/freeTier';
 
 async function verifyProAccessIfNeeded(config: ScaledExportConfig) {
@@ -76,30 +77,42 @@ export async function generateScaledExport(config: ScaledExportConfig) {
 
   // Add original tile (always the unconverted tile)
   if (config.includeOriginal) {
+    // Same iPad ceiling guard as the scaled path — the original tile can itself
+    // be large enough to OOM-crash the tab.
+    assertExportCanvasWithinLimits(config.image.naturalWidth, config.image.naturalHeight);
+
     const canvas = document.createElement('canvas');
     canvas.width = config.image.naturalWidth;
     canvas.height = config.image.naturalHeight;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error(
+        'Could not create the export canvas (likely low memory on this device). ' +
+        'Try unchecking "Include original tile" or exporting fewer sizes at once.'
+      );
+    }
     ctx.drawImage(config.image, 0, 0);
 
     // Create blob with format-specific handling
     let blobWithDpi: Blob;
-    if (config.format === 'tif') {
-      // TIFF creation includes DPI metadata
-      blobWithDpi = await createTiffWithDpi(canvas, originalDPI);
-    } else {
-      const originalBlob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob(
-          (blob) => resolve(blob!),
+    try {
+      if (config.format === 'tif') {
+        // TIFF creation includes DPI metadata
+        blobWithDpi = await createTiffWithDpi(canvas, originalDPI);
+      } else {
+        const originalBlob = await canvasToBlob(
+          canvas,
           config.format === 'jpg' ? 'image/jpeg' : 'image/png',
           0.95
         );
-      });
-
-      // Inject DPI metadata for PNG/JPG
-      blobWithDpi = config.format === 'png'
-        ? await injectPngDpi(originalBlob, originalDPI)
-        : await injectJpegDpi(originalBlob, originalDPI);
+        // Inject DPI metadata for PNG/JPG
+        blobWithDpi = config.format === 'png'
+          ? await injectPngDpi(originalBlob, originalDPI)
+          : await injectJpegDpi(originalBlob, originalDPI);
+      }
+    } finally {
+      canvas.width = 0;
+      canvas.height = 0;
     }
 
     const originalFilename = `${baseFilename}-original-${originalDPI}dpi.${fileExtension}`;
@@ -127,9 +140,13 @@ export async function generateScaledExport(config: ScaledExportConfig) {
   // Generate and download zip (iOS-aware — uses Web Share API on iPad/iPhone
   // so users get the native share sheet → Save to Files, instead of Safari's
   // unreliable anchor-download which often produces "Unknown.zip").
+  // PNG and JPG are already compressed — re-running DEFLATE over them yields
+  // ~no size reduction while forcing JSZip to hold large extra buffers in
+  // memory, a real OOM-crash risk on iPad. Store them as-is; only the
+  // (uncompressed) TIFF path benefits from DEFLATE.
   const zipBlob = await zip.generateAsync({
     type: 'blob',
-    compression: 'DEFLATE',
+    compression: config.format === 'tif' ? 'DEFLATE' : 'STORE',
     compressionOptions: { level: 6 }
   });
 

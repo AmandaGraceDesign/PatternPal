@@ -1,5 +1,7 @@
 // Core scaling utilities for easyscale export
 import { injectPngDpi, injectJpegDpi, createTiffWithDpi } from './dpiMetadata';
+import { assertExportCanvasWithinLimits } from './imageUtils';
+import { canvasToBlob } from './downloadCanvas';
 
 /**
  * Detect original DPI from image
@@ -66,36 +68,42 @@ export async function scaleImage(
     scaleFactor: scaleFactor.toFixed(2)
   });
   
+  // Guard the device canvas ceiling BEFORE allocating. On iPad an oversized
+  // canvas OOM-kills the tab (white "Application error") instead of throwing
+  // catchably, so block it here with a friendly, catchable message.
+  assertExportCanvasWithinLimits(targetWidth, targetHeight);
+
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
   canvas.height = targetHeight;
-  
-  const ctx = canvas.getContext('2d')!;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error(
+      'Could not create the export canvas (likely low memory on this device). ' +
+      'Try a smaller size, fewer sizes at once, or close other browser tabs.'
+    );
+  }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  
   ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
 
-  // Create blob based on format
-  if (format === 'tif') {
-    // TIFF creation includes DPI metadata
-    return await createTiffWithDpi(canvas, targetDPI);
-  } else {
-    // Create blob from canvas for PNG/JPG
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(
-        (blob) => resolve(blob!),
-        format === 'jpg' ? 'image/jpeg' : 'image/png',
-        0.95
-      );
-    });
-
-    // Inject DPI metadata for PNG/JPG
-    if (format === 'png') {
-      return await injectPngDpi(blob, targetDPI);
-    } else {
-      return await injectJpegDpi(blob, targetDPI);
+  try {
+    // Create blob based on format (canvasToBlob rejects on a null blob rather
+    // than silently passing null downstream into the DPI injector).
+    if (format === 'tif') {
+      // TIFF creation includes DPI metadata
+      return await createTiffWithDpi(canvas, targetDPI);
     }
+    const blob = await canvasToBlob(canvas, format === 'jpg' ? 'image/jpeg' : 'image/png', 0.95);
+    return format === 'png'
+      ? await injectPngDpi(blob, targetDPI)
+      : await injectJpegDpi(blob, targetDPI);
+  } finally {
+    // Free the backing store immediately so the next size's canvas and the
+    // final JSZip pass aren't competing with it for the iPad's memory budget.
+    canvas.width = 0;
+    canvas.height = 0;
   }
 }
 

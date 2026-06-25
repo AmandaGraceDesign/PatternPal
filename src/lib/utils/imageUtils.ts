@@ -1,3 +1,5 @@
+import { isIOS } from './downloadCanvas';
+
 // Maximum per-side pixel dimension for uploaded patterns.
 // Browser canvases (Chromium) cap at 16,384px per side; we leave a small margin
 // so direct natural-size renders (main canvas, seam inspector, full-drop export)
@@ -5,6 +7,38 @@
 // side and is gated separately at the conversion call site, not at upload.
 export const MAX_PATTERN_DIMENSION = 15000;
 export const BROWSER_CANVAS_LIMIT = 16384;
+
+// iPad/iPhone Safari (and all iOS browsers, which are forced onto WebKit) cap
+// canvases far lower than desktop — ~4096px/side, ~16.7M px area on 11" iPads —
+// and run on a tight per-tab memory budget. Allocating a canvas above this
+// doesn't throw catchably; it OOM-kills the tab, which surfaces to the user as
+// the Next.js "Application error: a client-side exception has occurred" screen.
+// We block oversized exports up front with a friendly message instead.
+export const IOS_CANVAS_MAX_SIDE = 4096;
+export const IOS_CANVAS_MAX_AREA = IOS_CANVAS_MAX_SIDE * IOS_CANVAS_MAX_SIDE; // 16,777,216
+
+/**
+ * Throw a friendly, catchable error if a target export canvas would exceed the
+ * current device's safe ceiling. Call BEFORE allocating the canvas so the
+ * export modal can show an inline message rather than crashing the tab.
+ */
+export function assertExportCanvasWithinLimits(width: number, height: number): void {
+  const onIOS = isIOS();
+  const maxSide = onIOS ? IOS_CANVAS_MAX_SIDE : BROWSER_CANVAS_LIMIT;
+  const maxArea = onIOS ? IOS_CANVAS_MAX_AREA : BROWSER_CANVAS_LIMIT * BROWSER_CANVAS_LIMIT;
+
+  if (width > maxSide || height > maxSide || width * height > maxArea) {
+    const maxInchesAt300 = Math.floor(maxSide / 300);
+    throw new Error(
+      onIOS
+        ? `This size is too large to export on iPad/iPhone (${width} × ${height}px). ` +
+          `On this device the longest side maxes out near ${maxInchesAt300}" at 300 DPI. ` +
+          `Try a smaller size, choose 150 DPI, or export from a desktop browser.`
+        : `This export is too large for your browser (${width} × ${height}px). ` +
+          `Try a smaller size or lower DPI.`
+    );
+  }
+}
 
 export function validateImageDimensions(image: HTMLImageElement): void {
   if (
