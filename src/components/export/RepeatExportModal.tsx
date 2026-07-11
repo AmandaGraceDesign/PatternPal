@@ -5,6 +5,7 @@ import {
   calculateRepeatFillDimensions,
   generateRepeatFillExport,
   generateSocialFillBlob,
+  shouldPaintBackground,
   RepeatFillCalcResult,
   SOCIAL_DPI,
   SocialFillBlobConfig,
@@ -544,6 +545,7 @@ export default function RepeatExportModal({
   const [targetH, setTargetH] = useState(12);
   const [selectedDPI, setSelectedDPI] = useState<150 | 300>(300);
   const [format, setFormat] = useState<'png' | 'jpg'>('png');
+  const [transparentBackground, setTransparentBackground] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -686,8 +688,11 @@ export default function RepeatExportModal({
     ctx.scale(dpr, dpr);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, pW, pH);
+    ctx.clearRect(0, 0, pW, pH);
+    if (shouldPaintBackground(format, transparentBackground)) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, pW, pH);
+    }
 
     const tileW = pW / calc.repeatsX;
     const tileH = pH / calc.repeatsY;
@@ -703,7 +708,7 @@ export default function RepeatExportModal({
         ctx.drawImage(tileSource, dx, dy, dw, dh);
       }
     }
-  }, [image, calc, repeatType]);
+  }, [image, calc, repeatType, format, transparentBackground]);
 
   useEffect(() => {
     drawPreview();
@@ -744,6 +749,7 @@ export default function RepeatExportModal({
         targetHeightInches: targetH,
         dpi: selectedDPI,
         format,
+        transparentBackground: transparentBackground && format === 'png',
         tileWidthInches: scaledTileW,
         tileHeightInches: scaledTileH,
         originalFilename,
@@ -1175,7 +1181,29 @@ export default function RepeatExportModal({
                     </label>
                   </div>
                 </div>
-  
+
+                {/* Transparent background (PNG only) */}
+                <div>
+                  <label
+                    className={`flex items-center ${format === 'png' ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={transparentBackground && format === 'png'}
+                      onChange={() => setTransparentBackground((v) => !v)}
+                      disabled={isExporting || format !== 'png'}
+                      className="mr-2 w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
+                      style={{ accentColor: '#e0c26e' }}
+                    />
+                    <span className="text-sm text-[#374151]">
+                      Transparent background
+                      <span className="text-[10px] text-[#9ca3af] font-normal ml-1">
+                        PNG only
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
                 {/* Output Preview with Live Canvas + Scale Buttons */}
                 {calc && (
                   <div className="p-4 bg-[#f5f5f5] rounded-md border border-[#e5e7eb]">
@@ -1185,11 +1213,24 @@ export default function RepeatExportModal({
                     <div className="flex gap-4">
                       {/* Preview canvas with +/- buttons */}
                       <div className="flex-shrink-0">
-                        <canvas
-                          ref={previewCanvasRef}
-                          className="border border-[#e5e7eb] rounded bg-white"
-                          style={{ width: PREVIEW_WIDTH, imageRendering: 'auto' }}
-                        />
+                        <div
+                          style={
+                            transparentBackground && format === 'png'
+                              ? {
+                                  backgroundImage:
+                                    'linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%)',
+                                  backgroundSize: '16px 16px',
+                                  backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+                                }
+                              : undefined
+                          }
+                        >
+                          <canvas
+                            ref={previewCanvasRef}
+                            className="border border-[#e5e7eb] rounded"
+                            style={{ width: PREVIEW_WIDTH, imageRendering: 'auto' }}
+                          />
+                        </div>
                         {/* Scale adjustment buttons */}
                         <div className="flex items-center justify-center gap-2 mt-2">
                           <button
