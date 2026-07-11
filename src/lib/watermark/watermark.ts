@@ -1,4 +1,6 @@
 export type WatermarkFont = 'sans' | 'serif' | 'script';
+export type WatermarkAnchorH = 'left' | 'center' | 'right';
+export type WatermarkAnchorV = 'top' | 'middle' | 'bottom';
 
 export interface WatermarkConfig {
   enabled: boolean;
@@ -9,13 +11,27 @@ export interface WatermarkConfig {
   fontSize: number;   // px relative to 1080px-wide canvas
   bgEnabled: boolean;
   bgColor: string;
-  /** Data URL of an uploaded transparent PNG logo. When set, the logo is
-   *  drawn at the bottom-center above any text. */
+  /** Data URL of an uploaded transparent PNG logo. */
   logoDataUrl?: string;
   /** Logo opacity 0..1. Independent from text opacity. */
   logoOpacity: number;
   /** Logo width as a fraction of canvas width (e.g. 0.25 = 25%). */
   logoSizePercent: number;
+
+  // ---- banner overlay (added 2026-07) ----
+  /** Which overlay to render. 'logo' = free-floating logo (legacy);
+   *  'banner' = full-width band with logo + title/subtitle. */
+  mode: 'logo' | 'banner';
+  /** Shared placement. In logo mode: the logo's anchor point. In banner mode:
+   *  anchorV picks the band edge; anchorH places the logo within the band. */
+  anchorH: WatermarkAnchorH;
+  anchorV: WatermarkAnchorV;
+  /** Banner text (both optional; blank = logo-only band). */
+  bannerTitle: string;
+  bannerSubtitle: string;
+  /** Band fill color + opacity (0..1). */
+  bandColor: string;
+  bandOpacity: number;
 }
 
 export const WATERMARK_FONTS: { value: WatermarkFont; label: string; css: string; google: string }[] = [
@@ -47,6 +63,13 @@ export const DEFAULT_WATERMARK: WatermarkConfig = {
   logoDataUrl: undefined,
   logoOpacity: 1,
   logoSizePercent: 0.2,
+  mode: 'logo',
+  anchorH: 'center',
+  anchorV: 'bottom',
+  bannerTitle: '',
+  bannerSubtitle: '',
+  bandColor: '#ffffff',
+  bandOpacity: 0.8,
 };
 
 /** Load an image from a data URL or http(s) URL. Returns null on failure. */
