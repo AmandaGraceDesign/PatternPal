@@ -192,6 +192,10 @@ export function drawWatermark(
   logoImage: HTMLImageElement | null = null,
 ) {
   if (!wm.enabled) return;
+  if (wm.mode === 'banner') {
+    drawBannerWatermark(ctx, canvasW, canvasH, wm, scaleFactor, logoImage);
+    return;
+  }
   const hasText = wm.text.trim().length > 0;
   const hasLogo = !!logoImage;
   if (!hasText && !hasLogo) return;
@@ -249,6 +253,83 @@ export function drawWatermark(
     }
     ctx.globalAlpha = wm.logoOpacity;
     ctx.drawImage(logoImage, drawX, drawY, drawW, drawH);
+  }
+
+  ctx.restore();
+}
+
+/** Render the banner overlay: a full-width band at the chosen edge, with the
+ *  logo on its anchorH side and an optional bold title + lighter subtitle. */
+export function drawBannerWatermark(
+  ctx: CanvasRenderingContext2D,
+  canvasW: number,
+  canvasH: number,
+  wm: WatermarkConfig,
+  scaleFactor: number,
+  logoImage: HTMLImageElement | null,
+): void {
+  const hasTitle = wm.bannerTitle.trim().length > 0;
+  const hasSubtitle = wm.bannerSubtitle.trim().length > 0;
+  const hasLogo = !!logoImage;
+  // Centre anchor is a logo-only band (no text).
+  const showText = wm.anchorH !== 'center' && (hasTitle || hasSubtitle);
+  if (!hasLogo && !showText) return;
+
+  const fontDef = WATERMARK_FONTS.find(f => f.value === wm.font) ?? WATERMARK_FONTS[0];
+  const titleSize = Math.round(wm.fontSize * scaleFactor);
+  const subtitleSize = Math.round(wm.fontSize * 0.7 * scaleFactor);
+  const padding = Math.round(16 * scaleFactor);
+  const gap = Math.round(16 * scaleFactor);
+  const lineGap = Math.round(4 * scaleFactor);
+
+  let logoW = 0;
+  let logoH = 0;
+  if (hasLogo && logoImage) {
+    logoW = Math.max(1, Math.round(canvasW * wm.logoSizePercent));
+    const aspect = logoImage.width / logoImage.height;
+    logoH = Math.max(1, Math.round(logoW / aspect));
+  }
+
+  const bandHeight = computeBannerBandHeight(
+    logoH, titleSize, subtitleSize,
+    showText && hasTitle, showText && hasSubtitle,
+    padding, lineGap,
+  );
+  const band = computeBannerBandRect(canvasW, canvasH, wm.anchorV, bandHeight);
+
+  ctx.save();
+
+  // Band fill (semi-transparent so the pattern shows through).
+  ctx.globalAlpha = wm.bandOpacity;
+  ctx.fillStyle = wm.bandColor;
+  ctx.fillRect(band.x, band.y, band.width, band.height);
+  ctx.globalAlpha = 1;
+
+  const layout = computeBannerContentLayout(band, wm.anchorH, logoW, logoH, showText, padding, gap);
+
+  if (hasLogo && logoImage) {
+    ctx.globalAlpha = wm.logoOpacity;
+    ctx.drawImage(logoImage, layout.logo.x, layout.logo.y, logoW, logoH);
+    ctx.globalAlpha = 1;
+  }
+
+  if (showText && layout.text) {
+    ctx.fillStyle = wm.color;
+    ctx.textAlign = layout.text.align;
+    ctx.textBaseline = 'middle';
+    const cy = layout.text.centerY;
+    if (hasTitle && hasSubtitle) {
+      ctx.font = `600 ${titleSize}px ${fontDef.css}`;
+      ctx.fillText(wm.bannerTitle, layout.text.x, cy - Math.round(subtitleSize / 2 + lineGap / 2));
+      ctx.font = `400 ${subtitleSize}px ${fontDef.css}`;
+      ctx.fillText(wm.bannerSubtitle, layout.text.x, cy + Math.round(titleSize / 2 + lineGap / 2));
+    } else if (hasTitle) {
+      ctx.font = `600 ${titleSize}px ${fontDef.css}`;
+      ctx.fillText(wm.bannerTitle, layout.text.x, cy);
+    } else {
+      ctx.font = `400 ${subtitleSize}px ${fontDef.css}`;
+      ctx.fillText(wm.bannerSubtitle, layout.text.x, cy);
+    }
   }
 
   ctx.restore();

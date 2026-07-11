@@ -74,3 +74,21 @@ describe('computeBannerContentLayout', () => {
     expect(r.text!.x).toBe((1000 - 16 - 200) - 16);
   });
 });
+
+describe('drawWatermark banner branch (source-level)', () => {
+  const src = require('fs').readFileSync(
+    require('path').resolve(__dirname, '../lib/watermark/watermark.ts'),
+    'utf-8',
+  );
+  it('drawWatermark dispatches to the banner renderer on banner mode', () => {
+    expect(src).toMatch(/wm\.mode === 'banner'/);
+    expect(src).toMatch(/drawBannerWatermark\(/);
+  });
+  it('the banner renderer fills the band and draws the logo + title/subtitle', () => {
+    expect(src).toMatch(/export function drawBannerWatermark/);
+    expect(src).toMatch(/wm\.bandColor/);
+    expect(src).toMatch(/wm\.bandOpacity/);
+    expect(src).toMatch(/wm\.bannerTitle/);
+    expect(src).toMatch(/wm\.bannerSubtitle/);
+  });
+});
