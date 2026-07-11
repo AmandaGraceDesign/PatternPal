@@ -194,6 +194,10 @@ export interface PipelineInput {
    *  multi-zone templates; single-zone templates use the synthetic key
    *  `__root__`. Units: pattern-space pixels (canvas-internal px). */
   patternOffsetOverrides?: Record<string, { x: number; y: number }>;
+  /** Per-zone runtime rotation (degrees) added to each zone's static
+   *  `patternAngle`. Used by the modal's drag-to-rotate feature. Keyed by
+   *  `zone.id`; single-zone templates use `ROOT_ZONE_KEY`. */
+  patternAngleOverrides?: Record<string, number>;
 }
 
 /** Synthetic key used for single-zone templates that have no `template.zones`. */
@@ -231,6 +235,8 @@ function processZone(
   /** Runtime drag offset added to zone.patternOffset (pattern-space px). */
   overrideOffsetX = 0,
   overrideOffsetY = 0,
+  /** Runtime rotation (deg) added to zone.patternAngle. */
+  overrideAngle = 0,
 ): HTMLCanvasElement {
   const { patternArea, perspective, displacement } = zone;
 
@@ -273,7 +279,7 @@ function processZone(
     scaledCtx.imageSmoothingQuality = 'high';
     scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
 
-    const angleDeg = zone.patternAngle ?? 0;
+    const angleDeg = (zone.patternAngle ?? 0) + overrideAngle;
     const offsetX = (zone.patternOffset?.x ?? 0) + overrideOffsetX;
     const offsetY = (zone.patternOffset?.y ?? 0) + overrideOffsetY;
     if (angleDeg !== 0) {
@@ -479,6 +485,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
         input.displacementMapImage,
         input.patternOffsetOverrides?.[zone.id]?.x,
         input.patternOffsetOverrides?.[zone.id]?.y,
+        input.patternAngleOverrides?.[zone.id],
       );
 
       // Composite this zone onto the final canvas
@@ -508,6 +515,7 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
       input.displacementMapImage,
       input.patternOffsetOverrides?.[ROOT_ZONE_KEY]?.x,
       input.patternOffsetOverrides?.[ROOT_ZONE_KEY]?.y,
+      input.patternAngleOverrides?.[ROOT_ZONE_KEY],
     );
 
     finalCtx.globalCompositeOperation = template.blend.mode;
