@@ -58,6 +58,9 @@ interface MockupRendererV2Props {
    *  no longer overflows iPad landscape's ~680px content area. Default false
    *  preserves the `w-full` behavior needed by gallery cards. */
   fitContainer?: boolean;
+  /** When true, a rotate-handle drag rotates EVERY eligible zone by the same
+   *  delta instead of only the selected zone. Default false. */
+  rotateAll?: boolean;
 }
 
 /** Loads an image from a URL path, returns null on failure. */
@@ -182,6 +185,7 @@ export default function MockupRendererV2({
   maxRenderDimension,
   preview = false,
   fitContainer = false,
+  rotateAll = false,
   onRenderComplete,
 }: MockupRendererV2Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -196,6 +200,12 @@ export default function MockupRendererV2({
   // update every zone.) The pipeline re-renders on every offset change
   // (~50-200ms), so users see slight lag but the visual is correct.
   const [patternOffsets, setPatternOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  // Per-zone runtime rotation (degrees), applied on top of each zone's static
+  // patternAngle. Set live by the rotate-handle drag; keyed by zone.id, or
+  // ROOT_ZONE_KEY for single-zone templates. Preview/export-only — never
+  // mutates the saved pattern.
+  const [patternAngles, setPatternAngles] = useState<Record<string, number>>({});
+  const [selectedZoneKey, setSelectedZoneKey] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{
     clientX: number;
@@ -222,6 +232,7 @@ export default function MockupRendererV2({
   // Memoized so the stringify only re-runs when the source reference changes —
   // once the parent hands down stable (useMemo'd) props, these skip entirely.
   const patternOffsetsSig = useMemo(() => JSON.stringify(patternOffsets), [patternOffsets]);
+  const patternAnglesSig = useMemo(() => JSON.stringify(patternAngles), [patternAngles]);
   const additionalShadowEnabledsSig = useMemo(() => JSON.stringify(additionalShadowEnableds), [additionalShadowEnableds]);
   const additionalShadowOpacityOverridesSig = useMemo(() => JSON.stringify(additionalShadowOpacityOverrides), [additionalShadowOpacityOverrides]);
   const additionalHighlightEnabledsSig = useMemo(() => JSON.stringify(additionalHighlightEnableds), [additionalHighlightEnableds]);
@@ -230,6 +241,8 @@ export default function MockupRendererV2({
   // Reset all zone offsets when the template changes (different mockup selected).
   useEffect(() => {
     setPatternOffsets({});
+    setPatternAngles({});
+    setSelectedZoneKey(null);
     setIsDragging(false);
     dragStartRef.current = null;
     zoneMasksRef.current = {};
@@ -239,6 +252,20 @@ export default function MockupRendererV2({
     }
     pendingDragOffsetRef.current = null;
   }, [template]);
+
+  /** True when the current template supports per-zone rotation (see global
+   *  constraint: sharedPatternArea templates bypass the rotate branch). */
+  const rotationSupported = !template.sharedPatternArea;
+
+  // Single-zone templates have no distinct areas to tap, so auto-select the
+  // root zone whenever drag+rotation is enabled — the handle then appears
+  // immediately without requiring a selecting tap.
+  useEffect(() => {
+    if (!dragEnabled || !rotationSupported) { setSelectedZoneKey(null); return; }
+    if (!template.zones || template.zones.length === 0) {
+      setSelectedZoneKey(ROOT_ZONE_KEY);
+    }
+  }, [template, dragEnabled, rotationSupported]);
 
   useEffect(() => {
     if (!patternImage || !canvasRef.current) return;
@@ -350,6 +377,11 @@ export default function MockupRendererV2({
                 )
               )
             : undefined,
+          // Angle is scale-invariant (unlike offset) — pass it straight
+          // through with no scaleFactor multiply.
+          patternAngleOverrides: Object.keys(patternAngles).length > 0
+            ? patternAngles
+            : undefined,
         });
 
         const canvas = canvasRef.current;
@@ -398,6 +430,7 @@ export default function MockupRendererV2({
     // Value-stable signatures (memoized above) so identical contents don't
     // re-fire the pipeline even when the parent rebuilds the source arrays.
     patternOffsetsSig,
+    patternAnglesSig,
     additionalShadowEnabledsSig,
     additionalShadowOpacityOverridesSig,
     additionalHighlightEnabledsSig,
@@ -449,6 +482,32 @@ export default function MockupRendererV2({
     }
     // No mask hit — fall back to the first zone so drag still does something.
     return template.zones[0]?.id ?? null;
+  };
+
+  // rAF-coalesced rotation, mirroring the offset drag's coalescing.
+  const rotateStartRef = useRef<{
+    pointerId: number;
+    zoneKeys: string[];
+    centerClientX: number;
+    centerClientY: number;
+    startPointerDeg: number;
+    startAngles: Record<string, number>;
+  } | null>(null);
+  const pendingRotateRef = useRef<Record<string, number> | null>(null);
+  const rotateRafIdRef = useRef<number | null>(null);
+
+  /** Center of a zone as a fraction (0..1) of the full template canvas. */
+  const zoneCenterFraction = (zoneKey: string): { fx: number; fy: number } | null => {
+    const cs = template.canvasSize;
+    if (zoneKey === ROOT_ZONE_KEY || !template.zones || template.zones.length === 0) {
+      const pa = template.patternArea;
+      if (!pa) return { fx: 0.5, fy: 0.5 };
+      return { fx: (pa.x + pa.width / 2) / cs.width, fy: (pa.y + pa.height / 2) / cs.height };
+    }
+    const zone = template.zones.find((z) => z.id === zoneKey);
+    if (!zone) return null;
+    const pa = zone.patternArea;
+    return { fx: (pa.x + pa.width / 2) / cs.width, fy: (pa.y + pa.height / 2) / cs.height };
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -529,8 +588,15 @@ export default function MockupRendererV2({
     // Make sure the final offset gets applied even if rAF is still pending.
     flushPendingDrag();
 
-    // If pointer barely moved, treat as a click — fire parent onClick.
-    if (!wasDragRef.current) onClick?.();
+    // A tap (no drag) selects the zone under the pointer so its rotate handle
+    // appears there; then treat as a click and fire parent onClick.
+    if (!wasDragRef.current) {
+      if (rotationSupported) {
+        const zoneKey = pickZoneAt(e.clientX, e.clientY);
+        if (zoneKey) setSelectedZoneKey(zoneKey);
+      }
+      onClick?.();
+    }
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -543,6 +609,68 @@ export default function MockupRendererV2({
       dragRafIdRef.current = null;
     }
     pendingDragOffsetRef.current = null;
+  };
+
+  const RAD2DEG = 180 / Math.PI;
+
+  const handleRotateDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!selectedZoneKey) return;
+    e.stopPropagation();
+    const wrap = wrapperRef.current;
+    const frac = zoneCenterFraction(selectedZoneKey);
+    if (!wrap || !frac) return;
+    const rect = wrap.getBoundingClientRect();
+    const centerClientX = rect.left + frac.fx * rect.width;
+    const centerClientY = rect.top + frac.fy * rect.height;
+    const startPointerDeg = Math.atan2(e.clientY - centerClientY, e.clientX - centerClientX) * RAD2DEG;
+
+    // rotateAll → every eligible zone rotates together; else just the selected one.
+    const zoneKeys = rotateAll
+      ? (template.zones && template.zones.length > 0
+          ? template.zones.map((z) => z.id)
+          : [ROOT_ZONE_KEY])
+      : [selectedZoneKey];
+    const startAngles: Record<string, number> = {};
+    for (const k of zoneKeys) startAngles[k] = patternAngles[k] ?? 0;
+
+    rotateStartRef.current = { pointerId: e.pointerId, zoneKeys, centerClientX, centerClientY, startPointerDeg, startAngles };
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleRotateMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = rotateStartRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    const nowDeg = Math.atan2(e.clientY - s.centerClientY, e.clientX - s.centerClientX) * RAD2DEG;
+    const delta = nowDeg - s.startPointerDeg;
+    const next: Record<string, number> = {};
+    for (const k of s.zoneKeys) {
+      // Normalize to [0,360) for a tidy stored value.
+      next[k] = ((s.startAngles[k] + delta) % 360 + 360) % 360;
+    }
+    pendingRotateRef.current = next;
+    if (rotateRafIdRef.current === null) {
+      rotateRafIdRef.current = requestAnimationFrame(() => {
+        rotateRafIdRef.current = null;
+        const pending = pendingRotateRef.current;
+        if (!pending) return;
+        setPatternAngles((prev) => ({ ...prev, ...pending }));
+      });
+    }
+  };
+
+  const endRotate = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = rotateStartRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    rotateStartRef.current = null;
+    try { (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId); } catch {}
+    if (rotateRafIdRef.current !== null) {
+      cancelAnimationFrame(rotateRafIdRef.current);
+      rotateRafIdRef.current = null;
+    }
+    const pending = pendingRotateRef.current;
+    if (pending) { pendingRotateRef.current = null; setPatternAngles((prev) => ({ ...prev, ...pending })); }
   };
 
   return (
@@ -584,6 +712,51 @@ export default function MockupRendererV2({
           <span className="text-white text-sm">Rendering...</span>
         </div>
       )}
+      {dragEnabled && rotationSupported && selectedZoneKey && (() => {
+        const frac = zoneCenterFraction(selectedZoneKey);
+        if (!frac) return null;
+        return (
+          <div
+            aria-hidden
+            className="absolute z-20"
+            style={{
+              left: `${frac.fx * 100}%`,
+              top: `${frac.fy * 100}%`,
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}
+          >
+            {/* connector line from center up to the grab dot */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 bg-white/80"
+              style={{ bottom: '0', width: '2px', height: '48px' }}
+            />
+            {/* the grab dot — this is the only pointer target */}
+            <div
+              role="button"
+              aria-label="Rotate pattern"
+              onPointerDown={handleRotateDown}
+              onPointerMove={handleRotateMove}
+              onPointerUp={endRotate}
+              onPointerCancel={endRotate}
+              className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white shadow-md border border-[#294051] flex items-center justify-center"
+              style={{
+                top: '-56px',
+                width: '28px',
+                height: '28px',
+                pointerEvents: 'auto',
+                touchAction: 'none',
+                cursor: 'grab',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#294051" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-3-6.7" />
+                <polyline points="21 3 21 9 15 9" />
+              </svg>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
