@@ -5,6 +5,8 @@ import {
   computeBannerBandHeight,
   computeBannerBandRect,
   computeBannerContentLayout,
+  watermarkHasContent,
+  type WatermarkConfig,
 } from '../lib/watermark/watermark';
 
 describe('WATERMARK: default config preserves legacy behavior', () => {
@@ -72,6 +74,32 @@ describe('computeBannerContentLayout', () => {
     expect(r.logo.x).toBe(1000 - 16 - 200);
     expect(r.text!.align).toBe('right');
     expect(r.text!.x).toBe((1000 - 16 - 200) - 16);
+  });
+  it('logo-only left anchor stays on the left (no centering) when showText is false', () => {
+    const r = computeBannerContentLayout(band, 'left', 200, 100, false, 16, 16);
+    expect(r.text).toBeNull();
+    expect(r.logo.x).toBe(16);
+  });
+});
+
+describe('watermarkHasContent', () => {
+  const base: WatermarkConfig = { ...DEFAULT_WATERMARK };
+
+  it('banner mode with only a title is true', () => {
+    expect(watermarkHasContent({ ...base, mode: 'banner', bannerTitle: 'Hello', bannerSubtitle: '' })).toBe(true);
+  });
+  it('banner mode with nothing is false', () => {
+    expect(watermarkHasContent({ ...base, mode: 'banner', bannerTitle: '', bannerSubtitle: '', logoDataUrl: undefined })).toBe(false);
+  });
+  it('logo mode with only legacy text is true', () => {
+    expect(watermarkHasContent({ ...base, mode: 'logo', text: 'Caption', logoDataUrl: undefined })).toBe(true);
+  });
+  it('logo mode empty is false', () => {
+    expect(watermarkHasContent({ ...base, mode: 'logo', text: '', logoDataUrl: undefined })).toBe(false);
+  });
+  it('any mode with a logoDataUrl is true', () => {
+    expect(watermarkHasContent({ ...base, mode: 'banner', bannerTitle: '', bannerSubtitle: '', logoDataUrl: 'data:image/png;base64,x' })).toBe(true);
+    expect(watermarkHasContent({ ...base, mode: 'logo', text: '', logoDataUrl: 'data:image/png;base64,x' })).toBe(true);
   });
 });
 

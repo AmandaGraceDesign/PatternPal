@@ -161,23 +161,25 @@ export function computeBannerContentLayout(
 ): { logo: { x: number; y: number }; text: { x: number; align: 'left' | 'right'; centerY: number } | null } {
   const logoY = Math.round(band.y + (band.height - logoH) / 2);
   const centerY = Math.round(band.y + band.height / 2);
-  if (anchorH === 'center' || !showText) {
+  if (anchorH === 'center') {
     const logoX = Math.round(band.x + (band.width - logoW) / 2);
     return { logo: { x: logoX, y: logoY }, text: null };
   }
   if (anchorH === 'left') {
     const logoX = band.x + padding;
-    return {
-      logo: { x: logoX, y: logoY },
-      text: { x: logoX + logoW + gap, align: 'left', centerY },
-    };
+    return { logo: { x: logoX, y: logoY }, text: showText ? { x: logoX + logoW + gap, align: 'left', centerY } : null };
   }
-  // right
   const logoX = band.x + band.width - padding - logoW;
-  return {
-    logo: { x: logoX, y: logoY },
-    text: { x: logoX - gap, align: 'right', centerY },
-  };
+  return { logo: { x: logoX, y: logoY }, text: showText ? { x: logoX - gap, align: 'right', centerY } : null };
+}
+
+/** Whether the watermark has any renderable content (ignores `enabled`).
+ *  Banner mode counts title/subtitle; logo mode counts the legacy caption. */
+export function watermarkHasContent(wm: WatermarkConfig): boolean {
+  if (wm.mode === 'banner') {
+    return !!wm.logoDataUrl || wm.bannerTitle.trim().length > 0 || wm.bannerSubtitle.trim().length > 0;
+  }
+  return !!wm.logoDataUrl || wm.text.trim().length > 0;
 }
 
 /** Draw watermark (optional logo above text) at bottom center of a canvas context.

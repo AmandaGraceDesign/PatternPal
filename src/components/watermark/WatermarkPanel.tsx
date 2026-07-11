@@ -1,7 +1,7 @@
 'use client';
 
 import { Dispatch, SetStateAction, useState } from 'react';
-import { WatermarkConfig, WATERMARK_FONTS } from '@/lib/watermark/watermark';
+import { WatermarkConfig, WATERMARK_FONTS, watermarkHasContent } from '@/lib/watermark/watermark';
 
 interface Props {
   watermark: WatermarkConfig;
@@ -10,7 +10,7 @@ interface Props {
 
 export default function WatermarkPanel({ watermark, setWatermark }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const hasContent = !!watermark.logoDataUrl || watermark.bannerTitle.trim().length > 0 || watermark.bannerSubtitle.trim().length > 0;
+  const hasContent = watermarkHasContent(watermark);
 
   return (
     <div className="border-2 border-[#e0c26e] rounded-md overflow-hidden shadow-sm">

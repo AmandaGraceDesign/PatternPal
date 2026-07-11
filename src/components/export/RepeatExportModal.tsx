@@ -21,6 +21,7 @@ import {
   cachedLoadLogo,
   drawWatermark,
   applyWatermarkToBlob,
+  watermarkHasContent,
 } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
@@ -848,8 +849,8 @@ export default function RepeatExportModal({
               image, tileWidth, tileHeight, repeatType, socialFormat, currentDPI,
             );
           }
-          // Stamp watermark onto exported image (if text OR a logo is present)
-          if (watermark.enabled && (watermark.text.trim() || watermark.logoDataUrl)) {
+          // Stamp watermark onto exported image (if it has any renderable content)
+          if (watermark.enabled && watermarkHasContent(watermark)) {
             blob = await applyWatermarkToBlob(blob, exportPxW, exportPxH, watermark, socialFormat);
           }
           // Stamp the "Tested in PatternPAL" badge as the top layer
