@@ -237,8 +237,11 @@ export default function MockupModalBody(props: MockupModalBodyProps) {
       </div>
 
       {/* CONTROLS PANE — controls bar, watermark, badge, download grid.
-          ≥880px: takes remaining width and scrolls internally if it ever overflows (preview stays put). */}
-      <div className="flex flex-col gap-3 min-[880px]:flex-1 min-[880px]:overflow-y-auto min-[880px]:max-h-[80vh]">
+          ≥880px: takes remaining width and scrolls internally if it ever overflows (preview stays put).
+          `[&>*]:shrink-0` keeps each child at its natural height so the pane SCROLLS
+          instead of flexbox compressing a tall child (e.g. the expanded Logo Overlay,
+          whose `overflow-hidden` would otherwise clip its own controls). */}
+      <div className="flex flex-col gap-3 [&>*]:shrink-0 min-[880px]:flex-1 min-[880px]:overflow-y-auto min-[880px]:max-h-[80vh]">
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 p-2 bg-[#f1efeb] rounded-md text-xs text-[#294051]">
         {/* Scale */}
         {scale && (

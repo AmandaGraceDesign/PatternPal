@@ -159,7 +159,7 @@ export default function WatermarkPanel({ watermark, setWatermark }: Props) {
                   value={watermark.bannerTitle}
                   onChange={e => setWatermark(w => ({ ...w, bannerTitle: e.target.value }))}
                   placeholder="e.g. Fruity Floral Patchwork"
-                  className="mt-1 w-full px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md"
+                  className="mt-1 w-full px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#294051] placeholder:text-[#9ca3af]"
                 />
               </div>
               <div>
@@ -169,7 +169,7 @@ export default function WatermarkPanel({ watermark, setWatermark }: Props) {
                   value={watermark.bannerSubtitle}
                   onChange={e => setWatermark(w => ({ ...w, bannerSubtitle: e.target.value }))}
                   placeholder="e.g. Part of the FLF Collection"
-                  className="mt-1 w-full px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md"
+                  className="mt-1 w-full px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#294051] placeholder:text-[#9ca3af]"
                 />
               </div>
               <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { mockupDownloadSizes, cropsVertically, FULL_SIZE_SLUG, type SizeSlug, type SocialSizePreset } from '@/lib/export/socialSizes';
 
 export interface MockupDownloadMenuProps {
@@ -133,41 +133,68 @@ function MockupDownloadMenu({
 }: MockupDownloadMenuProps) {
   // Stable size list + preset refs across renders so the memoized rows can bail.
   const sizes = useMemo(() => mockupDownloadSizes(), []);
+  // Collapsible size picker (accordion) — default open since choosing sizes is
+  // the primary flow, collapsible to tidy the pane once sizes are chosen.
+  const [expanded, setExpanded] = useState(true);
 
   return (
-    <div className="@container flex flex-col gap-3 border-t border-[#92afa5]/30 pt-3">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-[#294051]">
-        Download mockup
-      </span>
-
-      {/* Single column until the pane is genuinely wide enough for two readable
-          rows (≈480px). In the two-pane layout the controls rail is ~440px on a
-          12.9" iPad portrait, where two columns starved the labels to "F.."/"P.."
-          and clipped the right column off the panel. Container query (not a
-          viewport breakpoint) because it's the rail width that matters here. */}
-      <div className="grid grid-cols-1 @[480px]:grid-cols-2 gap-x-4 gap-y-1">
-        {sizes.map(preset => (
-          <MockupDownloadRow
-            key={preset.slug}
-            preset={preset}
-            checked={selected.has(preset.slug)}
-            offset={offsets[preset.slug] ?? 0.5}
-            isActive={preset.slug === activeSlug}
-            locked={isLocked(preset)}
-            isBusy={isBusy}
-            snapshotUrl={snapshotUrl}
-            onToggleSize={onToggleSize}
-            onSetActive={onSetActive}
-            onLockedClick={onLockedClick}
-          />
-        ))}
+    <div className="@container flex flex-col gap-3">
+      {/* Size picker as a collapsible accordion, styled to match the Logo
+          Overlay panel for a consistent, scannable rail. */}
+      <div className="border-2 border-[#e0c26e] rounded-md overflow-hidden shadow-sm">
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="w-full flex items-center justify-between px-3 py-2 bg-[#faf3e0] hover:bg-[#f5e8c8] transition-colors"
+          aria-expanded={expanded}
+        >
+          <span className="text-xs font-semibold text-[#294051] flex items-center gap-2">
+            Download mockup
+            {selected.size > 0 && (
+              <span className="text-[10px] font-bold text-[#705046]">{selected.size} selected</span>
+            )}
+          </span>
+          <svg
+            className={`w-3.5 h-3.5 text-[#705046] transition-transform ${expanded ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {expanded && (
+          <div className="px-3 py-3 border-t-2 border-[#e0c26e]">
+            {/* Single column until the pane is genuinely wide enough for two readable
+                rows (≈480px). In the two-pane layout the controls rail is ~440px on a
+                12.9" iPad portrait, where two columns starved the labels to "F.."/"P.."
+                and clipped the right column off the panel. Container query (not a
+                viewport breakpoint) because it's the rail width that matters here. */}
+            <div className="grid grid-cols-1 @[480px]:grid-cols-2 gap-x-4 gap-y-1">
+              {sizes.map(preset => (
+                <MockupDownloadRow
+                  key={preset.slug}
+                  preset={preset}
+                  checked={selected.has(preset.slug)}
+                  offset={offsets[preset.slug] ?? 0.5}
+                  isActive={preset.slug === activeSlug}
+                  locked={isLocked(preset)}
+                  isBusy={isBusy}
+                  snapshotUrl={snapshotUrl}
+                  onToggleSize={onToggleSize}
+                  onSetActive={onSetActive}
+                  onLockedClick={onLockedClick}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* Download action — always visible, even when the picker is collapsed. */}
       <button
         type="button"
         disabled={selected.size === 0 || isBusy}
         onClick={onDownload}
-        className="text-xs rounded-md px-3 py-2 bg-[#294051] text-white font-semibold disabled:opacity-50"
+        className="text-sm rounded-md px-3 py-2.5 bg-[#294051] text-white font-semibold disabled:opacity-50"
         style={{ touchAction: 'manipulation' }}
       >
         {isBusy

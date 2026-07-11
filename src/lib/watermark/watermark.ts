@@ -55,7 +55,11 @@ export const DEFAULT_WATERMARK: WatermarkConfig = {
   enabled: true,
   text: '',
   font: 'sans',
-  color: '#ffffff',
+  // Black by default: banner text sits on the default WHITE band, so white
+  // text would be invisible. Logo mode surfaces no caption text, so this
+  // default is only ever visible in banner mode (legacy logo-only output is
+  // unaffected — it draws no text).
+  color: '#000000',
   opacity: 0.5,
   fontSize: 32,
   bgEnabled: false,
