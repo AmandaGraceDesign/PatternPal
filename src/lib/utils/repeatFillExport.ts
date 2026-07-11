@@ -15,6 +15,10 @@ export interface RepeatFillExportConfig {
   tileWidthInches: number;
   tileHeightInches: number;
   originalFilename: string | null;
+  /** When true AND format === 'png', skip the white background fill so the
+   *  exported PNG preserves the pattern's own transparency. Ignored for JPG
+   *  (JPEG has no alpha channel). Default: paint white (legacy behavior). */
+  transparentBackground?: boolean;
 }
 
 export interface RepeatFillCalcResult {
@@ -147,6 +151,18 @@ export function calculateRepeatFillDimensions(
 }
 
 /**
+ * Whether to paint the opaque white background before tiling.
+ * Only a transparent-requested PNG skips it — JPG must always flatten to
+ * white because JPEG cannot store alpha.
+ */
+export function shouldPaintBackground(
+  format: 'png' | 'jpg',
+  transparentBackground?: boolean
+): boolean {
+  return !(transparentBackground === true && format === 'png');
+}
+
+/**
  * Generate and download a repeat fill export.
  * Tiles the pattern at uniform scale into a target canvas.
  * HD/HB patterns are auto-converted to full-drop.
@@ -188,9 +204,11 @@ export async function generateRepeatFillExport(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Fill with white background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Fill with white background — unless a transparent PNG was requested.
+  if (shouldPaintBackground(format, config.transparentBackground)) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   // Grid-tile the full-drop tile (uniform scale, correct aspect ratio).
   // Draw at integer pixel boundaries with +1px overlap to prevent
