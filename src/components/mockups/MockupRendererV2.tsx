@@ -634,6 +634,11 @@ export default function MockupRendererV2({
     for (const k of zoneKeys) startAngles[k] = patternAngles[k] ?? 0;
 
     rotateStartRef.current = { pointerId: e.pointerId, zoneKeys, centerClientX, centerClientY, startPointerDeg, startAngles };
+    // Drop the pipeline to its cheap medium-res drag path (same flag the
+    // offset drag uses) so each rotation frame re-renders in ~10ms instead of
+    // ~150ms — without this, iPad only repaints every few frames and the
+    // rotation looks like it snaps in ~5° steps.
+    setIsDragging(true);
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
   };
 
@@ -664,6 +669,9 @@ export default function MockupRendererV2({
     if (!s || s.pointerId !== e.pointerId) return;
     e.stopPropagation();
     rotateStartRef.current = null;
+    // Flip isDragging false so the render effect re-fires at full quality for
+    // the final resting angle.
+    setIsDragging(false);
     try { (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId); } catch {}
     if (rotateRafIdRef.current !== null) {
       cancelAnimationFrame(rotateRafIdRef.current);
@@ -729,9 +737,13 @@ export default function MockupRendererV2({
             {/* connector line from center up to the grab dot */}
             <div
               className="absolute left-1/2 -translate-x-1/2 bg-white/80"
-              style={{ bottom: '0', width: '2px', height: '48px' }}
+              style={{ bottom: '0', width: '2px', height: '46px' }}
             />
-            {/* the grab dot — this is the only pointer target */}
+            {/* Grab target. The interactive element is a 64px transparent pad
+             *  (comfortable finger/Pencil hit area) with a 44px visible circle
+             *  centered inside — much easier to grab on iPad than a bare 28px
+             *  dot. The whole pad is the pointer target; the inner circle is
+             *  purely visual. */}
             <div
               role="button"
               aria-label="Rotate pattern"
@@ -739,20 +751,25 @@ export default function MockupRendererV2({
               onPointerMove={handleRotateMove}
               onPointerUp={endRotate}
               onPointerCancel={endRotate}
-              className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white shadow-md border border-[#294051] flex items-center justify-center"
+              className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center"
               style={{
-                top: '-56px',
-                width: '28px',
-                height: '28px',
+                top: '-90px',
+                width: '64px',
+                height: '64px',
                 pointerEvents: 'auto',
                 touchAction: 'none',
                 cursor: 'grab',
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#294051" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 1 1-3-6.7" />
-                <polyline points="21 3 21 9 15 9" />
-              </svg>
+              <span
+                className="rounded-full bg-white shadow-md border border-[#294051] flex items-center justify-center"
+                style={{ width: '44px', height: '44px', pointerEvents: 'none' }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#294051" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12a9 9 0 1 1-3-6.7" />
+                  <polyline points="21 3 21 9 15 9" />
+                </svg>
+              </span>
             </div>
           </div>
         );
