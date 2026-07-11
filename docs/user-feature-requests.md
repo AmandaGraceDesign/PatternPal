@@ -56,6 +56,20 @@ Running list of features and improvements requested by PatternPAL Pro users. Whe
 
 ## Shipped
 
+### Mockup pattern rotation (per-area drag-to-rotate + "rotate all")
+**Shipped:** 2026-07-11 (branch `feat/mockup-rotation-cricut-transparency`)
+**User:** User feature request (rotation on mockups)
+**Summary:** Users can now rotate the pattern within a mockup on a **per-product-area** basis using a **drag-to-rotate handle** on the live preview, with an optional **"Rotate all areas together"** toggle to spin every area by the same delta. Rotation affects only the mockup preview/export — it never mutates the saved pattern. `sharedPatternArea` templates are excluded in v1 (no handle). iPad/Pencil-safe (Pointer Events + `touch-action: none`, rAF-coalesced).
+**Implementation:** Runtime per-zone angle override mirrors the existing pattern-offset plumbing: engine input `patternAngleOverrides` → `processZone(overrideAngle)` → `MockupRendererV2` state + rotate-handle gesture → `MockupModalBody` toggle.
+**Commits:** `a571ea0` (engine), `c085aec` (renderer state + handle), `0cda70c` (rotate-all toggle).
+
+### Transparent Cricut / Pattern-Fill PNG export
+**Shipped:** 2026-07-11 (branch `feat/mockup-rotation-cricut-transparency`)
+**User:** User feature request (transparent PNG for Cricut export)
+**Summary:** Pro users can export the Cricut / Pattern-Fill ("Digital Paper") output as a **transparent PNG**, preserving the alpha of transparent-source patterns instead of baking them onto white. A **"Transparent background"** toggle in the Cricut panel is enabled only for PNG (JPG has no alpha; greyed with a "PNG only" hint), and the live preview shows a checkerboard behind the pattern when transparent is on.
+**Implementation:** Gated the previously-unconditional white `fillRect` behind a PNG-only `shouldPaintBackground(format, transparentBackground)` helper + `RepeatFillExportConfig.transparentBackground` flag, mirrored in the preview.
+**Commits:** `d597b76` (export gate + helper), `98e87a0` (modal toggle + checkerboard).
+
 ### iPad download fix for mockups
 **Shipped:** 2026-04-19
 **Users:** Charisse + 1 additional user
