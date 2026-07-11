@@ -94,6 +94,28 @@ export function cachedLoadLogo(src: string): Promise<HTMLImageElement | null> {
   return p;
 }
 
+/** Top-left pixel position for a logo of (logoW × logoH) at a 9-point anchor,
+ *  inset by `margin` on the outer edges. Pure — unit tested. */
+export function computeLogoRect(
+  canvasW: number,
+  canvasH: number,
+  logoW: number,
+  logoH: number,
+  anchorH: WatermarkAnchorH,
+  anchorV: WatermarkAnchorV,
+  margin: number,
+): { x: number; y: number } {
+  let x: number;
+  if (anchorH === 'left') x = margin;
+  else if (anchorH === 'right') x = canvasW - logoW - margin;
+  else x = (canvasW - logoW) / 2;
+  let y: number;
+  if (anchorV === 'top') y = margin;
+  else if (anchorV === 'middle') y = (canvasH - logoH) / 2;
+  else y = canvasH - logoH - margin;
+  return { x: Math.round(x), y: Math.round(y) };
+}
+
 /** Draw watermark (optional logo above text) at bottom center of a canvas context.
  *  Logo is rendered with its own opacity; text uses wm.opacity. When both are
  *  present the logo stacks above the text with a small gap. */
@@ -144,13 +166,23 @@ export function drawWatermark(
     cursorY -= fontSize + (wm.bgEnabled ? pad * 2 : 0) + logoGap;
   }
 
-  // Logo above text (or alone at bottom if no text)
+  // Logo — anchored by anchorH/anchorV. The default center+bottom preserves
+  // the legacy "stack above caption text" behavior; other anchors use the
+  // 9-point helper.
   if (hasLogo) {
     const drawW = Math.max(1, Math.round(canvasW * wm.logoSizePercent));
     const aspect = logoImage.width / logoImage.height;
     const drawH = Math.max(1, Math.round(drawW / aspect));
-    const drawX = Math.round((canvasW - drawW) / 2);
-    const drawY = Math.round(cursorY - drawH);
+    let drawX: number;
+    let drawY: number;
+    if (wm.anchorH === 'center' && wm.anchorV === 'bottom') {
+      drawX = Math.round((canvasW - drawW) / 2);
+      drawY = Math.round(cursorY - drawH);
+    } else {
+      const r = computeLogoRect(canvasW, canvasH, drawW, drawH, wm.anchorH, wm.anchorV, bottomMargin);
+      drawX = r.x;
+      drawY = r.y;
+    }
     ctx.globalAlpha = wm.logoOpacity;
     ctx.drawImage(logoImage, drawX, drawY, drawW, drawH);
   }
