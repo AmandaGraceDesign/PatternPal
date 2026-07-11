@@ -116,6 +116,70 @@ export function computeLogoRect(
   return { x: Math.round(x), y: Math.round(y) };
 }
 
+/** Band height = taller of (logo, stacked text) + vertical padding. */
+export function computeBannerBandHeight(
+  logoH: number,
+  titleSize: number,
+  subtitleSize: number,
+  hasTitle: boolean,
+  hasSubtitle: boolean,
+  padding: number,
+  lineGap: number,
+): number {
+  const textH =
+    (hasTitle ? titleSize : 0) +
+    (hasSubtitle ? subtitleSize : 0) +
+    (hasTitle && hasSubtitle ? lineGap : 0);
+  return Math.round(Math.max(logoH, textH) + padding * 2);
+}
+
+/** Full-width band rect positioned at the chosen vertical edge. */
+export function computeBannerBandRect(
+  canvasW: number,
+  canvasH: number,
+  anchorV: WatermarkAnchorV,
+  bandHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  let y: number;
+  if (anchorV === 'top') y = 0;
+  else if (anchorV === 'middle') y = Math.round((canvasH - bandHeight) / 2);
+  else y = canvasH - bandHeight;
+  return { x: 0, y, width: canvasW, height: bandHeight };
+}
+
+/** Position the logo (vertically centered in the band) and the text block.
+ *  center anchor → logo centered, no text. left/right → logo on that side,
+ *  text on the opposite side, aligned toward the logo. */
+export function computeBannerContentLayout(
+  band: { x: number; y: number; width: number; height: number },
+  anchorH: WatermarkAnchorH,
+  logoW: number,
+  logoH: number,
+  showText: boolean,
+  padding: number,
+  gap: number,
+): { logo: { x: number; y: number }; text: { x: number; align: 'left' | 'right'; centerY: number } | null } {
+  const logoY = Math.round(band.y + (band.height - logoH) / 2);
+  const centerY = Math.round(band.y + band.height / 2);
+  if (anchorH === 'center' || !showText) {
+    const logoX = Math.round(band.x + (band.width - logoW) / 2);
+    return { logo: { x: logoX, y: logoY }, text: null };
+  }
+  if (anchorH === 'left') {
+    const logoX = band.x + padding;
+    return {
+      logo: { x: logoX, y: logoY },
+      text: { x: logoX + logoW + gap, align: 'left', centerY },
+    };
+  }
+  // right
+  const logoX = band.x + band.width - padding - logoW;
+  return {
+    logo: { x: logoX, y: logoY },
+    text: { x: logoX - gap, align: 'right', centerY },
+  };
+}
+
 /** Draw watermark (optional logo above text) at bottom center of a canvas context.
  *  Logo is rendered with its own opacity; text uses wm.opacity. When both are
  *  present the logo stacks above the text with a small gap. */
