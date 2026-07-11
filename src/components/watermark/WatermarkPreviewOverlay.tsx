@@ -6,6 +6,17 @@ interface Props {
   watermark: WatermarkConfig;
 }
 
+/** Convert a #rrggbb hex + 0..1 alpha to an rgba() string, so band opacity
+ *  fades only the background — not the logo/text composited over it. */
+function bandRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return hex; // non-6-digit fallback
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /** Live preview of the watermark logo as an HTML overlay. Drop inside a
  *  wrapper with `position: relative` and `containerType: inline-size`. The
  *  DOWNLOAD path still bakes the real watermark onto the canvas via
@@ -33,9 +44,9 @@ export default function WatermarkPreviewOverlay({ watermark }: Props) {
       <div className={`pointer-events-none absolute inset-0 flex flex-col ${vAlign} z-10`}>
         <div
           className="w-full flex items-center gap-[2cqw]"
-          style={{ backgroundColor: watermark.bandColor, opacity: watermark.bandOpacity, padding: '2cqw' }}
+          style={{ backgroundColor: bandRgba(watermark.bandColor, watermark.bandOpacity), padding: '2cqw' }}
         >
-          <div className={`w-full flex items-center gap-[2cqw] ${rowJustify} ${rowReverse}`} style={{ opacity: 1 }}>
+          <div className={`w-full flex items-center gap-[2cqw] ${rowJustify} ${rowReverse}`}>
             {watermark.logoDataUrl && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
