@@ -18,26 +18,54 @@ export const IOS_CANVAS_MAX_SIDE = 4096;
 export const IOS_CANVAS_MAX_AREA = IOS_CANVAS_MAX_SIDE * IOS_CANVAS_MAX_SIDE; // 16,777,216
 
 /**
+ * Non-throwing predicate: does a canvas of these pixel dimensions fit within the
+ * device's safe ceiling? Shared by the assert (export time) and the EasyScale
+ * modal's size gating (selection time) so the UI never offers an export that the
+ * assert would later reject. `onIOS` is injectable for testing.
+ */
+export function exportCanvasWithinLimits(
+  width: number,
+  height: number,
+  onIOS: boolean = isIOS()
+): boolean {
+  const maxSide = onIOS ? IOS_CANVAS_MAX_SIDE : BROWSER_CANVAS_LIMIT;
+  const maxArea = maxSide * maxSide;
+  return !(width > maxSide || height > maxSide || width * height > maxArea);
+}
+
+/**
+ * Largest export size (inches, longest side) that stays within the device's
+ * canvas ceiling at the given DPI. On iOS this is far smaller than desktop
+ * (4096/dpi ≈ 13.6" at 300 DPI). The EasyScale modal uses this to grey out and
+ * auto-deselect sizes that would always hit the ceiling guard — otherwise a
+ * large source lets the user pick a size that can never export, and that stuck
+ * selection blocks every subsequent export until a full page refresh. `onIOS`
+ * is injectable for testing.
+ */
+export function deviceMaxExportInches(dpi: number, onIOS: boolean = isIOS()): number {
+  const maxSide = onIOS ? IOS_CANVAS_MAX_SIDE : BROWSER_CANVAS_LIMIT;
+  return maxSide / dpi;
+}
+
+/**
  * Throw a friendly, catchable error if a target export canvas would exceed the
  * current device's safe ceiling. Call BEFORE allocating the canvas so the
  * export modal can show an inline message rather than crashing the tab.
  */
 export function assertExportCanvasWithinLimits(width: number, height: number): void {
+  if (exportCanvasWithinLimits(width, height)) return;
+
   const onIOS = isIOS();
   const maxSide = onIOS ? IOS_CANVAS_MAX_SIDE : BROWSER_CANVAS_LIMIT;
-  const maxArea = onIOS ? IOS_CANVAS_MAX_AREA : BROWSER_CANVAS_LIMIT * BROWSER_CANVAS_LIMIT;
-
-  if (width > maxSide || height > maxSide || width * height > maxArea) {
-    const maxInchesAt300 = Math.floor(maxSide / 300);
-    throw new Error(
-      onIOS
-        ? `This size is too large to export on iPad/iPhone (${width} × ${height}px). ` +
-          `On this device the longest side maxes out near ${maxInchesAt300}" at 300 DPI. ` +
-          `Try a smaller size, choose 150 DPI, or export from a desktop browser.`
-        : `This export is too large for your browser (${width} × ${height}px). ` +
-          `Try a smaller size or lower DPI.`
-    );
-  }
+  const maxInchesAt300 = Math.floor(maxSide / 300);
+  throw new Error(
+    onIOS
+      ? `This size is too large to export on iPad/iPhone (${width} × ${height}px). ` +
+        `On this device the longest side maxes out near ${maxInchesAt300}" at 300 DPI. ` +
+        `Try a smaller size, choose 150 DPI, or export from a desktop browser.`
+      : `This export is too large for your browser (${width} × ${height}px). ` +
+        `Try a smaller size or lower DPI.`
+  );
 }
 
 export function validateImageDimensions(image: HTMLImageElement): void {

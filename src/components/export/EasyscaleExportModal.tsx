@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { generateScaledExport, ScaledExportConfig } from '@/lib/utils/exportScaled';
 import { calculateOriginalSize, detectOriginalDPI } from '@/lib/utils/imageScaler';
 import { getConvertToFullDropBlockReason } from '@/lib/utils/convertToFullDrop';
+import { deviceMaxExportInches, exportCanvasWithinLimits } from '@/lib/utils/imageUtils';
 import { FREE_EASYSCALE_SIZES, FREE_EASYSCALE_DPI, FREE_EASYSCALE_FORMAT } from '@/lib/mockups/freeTier';
 
 interface EasyscaleExportModalProps {
@@ -68,10 +69,40 @@ export default function EasyscaleExportModal({
   const getMaxExportSize = (targetDPI: number): number => {
     if (!image) return 0;
     const longestPixelSide = Math.max(image.naturalWidth, image.naturalHeight);
-    return longestPixelSide / targetDPI;
+    // Two independent caps, whichever is smaller:
+    //  1. Anti-upscaling: can't export larger than the source supports cleanly.
+    //  2. Device canvas ceiling: on iPad a size whose output exceeds ~4096px
+    //     always throws the ceiling guard at export. Without this cap a large
+    //     source lets the user pick (e.g.) 18", which can never export AND
+    //     sticks in selectedSizes, blocking every later export until a full
+    //     page refresh. Greying it out here prevents both.
+    const antiUpscaleMax = longestPixelSide / targetDPI;
+    const deviceMax = deviceMaxExportInches(targetDPI);
+    return Math.min(antiUpscaleMax, deviceMax);
   };
 
   const maxExportSize = getMaxExportSize(selectedDPI);
+
+  // The original tile is exported at its NATIVE pixel size (no downscale), so on
+  // iPad a source larger than the device ceiling can't be included — and if left
+  // checked it throws for the whole batch (exportScaled guards the original
+  // before the size loop). Gate the checkbox the same way oversized sizes are
+  // greyed out.
+  const originalTileWithinLimits = image
+    ? exportCanvasWithinLimits(image.naturalWidth, image.naturalHeight)
+    : true;
+
+  // Distinguish WHY a size is capped so the copy is accurate:
+  //  - anti-upscaling limit = the source resolution (pixelation)
+  //  - device limit = the iPad/iPhone canvas ceiling (an Apple limit, not ours)
+  const longestPixelSide = image ? Math.max(image.naturalWidth, image.naturalHeight) : 0;
+  const antiUpscaleMax = image ? longestPixelSide / selectedDPI : Infinity;
+  const deviceMax = deviceMaxExportInches(selectedDPI);
+  // True when the DEVICE ceiling (not the source) is what's capping size.
+  const deviceLimited = image ? deviceMax < antiUpscaleMax : false;
+  // True when that device cap actually greys out one or more offered sizes —
+  // gates the explanatory banner so it only shows when it's relevant.
+  const deviceBlocksAnyPreset = deviceLimited && PRESET_SIZES.some((s) => s > maxExportSize);
 
   const sizeInchesFromUnitValue = (value: number, unit: 'in' | 'cm' | 'px', dpiValue: number): number => {
     if (unit === 'in') return value;
@@ -117,6 +148,12 @@ export default function EasyscaleExportModal({
     const maxSize = getMaxExportSize(selectedDPI);
     setSelectedSizes(prev => prev.filter(size => size <= maxSize));
   }, [selectedDPI, image, convertToFD]);
+
+  // Force "include original" off when the source tile exceeds the device
+  // ceiling — otherwise it throws for the whole export.
+  useEffect(() => {
+    if (!originalTileWithinLimits && includeOriginal) setIncludeOriginal(false);
+  }, [originalTileWithinLimits, includeOriginal]);
 
   // Close on Escape key
   useEffect(() => {
@@ -266,7 +303,9 @@ export default function EasyscaleExportModal({
                       <p>Size: {currentSize.width.toFixed(2)}" × {currentSize.height.toFixed(2)}"</p>
                       <p>DPI: {currentDPI} &bull; Pixels: {image?.naturalWidth} × {image?.naturalHeight}</p>
                       <p className="text-xs text-emerald-700 font-medium mt-1">
-                        Max export at {selectedDPI} DPI: {maxExportSize.toFixed(1)}" (no pixelation)
+                        {deviceLimited
+                          ? `Max export on this device: ${maxExportSize.toFixed(1)}" at ${selectedDPI} DPI`
+                          : `Max export at ${selectedDPI} DPI: ${maxExportSize.toFixed(1)}" (no pixelation)`}
                       </p>
                     </>
                   )}
@@ -312,7 +351,11 @@ export default function EasyscaleExportModal({
                               ? 'bg-[#faf3e0] border-[#e0c26e] text-[#294051] cursor-pointer'
                               : 'bg-white border-[#e5e7eb] text-[#374151] hover:bg-[#f5f5f5] cursor-pointer'
                         }`}
-                        title={!allowed ? `Cannot export at ${formatUnitValue(sizeInInches)} — would require upscaling (max ${maxExportSize.toFixed(1)}" at ${selectedDPI} DPI)` : undefined}
+                        title={!allowed
+                          ? (sizeInInches > deviceMax
+                              ? `${formatUnitValue(sizeInInches)} is too large to export on this device — iPads/iPhones cap the longest side near ${deviceMax.toFixed(1)}" at ${selectedDPI} DPI. Switch to 150 DPI or export from a computer. (Apple device limit, not a PatternPAL error.)`
+                              : `Cannot export at ${formatUnitValue(sizeInInches)} — would require upscaling (max ${maxExportSize.toFixed(1)}" at ${selectedDPI} DPI)`)
+                          : undefined}
                       >
                         <input
                           type="checkbox"
@@ -323,12 +366,24 @@ export default function EasyscaleExportModal({
                         />
                         <span className="text-xs font-medium">{formatUnitValue(sizeInInches)}</span>
                         {!allowed && (
-                          <span className="text-[9px] text-gray-400 leading-tight">too large</span>
+                          <span className="text-[9px] text-red-600 font-medium leading-tight">too large</span>
                         )}
                       </label>
                     );
                   })}
                 </div>
+                {deviceBlocksAnyPreset && (
+                  <div className="mt-2.5 p-2.5 rounded-md bg-amber-50 border border-amber-200">
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      <span className="font-semibold">Why are 18" and 24" greyed out?</span>{' '}
+                      iPads and iPhones limit how large an image their browsers can build, so sizes above{' '}
+                      {deviceMax.toFixed(1)}" at {selectedDPI} DPI aren't available on this device.
+                      This is an Apple device limit — not a PatternPAL problem. To get the larger
+                      sizes, switch to <span className="font-semibold">150 DPI</span> or export from
+                      a computer.
+                    </p>
+                  </div>
+                )}
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic">
                     💡 Try Pro free for 3 days to export all sizes (2", 4", 6", 8", 10", 12", 18", 24")
@@ -338,7 +393,7 @@ export default function EasyscaleExportModal({
                 {/* Custom Size Input (Pro only) */}
                 {isPro && (
                   <div className="mt-3">
-                    <p className="text-[10px] text-[#6b7280] mb-1.5">Custom size (max {formatUnitValue(maxExportSize)} at {selectedDPI} DPI without pixelation)</p>
+                    <p className="text-[10px] text-[#6b7280] mb-1.5">Custom size (max {formatUnitValue(maxExportSize)} at {selectedDPI} DPI{deviceLimited ? ' on this device' : ' without pixelation'})</p>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -554,14 +609,14 @@ export default function EasyscaleExportModal({
 
               {/* Include Original */}
               <div>
-                <label className={`flex items-center ${isPro ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                <label className={`flex items-center ${isPro && originalTileWithinLimits ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                   <input
                     type="checkbox"
-                    checked={includeOriginal}
+                    checked={includeOriginal && originalTileWithinLimits}
                     onChange={(e) => setIncludeOriginal(e.target.checked)}
                     className="mr-2 w-4 h-4 border-[#e5e7eb] rounded focus:ring-1 bg-white"
                     style={{ accentColor: '#e0c26e' }}
-                    disabled={isExporting || !isPro}
+                    disabled={isExporting || !isPro || !originalTileWithinLimits}
                   />
                   <span className="text-sm text-[#374151]">
                     Include original tile in export {!isPro && '🔒'}
@@ -570,6 +625,13 @@ export default function EasyscaleExportModal({
                 {!isPro && (
                   <p className="text-xs text-[#6b7280] mt-2 italic ml-6">
                     💡 Try Pro free for 3 days to include your original tile
+                  </p>
+                )}
+                {isPro && !originalTileWithinLimits && (
+                  <p className="text-xs text-red-600 mt-2 ml-6 leading-relaxed">
+                    Your original tile ({image?.naturalWidth}&times;{image?.naturalHeight}px) is too large
+                    for this iPad/iPhone to include — an Apple device limit, not a PatternPAL error. Export
+                    from a computer to include the original tile.
                   </p>
                 )}
               </div>
