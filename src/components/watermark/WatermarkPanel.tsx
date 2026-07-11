@@ -1,7 +1,7 @@
 'use client';
 
 import { Dispatch, SetStateAction, useState } from 'react';
-import { WatermarkConfig } from '@/lib/watermark/watermark';
+import { WatermarkConfig, WATERMARK_FONTS } from '@/lib/watermark/watermark';
 
 interface Props {
   watermark: WatermarkConfig;
@@ -10,7 +10,7 @@ interface Props {
 
 export default function WatermarkPanel({ watermark, setWatermark }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const hasContent = !!watermark.logoDataUrl;
+  const hasContent = !!watermark.logoDataUrl || watermark.bannerTitle.trim().length > 0 || watermark.bannerSubtitle.trim().length > 0;
 
   return (
     <div className="border-2 border-[#e0c26e] rounded-md overflow-hidden shadow-sm">
@@ -33,6 +33,23 @@ export default function WatermarkPanel({ watermark, setWatermark }: Props) {
       </button>
       {expanded && (
         <div className="px-3 pb-3 space-y-3 border-t-2 border-[#e0c26e] pt-3">
+          {/* Mode toggle */}
+          <div className="flex gap-1 p-0.5 bg-[#f1efeb] rounded-md">
+            {(['logo', 'banner'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setWatermark(w => ({ ...w, mode: m }))}
+                className={`flex-1 px-2 py-1 text-[11px] font-medium rounded ${
+                  watermark.mode === m ? 'bg-white text-[#294051] shadow-sm' : 'text-[#6b7280]'
+                }`}
+              >
+                {m === 'logo' ? 'Simple logo' : 'Banner'}
+              </button>
+            ))}
+          </div>
+
+          {/* Logo upload (shared) */}
           <div>
             <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Logo (PNG or JPG)</span>
             <div className="mt-1 flex items-center gap-2">
@@ -103,6 +120,96 @@ export default function WatermarkPanel({ watermark, setWatermark }: Props) {
               </div>
             )}
           </div>
+
+          {/* Shared placement picker (3×3) */}
+          <div>
+            <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">
+              {watermark.mode === 'banner' ? 'Band + logo position' : 'Logo position'}
+            </span>
+            <div className="mt-1 grid grid-cols-3 gap-1 w-[84px]">
+              {(['top', 'middle', 'bottom'] as const).map(v =>
+                (['left', 'center', 'right'] as const).map(h => {
+                  const active = watermark.anchorV === v && watermark.anchorH === h;
+                  return (
+                    <button
+                      key={`${v}-${h}`}
+                      type="button"
+                      aria-label={`${v} ${h}`}
+                      onClick={() => setWatermark(w => ({ ...w, anchorH: h, anchorV: v }))}
+                      className={`w-6 h-6 rounded border ${active ? 'bg-[#e0c26e] border-[#e0c26e]' : 'bg-white border-[#e5e7eb] hover:bg-[#f5f5f5]'}`}
+                    >
+                      <span className={`block w-1.5 h-1.5 mx-auto rounded-full ${active ? 'bg-[#294051]' : 'bg-[#d1d5db]'}`} />
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {watermark.mode === 'banner' && (
+              <p className="text-[10px] text-[#9ca3af] mt-1">Row = band edge (top/middle/bottom); column = logo side (centre = logo only).</p>
+            )}
+          </div>
+
+          {/* Banner-only controls */}
+          {watermark.mode === 'banner' && (
+            <div className="space-y-2">
+              <div>
+                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Title</span>
+                <input
+                  type="text"
+                  value={watermark.bannerTitle}
+                  onChange={e => setWatermark(w => ({ ...w, bannerTitle: e.target.value }))}
+                  placeholder="e.g. Fruity Floral Patchwork"
+                  className="mt-1 w-full px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Subtitle</span>
+                <input
+                  type="text"
+                  value={watermark.bannerSubtitle}
+                  onChange={e => setWatermark(w => ({ ...w, bannerSubtitle: e.target.value }))}
+                  placeholder="e.g. Part of the FLF Collection"
+                  className="mt-1 w-full px-2 py-1.5 text-xs border border-[#e5e7eb] rounded-md"
+                />
+              </div>
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center">
+                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Band color</span>
+                <input
+                  type="color"
+                  value={watermark.bandColor}
+                  onChange={e => setWatermark(w => ({ ...w, bandColor: e.target.value }))}
+                  className="w-8 h-6 rounded border border-[#e5e7eb] cursor-pointer"
+                />
+                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Band opacity</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range" min={10} max={100} step={5}
+                    value={Math.round(watermark.bandOpacity * 100)}
+                    onChange={e => setWatermark(w => ({ ...w, bandOpacity: Number(e.target.value) / 100 }))}
+                    className="flex-1 accent-[#e0c26e]"
+                  />
+                  <span className="text-[10px] text-[#9ca3af] w-10 text-right">{Math.round(watermark.bandOpacity * 100)}%</span>
+                </div>
+                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Text color</span>
+                <input
+                  type="color"
+                  value={watermark.color}
+                  onChange={e => setWatermark(w => ({ ...w, color: e.target.value }))}
+                  className="w-8 h-6 rounded border border-[#e5e7eb] cursor-pointer"
+                />
+                <span className="text-[10px] text-[#6b7280] uppercase tracking-wide">Font</span>
+                <select
+                  value={watermark.font}
+                  onChange={e => setWatermark(w => ({ ...w, font: e.target.value as WatermarkConfig['font'] }))}
+                  className="px-2 py-1 text-xs border border-[#e5e7eb] rounded-md bg-white"
+                >
+                  {WATERMARK_FONTS.map(f => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
