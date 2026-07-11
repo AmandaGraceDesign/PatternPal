@@ -131,6 +131,10 @@ export default function MockupModalBody(props: MockupModalBodyProps) {
     onRenderComplete,
   } = props;
 
+  // Local UI-only toggle: when on, the rotate handle rotates every eligible
+  // zone together instead of just the tapped one. Preview/export-only.
+  const [rotateAll, setRotateAll] = React.useState(false);
+
   const divider = <span className="hidden sm:block w-px h-5 bg-[#92afa5]/30" aria-hidden="true" />;
   const setShadowAt = (i: number, enabled: boolean) => {
     setShadowEnableds(prev => prev.map((v, idx) => (idx === i ? enabled : v)));
@@ -212,6 +216,7 @@ export default function MockupModalBody(props: MockupModalBodyProps) {
                 additionalHighlightOpacityOverrides={highlightOpacityPercents.slice(1).map(p => p / 100)}
                 colorOverlayEnabled={colorOverlayEnabled}
                 dragEnabled
+                rotateAll={rotateAll}
                 fitContainer
                 maxRenderDimension={isCapturingFullRes ? undefined : 1500}
                 preview={!isCapturingFullRes}
@@ -263,6 +268,19 @@ export default function MockupModalBody(props: MockupModalBodyProps) {
             )}
           </label>
         )}
+
+        {divider}
+        {/* Rotate all areas together */}
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rotateAll}
+            onChange={() => setRotateAll((v) => !v)}
+            className="w-3 h-3 border-[#e5e7eb] rounded focus:ring-1"
+            style={{ accentColor: '#e0c26e' }}
+          />
+          <span>Rotate all areas together</span>
+        </label>
 
         {/* Color override + toggle (V2 templates with colorOverlay can be turned off entirely) */}
         {showColor && (
