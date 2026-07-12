@@ -22,6 +22,9 @@ import {
   drawWatermark,
   applyWatermarkToBlob,
   watermarkHasContent,
+  badgeCollidesAtBottomLeft,
+  WATERMARK_FONTS,
+  loadWatermarkFonts,
 } from '@/lib/watermark/watermark';
 import WatermarkPanel from '@/components/watermark/WatermarkPanel';
 import PatternpalBadgeToggle from '@/components/badge/PatternpalBadgeToggle';
@@ -70,10 +73,9 @@ const PREVIEW_WIDTH = 250;
 const MIN_SCALE = 0.02;
 const MAX_SCALE = 1.0;
 
-const SOCIAL_PREVIEW_MAX_PX = 240; // max dimension for per-size preview thumbnail
+const SOCIAL_PREVIEW_MAX_PX = 440; // max dimension for the big active-size preview
 
 type ModalMode = 'picker' | 'cricut' | 'social';
-type SocialStep = 'select' | 'preview';
 
 /** Preview canvas dimensions: max 90px on longest side, exact aspect ratio */
 function socialPreviewDims(pxW: number, pxH: number): { w: number; h: number } {
@@ -102,9 +104,14 @@ interface SocialSizeRowProps {
   isExporting: boolean;
   locked?: boolean;
   onLockedClick?: () => void;
+  isActive?: boolean;
+  onSetActive?: () => void;
+  /** Throttled snapshot of the live preview canvas, shown cropped to this
+   *  size's aspect (mirrors the mockup modal's row thumbnails). */
+  snapshotUrl?: string | null;
 }
 
-function SocialSizeRow({ preset, isChecked, onToggle, isExporting, locked = false, onLockedClick }: SocialSizeRowProps) {
+function SocialSizeRow({ preset, isChecked, onToggle, isExporting, locked = false, onLockedClick, isActive = false, onSetActive, snapshotUrl }: SocialSizeRowProps) {
   if (locked) {
     return (
       <button
@@ -124,25 +131,44 @@ function SocialSizeRow({ preset, isChecked, onToggle, isExporting, locked = fals
     );
   }
   return (
-    <div className={`border rounded-md overflow-hidden transition-colors ${
-      isChecked ? 'border-[#e0c26e] bg-[#faf3e0]' : 'border-[#e5e7eb] bg-white'
-    }`}>
-      <label className="flex items-center justify-between px-3 py-2.5 cursor-pointer">
-        <div className="flex items-center gap-2.5">
+    <button
+      type="button"
+      onClick={onSetActive}
+      className={`w-full text-left border rounded-md overflow-hidden transition-colors ${
+        isChecked ? 'border-[#e0c26e] bg-[#faf3e0]' : 'border-[#e5e7eb] bg-white'
+      } ${isActive ? 'ring-2 ring-[#e0c26e]' : ''}`}
+      style={{ touchAction: 'manipulation' }}
+    >
+      <div className="flex items-center justify-between px-3 py-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <input
             type="checkbox"
             checked={isChecked}
             onChange={onToggle}
+            onClick={(e) => e.stopPropagation()}
             disabled={isExporting}
             style={{ accentColor: '#e0c26e', width: 14, height: 14 }}
           />
-          <span className={`text-xs ${isChecked ? 'font-semibold text-[#294051]' : 'text-[#374151]'}`}>
+          {/* Per-size preview thumbnail (crops the live snapshot to this aspect). */}
+          <div
+            className="flex-none rounded border border-[#e5e7eb] overflow-hidden bg-[#f4e8c8]"
+            style={{
+              width: 40,
+              aspectRatio: `${preset.pxW} / ${preset.pxH}`,
+              maxHeight: 56,
+              backgroundImage: snapshotUrl ? `url(${snapshotUrl})` : undefined,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+          <span className={`text-xs truncate ${isChecked ? 'font-semibold text-[#294051]' : 'text-[#374151]'}`}>
             {preset.label}
           </span>
         </div>
-        <span className="text-[10px] text-[#9ca3af]">{preset.pxW}×{preset.pxH}</span>
-      </label>
-    </div>
+        <span className="flex-none text-[10px] text-[#9ca3af]">{preset.pxW}×{preset.pxH}</span>
+      </div>
+    </button>
   );
 }
 
@@ -283,11 +309,14 @@ interface SocialPreviewSlideProps {
   dpi: number;
   badgeVisible: boolean;
   isPro?: boolean;
+  /** Emits a data-URL snapshot of the preview after each draw, so the size
+   *  rows can show a thumbnail (mirrors the mockup modal). */
+  onSnapshot?: (url: string) => void;
 }
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi, badgeVisible, isPro,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi, badgeVisible, isPro, onSnapshot,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -375,7 +404,15 @@ function SocialPreviewSlide({
       }
       // Load logo (cached after first decode) then draw watermark.
       const logoImg = watermark.logoDataUrl ? await cachedLoadLogo(watermark.logoDataUrl) : null;
+      // Ensure the chosen banner font is loaded so the preview draws in it
+      // (not a fallback). The stylesheet is injected by WatermarkPanel.
+      loadWatermarkFonts();
+      const fontDef = WATERMARK_FONTS.find(f => f.value === watermark.font) ?? WATERMARK_FONTS[0];
+      const fam = fontDef.css.split(',')[0].replace(/"/g, '').trim();
+      try { await document.fonts.load(`${Math.round(watermark.fontSize)}px "${fam}"`); } catch { /* fallback ok */ }
       drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080, logoImg);
+      // Emit a snapshot for the size-row thumbnails once everything is drawn.
+      if (onSnapshot) onSnapshot(canvas.toDataURL('image/png'));
     };
     drawOverlays();
   }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark, mockupCfg.enabled, mockupCfg.templateId, tileWidth, tileHeight, dpi]);
@@ -395,7 +432,7 @@ function SocialPreviewSlide({
           className="border border-[#e5e7eb] rounded-md shadow-sm bg-white"
           style={{ width: previewW, height: previewH }}
         />
-        <BadgePreviewOverlay visible={badgeVisible} />
+        <BadgePreviewOverlay visible={badgeVisible} atTop={badgeCollidesAtBottomLeft(watermark)} />
       </div>
 
       {/* Scale controls */}
@@ -560,8 +597,8 @@ export default function RepeatExportModal({
   const [mode, setMode] = useState<ModalMode>('picker');
   const [socialFormat, setSocialFormat] = useState<'png' | 'jpg'>('jpg');
   const [checkedSizes, setCheckedSizes] = useState<Set<SizeSlug>>(new Set());
-  const [socialStep, setSocialStep] = useState<SocialStep>('select');
-  const [previewIndex, setPreviewIndex] = useState(0);
+  const [activeSocialSlug, setActiveSocialSlug] = useState<SizeSlug>(FREE_SOCIAL_SIZE_SLUG as SizeSlug);
+  const [socialSnapshot, setSocialSnapshot] = useState<string | null>(null);
   const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
   const mockupsRef = useRef<Record<SizeSlug, MockupOverlayConfig>>({} as Record<SizeSlug, MockupOverlayConfig>);
   const selectAllRef = useRef<HTMLInputElement>(null);
@@ -603,8 +640,7 @@ export default function RepeatExportModal({
       );
       scalesRef.current = {} as Record<SizeSlug, number>;
       mockupsRef.current = {} as Record<SizeSlug, MockupOverlayConfig>;
-      setSocialStep('select');
-      setPreviewIndex(0);
+      setActiveSocialSlug(FREE_SOCIAL_SIZE_SLUG as SizeSlug);
       setWatermark({ ...DEFAULT_WATERMARK });
       setBadgeEnabled(true);
     }
@@ -855,7 +891,7 @@ export default function RepeatExportModal({
           }
           // Stamp the "Tested in PatternPAL" badge as the top layer
           if (shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })) {
-            blob = await applyBadgeToBlob(blob, exportPxW, exportPxH, socialFormat);
+            blob = await applyBadgeToBlob(blob, exportPxW, exportPxH, socialFormat, badgeCollidesAtBottomLeft(watermark));
           }
           results.push({ slug: preset.slug, label: preset.label, blob });
         } catch {
@@ -928,21 +964,15 @@ export default function RepeatExportModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
       <div
-        className="relative max-w-2xl w-full mx-3 sm:mx-auto max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30"
+        className={`relative ${mode === 'social' ? 'max-w-5xl' : 'max-w-2xl'} w-full mx-3 sm:mx-auto max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden border border-[#92afa5]/30`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-4 py-3 border-b border-[#92afa5]/30 flex items-center justify-between bg-[#e0c26e]">
           <div className="flex items-center gap-3">
-            {mode !== 'picker' && !(initialMode && !(mode === 'social' && socialStep === 'preview')) && (
+            {mode !== 'picker' && !initialMode && (
               <button
-                onClick={() => {
-                  if (mode === 'social' && socialStep === 'preview') {
-                    setSocialStep('select');
-                  } else {
-                    setMode('picker');
-                  }
-                }}
+                onClick={() => setMode('picker')}
                 className="text-white/80 hover:text-white text-xs transition-colors"
                 disabled={isExporting}
               >
@@ -1358,183 +1388,136 @@ export default function RepeatExportModal({
           </div>
         )}
 
-        {/* Social media path */}
+        {/* Social media path — single live two-pane view: pinned preview of the
+            active size (left/top) + a scrolling controls rail (right/bottom). */}
         {mode === 'social' && (
-          <>
-            {/* Step 1: Select sizes */}
-            {socialStep === 'select' && (
-              <div className="p-4 space-y-4 overflow-auto max-h-[calc(90vh-120px)]">
-                {!image ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-[#6b7280]">No pattern loaded. Please upload a pattern first.</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Format toggle */}
-                    <div className="flex items-center gap-4">
-                      <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">Format</span>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="radio" name="social-format" value="jpg"
-                          checked={socialFormat === 'jpg'}
-                          onChange={() => setSocialFormat('jpg')}
-                          style={{ accentColor: '#e0c26e' }}
-                        />
-                        <span className="text-xs text-[#374151]">JPG</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="radio" name="social-format" value="png"
-                          checked={socialFormat === 'png'}
-                          onChange={() => setSocialFormat('png')}
-                          style={{ accentColor: '#e0c26e' }}
-                        />
-                        <span className="text-xs text-[#374151]">PNG</span>
-                      </label>
-                    </div>
-
-                    {/* Select All */}
-                    <div>
-                      <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
-                      {isPro && (
-                      <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
-                        <input
-                          ref={selectAllRef}
-                          type="checkbox"
-                          onChange={handleSelectAll}
-                          style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
-                        />
-                        <span className="text-xs font-semibold text-[#294051]">Select All</span>
-                      </label>
-                      )}
-                      <div className="space-y-2">
-                        {SOCIAL_SIZE_PRESETS.map(preset => {
-                          const locked = !isPro && !isFreeSocialSize(preset.slug);
-                          return (
-                          <SocialSizeRow
-                            key={preset.slug}
-                            preset={preset}
-                            isChecked={checkedSizes.has(preset.slug)}
-                            onToggle={() => handleToggleSize(preset.slug)}
-                            isExporting={false}
-                            locked={locked}
-                            onLockedClick={() => onUpgrade?.()}
-                          />
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Watermark — Pro only; free tiers can't overlay a logo */}
-                    {isPro && (
-                      <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
-                    )}
-
-                    {/* PatternPAL badge */}
-                    <PatternpalBadgeToggle
-                      enabled={badgeEnabled}
-                      onChange={setBadgeEnabled}
-                      locked={!isPro}
+          !image ? (
+            <div className="p-4"><p className="text-sm text-[#6b7280] text-center py-8">No pattern loaded. Please upload a pattern first.</p></div>
+          ) : (
+            <div className="p-4 flex flex-col min-[880px]:flex-row min-[880px]:items-stretch gap-3 min-[880px]:gap-4 overflow-auto max-h-[calc(90vh-64px)]">
+              {/* PREVIEW PANE — pinned; shows the ACTIVE size live with the logo/banner */}
+              <div className="min-[880px]:flex-[0_0_50%] min-[880px]:self-start sticky top-0 z-10 bg-white">
+                {(() => {
+                  const active = SOCIAL_SIZE_PRESETS.find(p => p.slug === activeSocialSlug) ?? SOCIAL_SIZE_PRESETS[0];
+                  return (
+                    <SocialPreviewSlide
+                      preset={active}
+                      image={image}
+                      tileWidth={tileWidth}
+                      tileHeight={tileHeight}
+                      repeatType={repeatType}
+                      originalFilename={originalFilename}
+                      socialFormat={socialFormat}
+                      scalesRef={scalesRef}
+                      isExporting={isExporting}
+                      watermark={watermark}
+                      mockupsRef={mockupsRef}
+                      dpi={currentDPI}
+                      badgeVisible={shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })}
+                      isPro={isPro}
+                      onSnapshot={setSocialSnapshot}
                     />
-
-                    {/* Action buttons */}
-                    <div className="flex gap-3 pt-1">
-                      <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => { setPreviewIndex(0); setSocialStep('preview'); }}
-                        disabled={checkedSizes.size === 0}
-                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: '#e0c26e' }}
-                      >
-                        {checkedSizes.size === 0 ? 'Select a Size' : `Preview & Export`}
-                      </button>
-                    </div>
-                  </>
-                )}
+                  );
+                })()}
               </div>
-            )}
 
-            {/* Step 2: Preview wizard */}
-            {socialStep === 'preview' && image && (() => {
-              const selectedPresets = SOCIAL_SIZE_PRESETS.filter(p => checkedSizes.has(p.slug));
-              const current = selectedPresets[previewIndex];
-              const isFirst = previewIndex === 0;
-              const isLast = previewIndex === selectedPresets.length - 1;
-              if (!current) return null;
-              return (
-                <div className="p-4 overflow-auto max-h-[calc(90vh-120px)]">
-                  {/* Progress indicator */}
-                  <div className="text-center mb-4">
-                    <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">{current.label}</span>
-                    <span className="text-[10px] text-[#9ca3af] ml-2">{previewIndex + 1} of {selectedPresets.length}</span>
-                  </div>
+              {/* CONTROLS PANE — scrolls; format, sizes, logo, badge, export */}
+              <div className="flex flex-col gap-3 [&>*]:shrink-0 min-[880px]:flex-1 min-[880px]:overflow-y-auto min-[880px]:max-h-[80vh]">
+                {/* Format toggle */}
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide">Format</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio" name="social-format" value="jpg"
+                      checked={socialFormat === 'jpg'}
+                      onChange={() => setSocialFormat('jpg')}
+                      style={{ accentColor: '#e0c26e' }}
+                    />
+                    <span className="text-xs text-[#374151]">JPG</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio" name="social-format" value="png"
+                      checked={socialFormat === 'png'}
+                      onChange={() => setSocialFormat('png')}
+                      style={{ accentColor: '#e0c26e' }}
+                    />
+                    <span className="text-xs text-[#374151]">PNG</span>
+                  </label>
+                </div>
 
-                  <SocialPreviewSlide
-                    preset={current}
-                    image={image}
-                    tileWidth={tileWidth}
-                    tileHeight={tileHeight}
-                    repeatType={repeatType}
-                    originalFilename={originalFilename}
-                    socialFormat={socialFormat}
-                    scalesRef={scalesRef}
-                    isExporting={isExporting}
-                    watermark={watermark}
-                    mockupsRef={mockupsRef}
-                    dpi={currentDPI}
-                    badgeVisible={shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })}
-                    isPro={isPro}
-                  />
-
-                  {/* Error */}
-                  {error && (
-                    <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                      <p className="text-xs text-orange-700">{error}</p>
-                    </div>
+                {/* Select sizes */}
+                <div>
+                  <h4 className="text-[10px] font-semibold text-[#294051] uppercase tracking-wide mb-2">Select Sizes</h4>
+                  {isPro && (
+                  <label className="flex items-center gap-2 px-3 py-2 bg-[#faf3e0] border border-[#e0c26e]/40 rounded-md cursor-pointer mb-2">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      onChange={handleSelectAll}
+                      style={{ accentColor: '#e0c26e', width: 13, height: 13 }}
+                    />
+                    <span className="text-xs font-semibold text-[#294051]">Select All</span>
+                  </label>
                   )}
-
-                  {/* Navigation */}
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={() => isFirst ? setSocialStep('select') : setPreviewIndex(i => i - 1)}
-                      disabled={isExporting}
-                      className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-[#e5e7eb] rounded-md text-[#374151] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
-                    >
-                      ← {isFirst ? 'Back to Sizes' : 'Prev'}
-                    </button>
-                    {isLast ? (
-                      <button
-                        onClick={handleSocialExport}
-                        disabled={isExporting}
-                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: '#e0c26e' }}
-                      >
-                        {isExporting
-                          ? exportProgress
-                            ? `Exporting ${exportProgress.current} of ${exportProgress.total} (${Math.round((exportProgress.current / exportProgress.total) * 100)}%)`
-                            : 'Exporting…'
-                          : selectedPresets.length === 1 ? 'Export 1 Image' : `Export ${selectedPresets.length} Images`}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setPreviewIndex(i => i + 1)}
-                        disabled={isExporting}
-                        className="flex-1 px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors"
-                        style={{ backgroundColor: '#e0c26e' }}
-                      >
-                        Next →
-                      </button>
-                    )}
+                  <div className="space-y-2">
+                    {SOCIAL_SIZE_PRESETS.map(preset => {
+                      const locked = !isPro && !isFreeSocialSize(preset.slug);
+                      return (
+                      <SocialSizeRow
+                        key={preset.slug}
+                        preset={preset}
+                        isChecked={checkedSizes.has(preset.slug)}
+                        onToggle={() => handleToggleSize(preset.slug)}
+                        isExporting={false}
+                        locked={locked}
+                        onLockedClick={() => onUpgrade?.()}
+                        isActive={preset.slug === activeSocialSlug}
+                        onSetActive={() => setActiveSocialSlug(preset.slug)}
+                        snapshotUrl={socialSnapshot}
+                      />
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })()}
-          </>
+
+                {/* Watermark — Pro only; free tiers can't overlay a logo */}
+                {isPro && (
+                  <WatermarkPanel watermark={watermark} setWatermark={setWatermark} />
+                )}
+
+                {/* PatternPAL badge */}
+                <PatternpalBadgeToggle
+                  enabled={badgeEnabled}
+                  onChange={setBadgeEnabled}
+                  locked={!isPro}
+                />
+
+                {/* Error */}
+                {error && (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                    <p className="text-xs text-orange-700">{error}</p>
+                  </div>
+                )}
+
+                {/* Export */}
+                <button
+                  onClick={handleSocialExport}
+                  disabled={checkedSizes.size === 0 || isExporting}
+                  className="w-full px-4 py-2.5 text-xs font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#e0c26e' }}
+                >
+                  {isExporting
+                    ? exportProgress
+                      ? `Exporting ${exportProgress.current} of ${exportProgress.total} (${Math.round((exportProgress.current / exportProgress.total) * 100)}%)`
+                      : 'Exporting…'
+                    : checkedSizes.size === 0
+                      ? 'Select a size'
+                      : `Export ${checkedSizes.size} image${checkedSizes.size === 1 ? '' : 's'}`}
+                </button>
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>

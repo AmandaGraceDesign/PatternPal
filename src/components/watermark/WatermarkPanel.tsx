@@ -1,7 +1,7 @@
 'use client';
 
-import { Dispatch, SetStateAction, useState } from 'react';
-import { WatermarkConfig, WATERMARK_FONTS, watermarkHasContent } from '@/lib/watermark/watermark';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { WatermarkConfig, WATERMARK_FONTS, watermarkHasContent, loadWatermarkFonts } from '@/lib/watermark/watermark';
 
 interface Props {
   watermark: WatermarkConfig;
@@ -10,6 +10,9 @@ interface Props {
 
 export default function WatermarkPanel({ watermark, setWatermark }: Props) {
   const [expanded, setExpanded] = useState(false);
+  // Inject the Google Fonts stylesheet so the banner fonts (Playfair, etc.)
+  // actually load — otherwise canvas + preview fall back to a default font.
+  useEffect(() => { loadWatermarkFonts(); }, []);
   const hasContent = watermarkHasContent(watermark);
 
   return (
@@ -201,7 +204,7 @@ export default function WatermarkPanel({ watermark, setWatermark }: Props) {
                 <select
                   value={watermark.font}
                   onChange={e => setWatermark(w => ({ ...w, font: e.target.value as WatermarkConfig['font'] }))}
-                  className="px-2 py-1 text-xs border border-[#e5e7eb] rounded-md bg-white"
+                  className="px-2 py-1 text-xs border border-[#e5e7eb] rounded-md bg-white text-[#294051]"
                 >
                   {WATERMARK_FONTS.map(f => (
                     <option key={f.value} value={f.value}>{f.label}</option>

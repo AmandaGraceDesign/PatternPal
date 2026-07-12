@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { FULL_SIZE_SLUG, type SocialSizePreset } from '@/lib/export/socialSizes';
 import { computePreviewCropFractions } from '@/lib/export/cropFraming';
-import { WatermarkConfig } from '@/lib/watermark/watermark';
+import { WatermarkConfig, badgeCollidesAtBottomLeft } from '@/lib/watermark/watermark';
 import WatermarkPreviewOverlay from '@/components/watermark/WatermarkPreviewOverlay';
 import BadgePreviewOverlay from '@/components/badge/BadgePreviewOverlay';
 
@@ -163,7 +163,7 @@ export default function MockupCropStage({
         }}
       >
         <WatermarkPreviewOverlay watermark={watermark} />
-        <BadgePreviewOverlay visible={badgeVisible} />
+        <BadgePreviewOverlay visible={badgeVisible} atTop={badgeCollidesAtBottomLeft(watermark)} />
       </div>
 
       {/* Live action label */}

@@ -25,14 +25,14 @@ export function pickBadgeVariant(luminance: number): BadgeVariant {
   return luminance > LUMINANCE_THRESHOLD ? 'navy' : 'gold';
 }
 
-/** Bottom-left draw rectangle for the badge given the canvas size and the
- *  badge's width/height aspect ratio. */
-export function computeBadgeRect(canvasW: number, canvasH: number, badgeAspect: number) {
+/** Left-inset draw rectangle for the badge. Bottom-left by default; `atTop`
+ *  flips it to top-left (used when a bottom banner/logo would cover it). */
+export function computeBadgeRect(canvasW: number, canvasH: number, badgeAspect: number, atTop = false) {
   const drawW = Math.max(1, Math.round(canvasW * BADGE_WIDTH_PERCENT));
   const drawH = Math.max(1, Math.round(drawW / badgeAspect));
   const inset = Math.round(canvasW * BADGE_INSET_PERCENT);
   const drawX = inset;
-  const drawY = canvasH - inset - drawH;
+  const drawY = atTop ? inset : canvasH - inset - drawH;
   return { drawX, drawY, drawW, drawH };
 }
 
@@ -86,12 +86,12 @@ function cachedLoadBadge(src: string): Promise<HTMLImageElement | null> {
  *  the input blob is returned unchanged so an export never fails over a badge.
  *  Callers gate with shouldStampBadge(); this function always stamps. */
 export async function applyBadgeToBlob(
-  blob: Blob, w: number, h: number, format: 'png' | 'jpg',
+  blob: Blob, w: number, h: number, format: 'png' | 'jpg', atTop = false,
 ): Promise<Blob> {
   // Navy is loaded first purely to measure the shared aspect ratio.
   const measure = await cachedLoadBadge(BADGE_ASSETS.navy);
   if (!measure) return blob;
-  const rect = computeBadgeRect(w, h, measure.width / measure.height);
+  const rect = computeBadgeRect(w, h, measure.width / measure.height, atTop);
 
   const img = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');

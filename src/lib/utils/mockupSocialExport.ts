@@ -5,7 +5,7 @@
 import JSZip from 'jszip';
 import { downloadBlob, isIOS } from './downloadCanvas';
 import { pushIOSSaveTaskMulti } from './iosSaveQueue';
-import { applyWatermarkToBlob, watermarkHasContent, type WatermarkConfig } from '../watermark/watermark';
+import { applyWatermarkToBlob, watermarkHasContent, badgeCollidesAtBottomLeft, type WatermarkConfig } from '../watermark/watermark';
 import { applyBadgeToBlob, shouldStampBadge } from '../badge/patternpalBadge';
 import { SOCIAL_EXPORT_SCALE, FULL_SIZE_SLUG, type SocialSizePreset, type SizeSlug } from '../export/socialSizes';
 import { injectPngDpi } from './dpiMetadata';
@@ -93,7 +93,7 @@ export async function exportMockupSocialBlob(
     blob = await applyWatermarkToBlob(blob, w, h, wm, 'png');
   }
   if (shouldStampBadge({ isPaidPro: opts.isPro, badgeEnabled: opts.badgeEnabled })) {
-    blob = await applyBadgeToBlob(blob, w, h, 'png');
+    blob = await applyBadgeToBlob(blob, w, h, 'png', badgeCollidesAtBottomLeft(wm));
   }
   return blob;
 }
@@ -128,7 +128,7 @@ export async function exportFullSizeMockupBlob(
     blob = await applyWatermarkToBlob(blob, w, h, wm, 'png');
   }
   if (shouldStampBadge({ isPaidPro: opts.isPro, badgeEnabled: opts.badgeEnabled })) {
-    blob = await applyBadgeToBlob(blob, w, h, 'png');
+    blob = await applyBadgeToBlob(blob, w, h, 'png', badgeCollidesAtBottomLeft(wm));
   }
   return injectPngDpi(blob, FULL_SIZE_OUTPUT_DPI);
 }

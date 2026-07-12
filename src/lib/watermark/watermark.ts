@@ -186,6 +186,16 @@ export function watermarkHasContent(wm: WatermarkConfig): boolean {
   return !!wm.logoDataUrl || wm.text.trim().length > 0;
 }
 
+/** True when the watermark would sit under a bottom-LEFT PatternPAL badge — a
+ *  full-width bottom banner, or a bottom-left/center logo. Callers move the
+ *  badge to the top in that case so it never covers the user's mark. */
+export function badgeCollidesAtBottomLeft(wm: WatermarkConfig): boolean {
+  if (!wm.enabled || !watermarkHasContent(wm)) return false;
+  if (wm.anchorV !== 'bottom') return false;
+  if (wm.mode === 'banner') return true;        // full-width bottom band
+  return wm.anchorH !== 'right';                 // bottom-left or bottom-center logo
+}
+
 /** Draw watermark (optional logo above text) at bottom center of a canvas context.
  *  Logo is rendered with its own opacity; text uses wm.opacity. When both are
  *  present the logo stacks above the text with a small gap. */
