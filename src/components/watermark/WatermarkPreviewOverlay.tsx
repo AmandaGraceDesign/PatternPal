@@ -48,12 +48,17 @@ export default function WatermarkPreviewOverlay({ watermark }: Props) {
         >
           <div className={`w-full flex items-center gap-[2cqw] ${rowJustify} ${rowReverse}`}>
             {watermark.logoDataUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={watermark.logoDataUrl}
-                alt=""
-                style={{ width: `${watermark.logoSizePercent * 100}%`, opacity: watermark.logoOpacity, objectFit: 'contain', maxHeight: '12cqw' }}
-              />
+              /* Wrap the img in a sized box: an <img> used directly as a flex
+               *  item sizes unreliably (width grows but the image letterboxes).
+               *  The box is the flex item; the img fills it and scales by width. */
+              <div style={{ width: `${watermark.logoSizePercent * 100}%`, flexShrink: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={watermark.logoDataUrl}
+                  alt=""
+                  style={{ display: 'block', width: '100%', height: 'auto', opacity: watermark.logoOpacity }}
+                />
+              </div>
             )}
             {showText && (
               <div className="flex flex-col" style={{ color: watermark.color, textAlign: watermark.anchorH === 'right' ? 'right' : 'left' }}>
@@ -82,7 +87,7 @@ export default function WatermarkPreviewOverlay({ watermark }: Props) {
       <img
         src={watermark.logoDataUrl}
         alt=""
-        style={{ width: `${watermark.logoSizePercent * 100}%`, opacity: watermark.logoOpacity, objectFit: 'contain', maxHeight: '40%' }}
+        style={{ width: `${watermark.logoSizePercent * 100}%`, height: 'auto', opacity: watermark.logoOpacity, objectFit: 'contain' }}
       />
     </div>
   );
