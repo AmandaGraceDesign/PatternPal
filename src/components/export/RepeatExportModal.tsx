@@ -320,6 +320,10 @@ function SocialPreviewSlide({
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Debounce the row-thumbnail snapshot: without this, toDataURL (~880px) +
+  // a parent setState fire on every draw — i.e. every keystroke while typing a
+  // banner title — which janks typing on iPad. Coalesce to one trailing snap.
+  const snapshotTimerRef = useRef<number | null>(null);
 
   // Non-Pro users default the overlay to a free template (the full picker is
   // also restricted to free templates below).
@@ -411,10 +415,20 @@ function SocialPreviewSlide({
       const fam = fontDef.css.split(',')[0].replace(/"/g, '').trim();
       try { await document.fonts.load(`${Math.round(watermark.fontSize)}px "${fam}"`); } catch { /* fallback ok */ }
       drawWatermark(ctx, previewW, previewH, watermark, previewW / 1080, logoImg);
-      // Emit a snapshot for the size-row thumbnails once everything is drawn.
-      if (onSnapshot) onSnapshot(canvas.toDataURL('image/png'));
+      // Emit a snapshot for the size-row thumbnails, debounced so rapid draws
+      // (typing a banner title) coalesce to one trailing toDataURL.
+      if (onSnapshot) {
+        if (snapshotTimerRef.current) window.clearTimeout(snapshotTimerRef.current);
+        snapshotTimerRef.current = window.setTimeout(() => {
+          const c = canvasRef.current;
+          if (c) onSnapshot(c.toDataURL('image/png'));
+        }, 250);
+      }
     };
     drawOverlays();
+    return () => {
+      if (snapshotTimerRef.current) window.clearTimeout(snapshotTimerRef.current);
+    };
   }, [image, repeatType, repeatsX, repeatsY, tileAspect, previewW, previewH, watermark, mockupCfg.enabled, mockupCfg.templateId, tileWidth, tileHeight, dpi]);
 
   const scaledTileW = tileWidth * scale;
