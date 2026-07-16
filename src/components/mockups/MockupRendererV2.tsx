@@ -589,11 +589,12 @@ export default function MockupRendererV2({
     flushPendingDrag();
 
     // A tap (no drag) selects the zone under the pointer so its rotate handle
-    // appears there; then treat as a click and fire parent onClick.
+    // appears there; tapping the already-selected zone again dismisses the
+    // handle. Then treat as a click and fire parent onClick.
     if (!wasDragRef.current) {
       if (rotationSupported) {
         const zoneKey = pickZoneAt(e.clientX, e.clientY);
-        if (zoneKey) setSelectedZoneKey(zoneKey);
+        if (zoneKey) setSelectedZoneKey((prev) => (prev === zoneKey ? null : zoneKey));
       }
       onClick?.();
     }
