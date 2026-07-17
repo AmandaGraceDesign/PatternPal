@@ -301,17 +301,19 @@ function processZone(
       tileCtx.drawImage(oversized, -over / 2 + offsetX, -over / 2 + offsetY);
       tileCtx.restore();
     } else if (offsetX !== 0 || offsetY !== 0) {
-      // No rotation, but a phase shift is wanted (e.g. knot zone vs tie body).
-      // Tile to a padded oversized canvas, then draw it shifted into the zone.
-      const offsetPad = Math.max(Math.abs(offsetX), Math.abs(offsetY));
-      const overW = patternArea.width + 2 * offsetPad;
-      const overH = patternArea.height + 2 * offsetPad;
-      const oversized = document.createElement('canvas');
-      oversized.width = overW;
-      oversized.height = overH;
-      const overTiler = new PatternTiler(oversized.getContext('2d')!, overW, overH);
-      overTiler.renderPreScaled(scaledTile, repeatType);
-      tileCtx.drawImage(oversized, -offsetPad + offsetX, -offsetPad + offsetY);
+      // No rotation, but a phase shift is wanted (e.g. knot zone vs tie body, or
+      // the folded tea-towel stripe). Pan-tile straight into the zone canvas via
+      // renderPreScaledAt — same phase shift with zero extra allocation.
+      //
+      // The previous approach tiled into an oversized (patternArea + 2·offset)
+      // scratch canvas and drew it back shifted. At full export resolution that
+      // added a ~40MB+ canvas on top of the base/shadow/highlight full-canvas
+      // layers, pushing iPad Safari past its canvas-memory ceiling: the product
+      // base then silently failed to draw and the export came out as just the
+      // pattern in the mask shape. The hanging tea towel has no offset zone and
+      // so never hit this — which is why only the folded one broke on export.
+      const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
+      tiler.renderPreScaledAt(scaledTile, scaledTile.width, scaledTile.height, repeatType, offsetX, offsetY);
     } else {
       const tiler = new PatternTiler(tileCtx, patternArea.width, patternArea.height);
       tiler.renderPreScaled(scaledTile, repeatType);
