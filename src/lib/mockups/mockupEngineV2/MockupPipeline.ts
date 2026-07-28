@@ -3,7 +3,7 @@ import type { RepeatType } from '../../tiling/PatternTiler';
 import type { MockupV2Template, MockupZone, BlendMode } from './templates/types';
 import { applyPerspective } from './stages/perspectiveWarp';
 import { generateDisplacementMap, applyDisplacement } from './stages/displacementMap';
-import { generateProductBase, compositeResult } from './stages/blendComposite';
+import { generateProductBase, compositeResult, createLightingLayer } from './stages/blendComposite';
 
 /**
  * Cache of mask images converted to alpha-RGBA form, keyed by the source image.
@@ -104,6 +104,113 @@ function getColorOverlayMaskCanvas(mask: HTMLImageElement): HTMLCanvasElement {
   ctx.putImageData(imageData, 0, 0);
   colorOverlayMaskCache.set(mask, c);
   return c;
+}
+
+/**
+ * Cache of the pattern image pre-scaled to a single tile's pixel size.
+ *
+ * Stage 1 of processZone redraws the source pattern into a tile-sized canvas
+ * with `imageSmoothingQuality: 'high'` — bicubic resampling, deliberately
+ * expensive because narrow zones upscale the source 2-3x and default smoothing
+ * looks blocky. The result depends only on (patternImage, scaledW, scaledH):
+ * it is completely independent of rotation and offset, so during a rotate/drag
+ * gesture every frame was recomputing an identical bitmap.
+ *
+ * Keyed by source image (WeakMap, so it evicts when the pattern is replaced),
+ * then by tile size — a size change must miss rather than return a wrongly
+ * scaled tile. The inner map is bounded because one image is legitimately
+ * rendered at several sizes (700px drag proxy, full-res export, gallery
+ * thumbnails) and we don't want that set growing without limit.
+ */
+const scaledTileCache = new WeakMap<
+  HTMLImageElement | HTMLCanvasElement,
+  Map<string, HTMLCanvasElement>
+>();
+
+/** Plenty for the handful of render scales one image is drawn at; keeps the
+ *  worst case bounded if a caller sweeps through many sizes. */
+const MAX_SCALED_TILES_PER_IMAGE = 8;
+
+function getScaledTile(
+  patternImage: HTMLImageElement | HTMLCanvasElement,
+  scaledW: number,
+  scaledH: number,
+): HTMLCanvasElement {
+  let bySize = scaledTileCache.get(patternImage);
+  if (!bySize) {
+    bySize = new Map();
+    scaledTileCache.set(patternImage, bySize);
+  }
+  const key = `${scaledW}x${scaledH}`;
+  const hit = bySize.get(key);
+  if (hit) return hit;
+
+  const scaledTile = document.createElement('canvas');
+  scaledTile.width = scaledW;
+  scaledTile.height = scaledH;
+  const scaledCtx = scaledTile.getContext('2d')!;
+  // Narrow zones (e.g. the men's tie, 3.5" wide) upscale the source pattern
+  // image by 2-3x to fill the zone. Default canvas smoothing produces blocky
+  // output at those scales; 'high' uses bicubic-style resampling.
+  scaledCtx.imageSmoothingEnabled = true;
+  scaledCtx.imageSmoothingQuality = 'high';
+  scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
+
+  // Evict oldest first (Map preserves insertion order) to stay bounded.
+  if (bySize.size >= MAX_SCALED_TILES_PER_IMAGE) {
+    const oldest = bySize.keys().next().value;
+    if (oldest !== undefined) bySize.delete(oldest);
+  }
+  bySize.set(key, scaledTile);
+  return scaledTile;
+}
+
+/**
+ * Cache of the soft-light lighting layer derived from an image product base.
+ *
+ * The layer is a full-canvas getImageData + per-pixel luminance pass +
+ * putImageData over the product photo. The photo doesn't change while the user
+ * rotates or drags the pattern, so this was pure repeated work on every frame.
+ *
+ * Keyed by the product base image — NOT by the productCanvas it gets drawn
+ * into, which is freshly allocated per render and would never hit. Inner key is
+ * the render size, since the same photo is composited at the 700px drag proxy
+ * size and at full export resolution.
+ *
+ * Only the image-based product path is cached. Procedural bases have no stable
+ * object to key on (`scaleTemplate` builds a new template object per render)
+ * and are cheap to regenerate, so they keep the original path.
+ */
+const lightingLayerCache = new WeakMap<HTMLImageElement, Map<string, HTMLCanvasElement>>();
+
+function getLightingLayer(
+  productBaseImage: HTMLImageElement,
+  productCanvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  let bySize = lightingLayerCache.get(productBaseImage);
+  if (!bySize) {
+    bySize = new Map();
+    lightingLayerCache.set(productBaseImage, bySize);
+  }
+  const key = `${width}x${height}`;
+  const hit = bySize.get(key);
+  if (hit) return hit;
+
+  const lightCanvas = document.createElement('canvas');
+  lightCanvas.width = width;
+  lightCanvas.height = height;
+  const lightCtx = lightCanvas.getContext('2d')!;
+  createLightingLayer(productCanvas, lightCtx, width, height);
+
+  // Same bound and eviction policy as the scaled-tile cache.
+  if (bySize.size >= MAX_SCALED_TILES_PER_IMAGE) {
+    const oldest = bySize.keys().next().value;
+    if (oldest !== undefined) bySize.delete(oldest);
+  }
+  bySize.set(key, lightCanvas);
+  return lightCanvas;
 }
 
 /** Extract dominant background color from a pattern image (same approach as V1). */
@@ -268,16 +375,8 @@ function processZone(
     const tileAspect = tileWidthInches / tileHeightInches;
     const scaledH = Math.round(scaledW / tileAspect) || 1;
 
-    const scaledTile = document.createElement('canvas');
-    scaledTile.width = scaledW;
-    scaledTile.height = scaledH;
-    const scaledCtx = scaledTile.getContext('2d')!;
-    // Narrow zones (e.g. the men's tie, 3.5" wide) upscale the source pattern
-    // image by 2-3x to fill the zone. Default canvas smoothing produces blocky
-    // output at those scales; 'high' uses bicubic-style resampling.
-    scaledCtx.imageSmoothingEnabled = true;
-    scaledCtx.imageSmoothingQuality = 'high';
-    scaledCtx.drawImage(patternImage, 0, 0, scaledW, scaledH);
+    // Cached: identical for every frame of a rotate/drag gesture (see getScaledTile).
+    const scaledTile = getScaledTile(patternImage, scaledW, scaledH);
 
     const angleDeg = (zone.patternAngle ?? 0) + overrideAngle;
     const offsetX = (zone.patternOffset?.x ?? 0) + overrideOffsetX;
@@ -333,35 +432,53 @@ function processZone(
   );
 
   // --- Stage 3: Displacement ---
-  const dispMapCanvas = document.createElement('canvas');
-  dispMapCanvas.width = patternArea.width;
-  dispMapCanvas.height = patternArea.height;
-  const dispMapCtx = dispMapCanvas.getContext('2d')!;
-  if (displacementMapImage) {
-    // Photo-based: extract zone's sub-region from the full-canvas displacement map
-    dispMapCtx.drawImage(
-      displacementMapImage,
-      patternArea.x, patternArea.y, patternArea.width, patternArea.height,
-      0, 0, patternArea.width, patternArea.height,
-    );
+  // At intensity 0 the warp is a no-op: applyDisplacement short-circuits to a
+  // plain drawImage of the source. Building its input anyway costs a full
+  // per-pixel procedural map (sin/cos/sqrt/random per pixel) plus two canvas
+  // allocations — all discarded. Every shipped template zone is intensity 0
+  // (warps were removed deliberately), so on drag/rotate that was the single
+  // largest cost in every frame, bought nothing, and is why the gesture
+  // stuttered on iPad. Skip straight to the perspective result instead.
+  //
+  // The non-zero path is untouched so re-enabling a warp on a future template
+  // still works.
+  let displacedCanvas: HTMLCanvasElement;
+  let displacedCtx: CanvasRenderingContext2D;
+
+  if (displacement.intensity === 0) {
+    displacedCanvas = perspCanvas;
+    displacedCtx = perspCtx;
   } else {
-    // Procedural fallback
-    generateDisplacementMap(
-      dispMapCtx,
+    const dispMapCanvas = document.createElement('canvas');
+    dispMapCanvas.width = patternArea.width;
+    dispMapCanvas.height = patternArea.height;
+    const dispMapCtx = dispMapCanvas.getContext('2d')!;
+    if (displacementMapImage) {
+      // Photo-based: extract zone's sub-region from the full-canvas displacement map
+      dispMapCtx.drawImage(
+        displacementMapImage,
+        patternArea.x, patternArea.y, patternArea.width, patternArea.height,
+        0, 0, patternArea.width, patternArea.height,
+      );
+    } else {
+      // Procedural fallback
+      generateDisplacementMap(
+        dispMapCtx,
+        patternArea.width, patternArea.height,
+        displacement.type as any, displacement.wrinkleFreq
+      );
+    }
+
+    displacedCanvas = document.createElement('canvas');
+    displacedCanvas.width = patternArea.width;
+    displacedCanvas.height = patternArea.height;
+    displacedCtx = displacedCanvas.getContext('2d')!;
+    applyDisplacement(
+      perspCanvas, dispMapCanvas, displacedCtx,
       patternArea.width, patternArea.height,
-      displacement.type as any, displacement.wrinkleFreq
+      displacement.intensity
     );
   }
-
-  const displacedCanvas = document.createElement('canvas');
-  displacedCanvas.width = patternArea.width;
-  displacedCanvas.height = patternArea.height;
-  const displacedCtx = displacedCanvas.getContext('2d')!;
-  applyDisplacement(
-    perspCanvas, dispMapCanvas, displacedCtx,
-    patternArea.width, patternArea.height,
-    displacement.intensity
-  );
 
   // --- Stage 4: Mask Clip (if mask provided) ---
   if (maskImage) {
@@ -630,26 +747,18 @@ export function runPipeline(input: PipelineInput): HTMLCanvasElement {
   // Suppressed when an explicit highlight overlay is provided — the highlight PNG
   // already encodes the photo's lighting intent, so we don't want to double-light.
   if (lighting.enabled && lighting.intensity > 0 && !input.highlightImage && !input.additionalHighlightImages?.length) {
-    const lightCanvas = document.createElement('canvas');
-    lightCanvas.width = width;
-    lightCanvas.height = height;
-    const lightCtx = lightCanvas.getContext('2d')!;
-
-    // Extract lighting from the product base (original photo shadows/highlights)
-    const prodData = productCtx.getImageData(0, 0, width, height);
-    const lightData = lightCtx.createImageData(width, height);
-    for (let i = 0; i < prodData.data.length; i += 4) {
-      const lum = Math.round(
-        prodData.data[i] * 0.299 +
-        prodData.data[i + 1] * 0.587 +
-        prodData.data[i + 2] * 0.114
-      );
-      lightData.data[i] = lum;
-      lightData.data[i + 1] = lum;
-      lightData.data[i + 2] = lum;
-      lightData.data[i + 3] = 255;
+    // Extract lighting from the product base (original photo shadows/highlights).
+    // Cached per (product photo, render size) — the photo is unchanged while the
+    // user rotates or drags, so this per-pixel pass ran identically every frame.
+    let lightCanvas: HTMLCanvasElement;
+    if (input.productBaseImage) {
+      lightCanvas = getLightingLayer(input.productBaseImage, productCanvas, width, height);
+    } else {
+      lightCanvas = document.createElement('canvas');
+      lightCanvas.width = width;
+      lightCanvas.height = height;
+      createLightingLayer(productCanvas, lightCanvas.getContext('2d')!, width, height);
     }
-    lightCtx.putImageData(lightData, 0, 0);
 
     finalCtx.globalCompositeOperation = 'soft-light';
     finalCtx.globalAlpha = lighting.intensity;
