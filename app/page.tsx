@@ -9,12 +9,11 @@ import { extractDpiFromFile, validateSvgSafety, validateImageDimensions, detectC
 import ResumeSignupFromQuery from './_components/ResumeSignupFromQuery';
 import CheckoutConversion from './_components/CheckoutConversion';
 import SignupConversion from './_components/SignupConversion';
+import { FREE_TESTS_KEY, freeTestDecision, shouldCountFreeTest } from '@/lib/freeTestGate';
 
 export default function Home() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, isLoaded: isAuthLoaded } = useUser();
   const { openSignIn } = useClerk();
-  const FREE_TESTS_KEY = 'pp_free_tests_used';
-  const MAX_FREE_TESTS = 3;
   const [repeatType, setRepeatType] = useState<'full-drop' | 'half-drop' | 'half-brick'>('full-drop');
   const [tileWidth, setTileWidth] = useState<number>(18);
   const [tileHeight, setTileHeight] = useState<number>(18);
@@ -93,17 +92,14 @@ export default function Home() {
   };
 
   const canRunFreeTest = () => {
-    if (isSignedIn) return true;
     const count = Number(localStorage.getItem(FREE_TESTS_KEY) || '0');
-    if (count >= MAX_FREE_TESTS) {
-      openSignIn?.();
-      return false;
-    }
-    return true;
+    if (freeTestDecision({ isAuthLoaded, isSignedIn }, count) === 'allow') return true;
+    openSignIn?.();
+    return false;
   };
 
   const incrementFreeTests = () => {
-    if (isSignedIn) return;
+    if (!shouldCountFreeTest({ isAuthLoaded, isSignedIn })) return;
     const count = Number(localStorage.getItem(FREE_TESTS_KEY) || '0');
     localStorage.setItem(FREE_TESTS_KEY, String(count + 1));
     window.dispatchEvent(new Event('pp_free_tests_updated'));
@@ -239,7 +235,7 @@ export default function Home() {
 
     window.addEventListener('paste', handlePasteEvent);
     return () => window.removeEventListener('paste', handlePasteEvent);
-  }, [dpi, isSignedIn, openSignIn]);
+  }, [dpi, isAuthLoaded, isSignedIn, openSignIn]);
 
   const handleClearPattern = () => {
     setImage(null);

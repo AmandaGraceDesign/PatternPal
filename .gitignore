@@ -52,3 +52,6 @@ openspec/
 
 # PatternPAL badge source package — not served, not committed
 public/tested-in-patternpal.zip
+
+# Clerk user exports
+clerk_users.*
