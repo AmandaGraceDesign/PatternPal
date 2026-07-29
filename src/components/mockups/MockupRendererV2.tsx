@@ -191,6 +191,15 @@ export default function MockupRendererV2({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isRendering, setIsRendering] = useState(false);
+  // True once this template+pattern has been painted at least once.
+  //
+  // The "Rendering..." scrim is only honest while the canvas is genuinely empty.
+  // Every re-render (drag, rotate, a slider, a checkbox) already has the previous
+  // frame sitting on the canvas, so covering it with a dark overlay just strobes
+  // — most visibly on iPad, where each frame is slow enough for React to actually
+  // paint the scrim during the effect's image-load await. Gate the scrim on this
+  // so re-renders swap the image in silently instead of flashing.
+  const [hasPainted, setHasPainted] = useState(false);
 
   // Drag-to-position: each zone has its own offset, updated live during
   // drag. Pointerdown hit-tests the zone masks to figure out which zone
@@ -252,6 +261,13 @@ export default function MockupRendererV2({
     }
     pendingDragOffsetRef.current = null;
   }, [template]);
+
+  // A new template or a new pattern means whatever is on the canvas is now stale,
+  // so the scrim is legitimate again until the first paint lands. Kept separate
+  // from the offset/angle reset above so that reset's deps stay template-only.
+  useEffect(() => {
+    setHasPainted(false);
+  }, [template, patternImage]);
 
   /** True when the current template supports per-zone rotation (see global
    *  constraint: sharedPatternArea templates bypass the rotate branch). */
@@ -411,6 +427,9 @@ export default function MockupRendererV2({
           if (!ctx) return;
           ctx.drawImage(resultCanvas, 0, 0);
         }
+        // A frame is now on the canvas, so any later re-render can swap it in
+        // silently rather than covering it with the scrim.
+        setHasPainted(true);
       } catch (err) {
         console.error('MockupRendererV2 render error:', err);
       } finally {
@@ -716,7 +735,7 @@ export default function MockupRendererV2({
         }}
         onDragStart={(e) => e.preventDefault()}
       />
-      {isRendering && (
+      {isRendering && !hasPainted && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg pointer-events-none">
           <span className="text-white text-sm">Rendering...</span>
         </div>
