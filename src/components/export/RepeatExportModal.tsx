@@ -305,7 +305,10 @@ interface SocialPreviewSlideProps {
   scalesRef: MutableRefObject<Record<SizeSlug, number>>;
   isExporting: boolean;
   watermark: WatermarkConfig;
-  mockupsRef: MutableRefObject<Record<SizeSlug, MockupOverlayConfig>>;
+  /** Mockup overlay is a single global creative choice (like the banner) — it
+   *  applies to every exported size, not per-slug. See the reset in the parent. */
+  mockupOverlay: MockupOverlayConfig;
+  setMockupOverlay: (cfg: MockupOverlayConfig) => void;
   dpi: number;
   badgeVisible: boolean;
   isPro?: boolean;
@@ -316,7 +319,7 @@ interface SocialPreviewSlideProps {
 
 function SocialPreviewSlide({
   preset, image, tileWidth, tileHeight, repeatType,
-  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupsRef, dpi, badgeVisible, isPro, onSnapshot,
+  originalFilename, socialFormat, scalesRef, isExporting, watermark, mockupOverlay, setMockupOverlay, dpi, badgeVisible, isPro, onSnapshot,
 }: SocialPreviewSlideProps) {
   const [, forceUpdate] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -325,15 +328,9 @@ function SocialPreviewSlide({
   // banner title — which janks typing on iPad. Coalesce to one trailing snap.
   const snapshotTimerRef = useRef<number | null>(null);
 
-  // Non-Pro users default the overlay to a free template (the full picker is
-  // also restricted to free templates below).
-  const defaultMockupId = isPro ? SOCIAL_V2_MOCKUP_IDS[0] : FREE_MOCKUP_IDS[0];
-
-  // Initialize mockup config for this slug if needed
-  if (!(preset.slug in mockupsRef.current)) {
-    mockupsRef.current[preset.slug] = { ...DEFAULT_MOCKUP_OVERLAY, templateId: defaultMockupId };
-  }
-  const mockupCfg = mockupsRef.current[preset.slug];
+  // The mockup overlay is a single global choice shared across every size
+  // (its default template is seeded per-tier on open in the parent).
+  const mockupCfg = mockupOverlay;
 
   const scale = scalesRef.current[preset.slug] ?? 1.0;
   const wMult = getWidthMultiplier(repeatType);
@@ -475,8 +472,7 @@ function SocialPreviewSlide({
             type="checkbox"
             checked={mockupCfg.enabled}
             onChange={e => {
-              mockupsRef.current[preset.slug] = { ...mockupCfg, enabled: e.target.checked };
-              forceUpdate(n => n + 1);
+              setMockupOverlay({ ...mockupCfg, enabled: e.target.checked });
             }}
             disabled={isExporting}
             style={{ accentColor: '#e0c26e', width: 16, height: 16 }}
@@ -497,8 +493,7 @@ function SocialPreviewSlide({
                   <button
                     key={id}
                     onClick={() => {
-                      mockupsRef.current[preset.slug] = { ...mockupCfg, templateId: id };
-                      forceUpdate(n => n + 1);
+                      setMockupOverlay({ ...mockupCfg, templateId: id });
                     }}
                     disabled={isExporting}
                     className={`flex-shrink-0 w-11 h-11 rounded-md border-2 overflow-hidden transition-colors ${
@@ -614,7 +609,10 @@ export default function RepeatExportModal({
   const [activeSocialSlug, setActiveSocialSlug] = useState<SizeSlug>(FREE_SOCIAL_SIZE_SLUG as SizeSlug);
   const [socialSnapshot, setSocialSnapshot] = useState<string | null>(null);
   const scalesRef = useRef<Record<SizeSlug, number>>({} as Record<SizeSlug, number>);
-  const mockupsRef = useRef<Record<SizeSlug, MockupOverlayConfig>>({} as Record<SizeSlug, MockupOverlayConfig>);
+  // Mockup overlay is one global creative choice applied to every exported size
+  // (mirrors `watermark`). Keeping it per-slug meant it only ever got enabled
+  // for the actively-previewed size and vanished from the download for the rest.
+  const [mockupOverlay, setMockupOverlay] = useState<MockupOverlayConfig>({ ...DEFAULT_MOCKUP_OVERLAY });
   const selectAllRef = useRef<HTMLInputElement>(null);
   const [watermark, setWatermark] = useState<WatermarkConfig>({ ...DEFAULT_WATERMARK });
   const [badgeEnabled, setBadgeEnabled] = useState(true);
@@ -653,7 +651,8 @@ export default function RepeatExportModal({
           : new Set<SizeSlug>()
       );
       scalesRef.current = {} as Record<SizeSlug, number>;
-      mockupsRef.current = {} as Record<SizeSlug, MockupOverlayConfig>;
+      // Free users default the overlay to a free template; Pro to the first V2.
+      setMockupOverlay({ enabled: false, templateId: isPro ? SOCIAL_V2_MOCKUP_IDS[0] : FREE_MOCKUP_IDS[0] });
       setActiveSocialSlug(FREE_SOCIAL_SIZE_SLUG as SizeSlug);
       setWatermark({ ...DEFAULT_WATERMARK });
       setBadgeEnabled(true);
@@ -891,11 +890,12 @@ export default function RepeatExportModal({
             tileHeightInches: tileHeight,
             exportScale: scale,
           });
-          // Stamp mockup overlay onto exported image
-          const mc = mockupsRef.current[preset.slug];
-          if (mc?.enabled) {
+          // Stamp mockup overlay onto exported image. The overlay is a single
+          // global choice, so it applies to every checked size — not just the
+          // one that happened to be showing in the preview pane.
+          if (mockupOverlay.enabled) {
             blob = await applyMockupOverlay(
-              blob, exportPxW, exportPxH, mc.templateId,
+              blob, exportPxW, exportPxH, mockupOverlay.templateId,
               image, tileWidth, tileHeight, repeatType, socialFormat, currentDPI,
             );
           }
@@ -1425,7 +1425,8 @@ export default function RepeatExportModal({
                       scalesRef={scalesRef}
                       isExporting={isExporting}
                       watermark={watermark}
-                      mockupsRef={mockupsRef}
+                      mockupOverlay={mockupOverlay}
+                      setMockupOverlay={setMockupOverlay}
                       dpi={currentDPI}
                       badgeVisible={shouldStampBadge({ isPaidPro: !!isPro, badgeEnabled })}
                       isPro={isPro}
