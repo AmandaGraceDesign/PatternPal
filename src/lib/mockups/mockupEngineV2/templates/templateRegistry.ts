@@ -1270,6 +1270,53 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/halloween-cat-bandana-shadow.png',
     highlightPath: '/mockups/v2/halloween-cat-bandana-highlight.png',
   },
+  'autumn-leggings': {
+    id: 'autumn-leggings',
+    name: 'Autumn Leggings',
+    description: 'Kids leggings on a leaf-covered path with a pumpkin pail',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Union of mask1 (left leg) + mask2 (right leg) bboxes.
+    patternArea: { x: 1148, y: 246, width: 1413, height: 2852 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'left-leg',
+        maskPath: '/mockups/v2/autumn-leggings-mask1.png',
+        patternArea: { x: 1148, y: 246, width: 1413, height: 2852 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        // Each leg front is ~714px for roughly half a 14" thigh circumference
+        // → ~102 px/in, so the 1413px union box spans ~14" of fabric.
+        physicalWidth: 14,
+      },
+      {
+        id: 'right-leg',
+        maskPath: '/mockups/v2/autumn-leggings-mask2.png',
+        patternArea: { x: 1148, y: 246, width: 1413, height: 2852 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 14,
+        // Legs are separate cut pieces — phase-shifted so the print doesn't run
+        // continuously across the inseam.
+        patternOffset: { x: 487, y: 281 },
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 12, height: 30, unit: 'in' },
+    sizeLabel: '12×30" (30.5×76.2cm) Kids Leggings',
+    productBase: { type: 'image', imagePath: '/mockups/v2/autumn-leggings.png' },
+    // Accent region is the tunic hem above the leggings. Asset uses the
+    // `-color-overlay` suffix rather than the usual `-color-mask`.
+    colorOverlay: { maskPath: '/mockups/v2/autumn-leggings-color-overlay.png', defaultColor: 'auto' },
+    colorOverlayLabel: 'Top Color',
+    shadowPath: '/mockups/v2/autumn-leggings-shadow.png',
+    highlightPath: '/mockups/v2/autumn-leggings-highlight.png',
+  },
 };
 
 export function getV2Template(id: string): MockupV2Template | undefined {
