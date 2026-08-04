@@ -1317,6 +1317,38 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/autumn-leggings-shadow.png',
     highlightPath: '/mockups/v2/autumn-leggings-highlight.png',
   },
+  'halloween-tumbler': {
+    id: 'halloween-tumbler',
+    name: 'Halloween Tumbler',
+    description: '20oz skinny tumbler on an apothecary table with candlelight',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Mask-derived bbox: the tumbler body, below the clear lid.
+    patternArea: { x: 667, y: 1559, width: 761, height: 2075 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'main',
+        maskPath: '/mockups/v2/halloween-tumbler-mask.png',
+        patternArea: { x: 667, y: 1559, width: 761, height: 2075 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        // Half the ~9.1" wrap of a 2.9"-diameter tumbler, matching the mugs:
+        // the visible front shows half the circumference compressed into the
+        // width of the diameter.
+        physicalWidth: 4.55,
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 9.3, height: 8.2, unit: 'in' },
+    sizeLabel: '9.3×8.2" (23.6×20.8cm) 20oz Skinny Tumbler',
+    productBase: { type: 'image', imagePath: '/mockups/v2/halloween-tumbler.png' },
+    shadowPath: '/mockups/v2/halloween-tumbler-shadow.png',
+    highlightPath: '/mockups/v2/halloween-tumbler-highlight.png',
+  },
 };
 
 export function getV2Template(id: string): MockupV2Template | undefined {
