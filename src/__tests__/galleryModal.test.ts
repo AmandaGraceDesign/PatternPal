@@ -21,7 +21,7 @@ describe('GALL-01: Gallery category filtering', () => {
     expect(all.length).toBeGreaterThanOrEqual(18);
   });
 
-  it('each of the 7 real categories returns at least 1 template', () => {
+  it('each of the 8 real categories returns at least 1 template', () => {
     const realCategories = [
       'apparel',
       'home-goods',
@@ -30,6 +30,7 @@ describe('GALL-01: Gallery category filtering', () => {
       'gifting',
       'stationery',
       'accessories',
+      'seasonal',
     ];
     for (const cat of realCategories) {
       const results = getV2TemplatesByCategory(cat);

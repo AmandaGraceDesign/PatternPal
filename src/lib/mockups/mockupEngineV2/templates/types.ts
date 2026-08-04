@@ -29,7 +29,8 @@ export type MockupV2Category =
   | 'accessories'
   | 'gifting'
   | 'wallpaper'
-  | 'fabric';
+  | 'fabric'
+  | 'seasonal';
 
 /**
  * A zone defines a region of a mockup where the pattern is applied

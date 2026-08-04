@@ -1054,6 +1054,222 @@ export const mockupV2Templates: Record<string, MockupV2Template> = {
     shadowPath: '/mockups/v2/womens-blouse-shadow.png',
     highlightPath: '/mockups/v2/womens-blouse-highlight.png',
   },
+
+  // ─── Seasonal ───
+  // Holiday/seasonal scenes. Same schema as every other template — the only
+  // thing that puts them in their own gallery tab is `category: 'seasonal'`.
+  'autumn-doormat': {
+    id: 'autumn-doormat',
+    name: 'Autumn Doormat',
+    description: 'Woven doormat on a porch with pumpkins and fall leaves',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Mask-derived bbox. The mat is shot at an angle and its left/right corners
+    // run off the frame, so the bbox spans the full canvas width.
+    patternArea: { x: 0, y: 829, width: 3000, height: 3160 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'main',
+        maskPath: '/mockups/v2/autumn-doormat-white-mask.png',
+        patternArea: { x: 0, y: 829, width: 3000, height: 3160 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        // The mat's long edge measures 2408px on screen for a 30" mat → 80.3
+        // px/in. The 3000px-wide patternArea therefore spans ~37.4" of fabric,
+        // which is what keeps the tile at true physical scale after rotation.
+        physicalWidth: 37.4,
+        // The mat sits rotated in the photo — its long edge descends to the
+        // right at ~34°. Rotating the tile to match keeps the print square to
+        // the mat instead of to the canvas.
+        patternAngle: 34,
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 30, height: 18, unit: 'in' },
+    sizeLabel: '30×18" (76.2×45.7cm) Doormat',
+    productBase: { type: 'image', imagePath: '/mockups/v2/autumn-doormat-white.png' },
+  },
+  'halloween-cape': {
+    id: 'halloween-cape',
+    name: "Kids' Halloween Cape",
+    description: 'Child in a costume cape at dusk with jack-o-lanterns',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Union of mask1 (cape front) + mask2 (side/centre folds) bboxes.
+    patternArea: { x: 319, y: 1252, width: 1662, height: 2622 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'main',
+        maskPath: '/mockups/v2/boy-cape-halloween-mask1.png',
+        patternArea: { x: 319, y: 1252, width: 1662, height: 2622 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 34,
+      },
+      {
+        id: 'fold',
+        maskPath: '/mockups/v2/boy-cape-halloween-mask2.png',
+        patternArea: { x: 319, y: 1252, width: 1662, height: 2622 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 34,
+        // Offset so the folded-back panels don't tile in phase with the cape
+        // front — reads as fabric turning away rather than one flat sheet.
+        // Same trick as tea-towel-3's stripe and the tote-bag trim.
+        patternOffset: { x: 487, y: 281 },
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 30, height: 36, unit: 'in' },
+    sizeLabel: '30×36" (76.2×91.4cm) Kids Cape',
+    productBase: { type: 'image', imagePath: '/mockups/v2/boy-cape-halloween.png' },
+    shadowPath: '/mockups/v2/boy-cape-halloween-shadow.png',
+    highlightPath: '/mockups/v2/boy-cape-halloween-highlight.png',
+  },
+  'halloween-tea-towel': {
+    id: 'halloween-tea-towel',
+    name: 'Halloween Tea Towel',
+    description: 'Folded tea towel on marble with candy corn and wrapped sweets',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Union of mask1 (front panel) + mask2 (under-layer edge) bboxes.
+    patternArea: { x: 382, y: 521, width: 2274, height: 3463 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'body',
+        maskPath: '/mockups/v2/halloween-tea-towel-mask1.png',
+        patternArea: { x: 382, y: 521, width: 2274, height: 3463 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        // The front panel is 2011px wide for a 20" towel → ~100 px/in, so the
+        // 2274px union box spans ~22.6" of fabric.
+        physicalWidth: 22.6,
+      },
+      {
+        id: 'fold',
+        maskPath: '/mockups/v2/halloween-tea-towel-mask2.png',
+        patternArea: { x: 382, y: 521, width: 2274, height: 3463 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 22.6,
+        // Phase-shifted so the layer showing behind the fold reads as the back
+        // of the towel rather than a continuation of the front panel.
+        patternOffset: { x: 487, y: 281 },
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 20, height: 28, unit: 'in' },
+    sizeLabel: '20×28" (50.8×71.1cm) Tea Towel',
+    productBase: { type: 'image', imagePath: '/mockups/v2/halloween-tea-towel.png' },
+    shadowPath: '/mockups/v2/halloween-tea-towel-shadow.png',
+    highlightPath: '/mockups/v2/halloween-tea-towel-highlight.png',
+  },
+  'halloween-bucket': {
+    id: 'halloween-bucket',
+    name: 'Trick-or-Treat Bucket',
+    description: 'Canvas trick-or-treat bucket on a porch step with jack-o-lanterns',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Bucket body only — the handles are the accent-colour region, not pattern.
+    patternArea: { x: 439, y: 1628, width: 1563, height: 1725 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'main',
+        maskPath: '/mockups/v2/halloween-bucket-mask.png',
+        patternArea: { x: 439, y: 1628, width: 1563, height: 1725 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        // Visible front is roughly half the ~31" wrap of a 10"-diameter bucket.
+        // Same half-of-circumference convention as the mugs.
+        physicalWidth: 15.5,
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 31, height: 9.5, unit: 'in' },
+    // Wrap panel, not the bucket's footprint — a 10"-diameter bucket wraps to
+    // ~31". Same convention as the mugs, whose labels are the full wrap too.
+    sizeLabel: '31×9.5" (78.7×24.1cm) Bucket Wrap',
+    productBase: { type: 'image', imagePath: '/mockups/v2/halloween-bucket.png' },
+    // Asset is named `-color-overlay` rather than the usual `-color-mask`.
+    colorOverlay: { maskPath: '/mockups/v2/halloween-bucket-color-overlay.png', defaultColor: 'auto' },
+    colorOverlayLabel: 'Handle Color',
+    shadowPath: '/mockups/v2/halloween-bucket-shadow.png',
+    highlightPath: '/mockups/v2/halloween-bucket-highlight.png',
+  },
+  'halloween-cat-bandana': {
+    id: 'halloween-cat-bandana',
+    name: 'Cat Bandana',
+    description: 'Black cat in a bandana on a rustic shelf with mini pumpkins',
+    category: 'seasonal',
+    canvasSize: { width: 3000, height: 4472 },
+    // Union of mask1 (triangle body) + mask2 (rolled collar) + mask3 (knot tail).
+    patternArea: { x: 468, y: 1345, width: 1519, height: 1749 },
+    perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+    displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+    blend: { mode: 'multiply', opacity: 1.0 },
+    zones: [
+      {
+        id: 'main',
+        maskPath: '/mockups/v2/halloween-cat-bandana-mask1.png',
+        patternArea: { x: 468, y: 1345, width: 1519, height: 1749 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        // Triangle front is 1205px wide for an ~11" folded span → ~108 px/in,
+        // so the 1519px union box spans ~14" of fabric.
+        physicalWidth: 14,
+      },
+      {
+        id: 'collar',
+        maskPath: '/mockups/v2/halloween-cat-bandana-mask2.png',
+        patternArea: { x: 468, y: 1345, width: 1519, height: 1749 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 14,
+        // Rolled-over collar band — phase-shifted so it reads as the reverse of
+        // the fabric folded down, not a continuation of the triangle front.
+        patternOffset: { x: 487, y: 281 },
+      },
+      {
+        id: 'knot',
+        maskPath: '/mockups/v2/halloween-cat-bandana-mask3.png',
+        patternArea: { x: 468, y: 1345, width: 1519, height: 1749 },
+        perspective: { topSqueeze: 0, bottomSqueeze: 0 },
+        displacement: { intensity: 0, wrinkleFreq: 0, type: 'flat-surface' },
+        blend: { mode: 'multiply', opacity: 1.0 },
+        physicalWidth: 14,
+        // The knot tail runs up and to the left, and needs its own phase so it
+        // doesn't line up with either the collar or the front.
+        patternOffset: { x: -213, y: 149 },
+        patternAngle: -25,
+      },
+    ],
+    lighting: { enabled: false, intensity: 0 },
+    physicalSize: { width: 12, height: 12, unit: 'in' },
+    sizeLabel: '12×12" (30.5×30.5cm) Pet Bandana',
+    productBase: { type: 'image', imagePath: '/mockups/v2/halloween-cat-bandana.png' },
+    shadowPath: '/mockups/v2/halloween-cat-bandana-shadow.png',
+    highlightPath: '/mockups/v2/halloween-cat-bandana-highlight.png',
+  },
 };
 
 export function getV2Template(id: string): MockupV2Template | undefined {

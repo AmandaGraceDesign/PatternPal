@@ -26,6 +26,7 @@ interface MockupGalleryModalProps {
 
 const categories = [
   'all',
+  'seasonal',
   'apparel',
   'home-goods',
   'fabric',
@@ -37,6 +38,7 @@ const categories = [
 
 const categoryLabels: Record<string, string> = {
   all: 'All',
+  seasonal: 'Seasonal',
   apparel: 'Apparel',
   'home-goods': 'Home Goods',
   fabric: 'Fabric',
