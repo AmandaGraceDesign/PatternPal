@@ -71,6 +71,9 @@ Presentational. Mounted in `TopBar` alongside `WelcomeModal`.
 
 - Reads the gate on mount; renders nothing when not showing.
 - Centered card, white, `rounded-2xl` — matches `WelcomeModal`'s shell.
+- Width capped at 452px (narrower than `WelcomeModal`'s `max-w-lg`/512px);
+  height capped at `max-height: 85vh` with internal scroll, so it can never
+  exceed the viewport on a short iPad-landscape window.
 - Four preview thumbnails in a 4-up grid, collapsing to 2-up under 560px.
   The grid must use `repeat(4, minmax(0, 1fr))`, not `repeat(4, 1fr)` — a plain
   `1fr` won't shrink below its content's min-content width, so the longest
@@ -96,14 +99,15 @@ Presentational. Mounted in `TopBar` alongside `WelcomeModal`.
 - Accepts an optional `initialCategory` prop, defaulting to `'all'` so all
   existing call sites are unaffected.
 
-### Changed: `src/components/layout/AdvancedToolsBar.tsx` and `src/components/sidebar/ActionsSidebar.tsx`
+### Changed: `src/components/layout/AdvancedToolsBar.tsx`
 
-Both mount a gallery; the CTA has to reach whichever one is live.
+- Listens for a `ppp:open-mockup-gallery` window event carrying `{ category }`
+  and opens its gallery on that category.
+- The listener is registered only while mounted, so if a second gallery host
+  is ever added, whichever is live responds.
 
-- Each listens for a `ppp:open-mockup-gallery` window event carrying
-  `{ category }`, and opens its gallery on that category.
-- Listener is registered only while the component is mounted, so the
-  responsive layout decides which one responds.
+`src/components/sidebar/ActionsSidebar.tsx` also mounts a gallery but is
+imported nowhere — it is dead code and is deliberately left untouched.
 
 ## Data flow
 
