@@ -44,8 +44,8 @@ export const CURRENT_ANNOUNCEMENT = {
   emoji: '🎃',
   title: 'New Seasonal Mockups',
   body: 'Seven new Halloween & autumn scenes are ready — drop your pattern straight onto them.',
-  previewIds: ['halloween-cape', 'halloween-tumbler', 'autumn-doormat', 'halloween-cat-bandana'],
-  moreNote: '…plus tea towel, bucket & leggings',
+  previewIds: ['halloween-cape', 'halloween-tumbler', 'halloween-bucket', 'halloween-cat-bandana'],
+  moreNote: '…plus tea towel, doormat & leggings',
   ctaLabel: 'See All 7 Seasonal',
   ctaCategory: 'seasonal',
 } as const;
@@ -72,6 +72,10 @@ Presentational. Mounted in `TopBar` alongside `WelcomeModal`.
 - Reads the gate on mount; renders nothing when not showing.
 - Centered card, white, `rounded-2xl` — matches `WelcomeModal`'s shell.
 - Four preview thumbnails in a 4-up grid, collapsing to 2-up under 560px.
+  The grid must use `repeat(4, minmax(0, 1fr))`, not `repeat(4, 1fr)` — a plain
+  `1fr` won't shrink below its content's min-content width, so the longest
+  caption widens its own column and its image renders larger than the rest.
+  Captions are a fixed two-line clamped box so every card is the same height.
 - Pro chip rendered only when the user is not Pro.
 - Primary CTA, "Maybe later" secondary, and a close ✕. All three dismiss and
   write the version.
