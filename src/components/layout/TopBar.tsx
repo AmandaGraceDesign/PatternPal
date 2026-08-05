@@ -8,6 +8,8 @@ import ManageSubscriptionButton from '@/components/billing/ManageSubscriptionBut
 import AffiliateSlideOut from '@/components/affiliate/AffiliateSlideOut';
 import ProTrialBanner from '@/components/upgrade/ProTrialBanner';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
+import WhatsNewModal from '@/components/announcements/WhatsNewModal';
+import { isAnnouncementPending } from '@/lib/announcements/announcementState';
 import SupportModal from '@/components/support/SupportModal';
 
 export default function TopBar() {
@@ -18,6 +20,17 @@ export default function TopBar() {
   const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'yearly'>('monthly');
   const [tourKey, setTourKey] = useState(0);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+
+  // Captured once on mount and left alone. It stays true for the whole visit
+  // even after the announcement is dismissed, so the welcome tour doesn't pop
+  // the instant the announcement closes. `tourForced` is the Tour button's
+  // override, which always wins.
+  const [announcementPending, setAnnouncementPending] = useState(false);
+  const [tourForced, setTourForced] = useState(false);
+
+  useEffect(() => {
+    setAnnouncementPending(isAnnouncementPending());
+  }, []);
 
   // Deep-link: ?upgrade=1 from landing page
   useEffect(() => {
@@ -64,6 +77,7 @@ export default function TopBar() {
           onClick={() => {
             try { localStorage.removeItem('welcomeTourDismissed'); } catch {}
             setTourKey((k) => k + 1);
+            setTourForced(true);
           }}
           className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
         >
@@ -119,7 +133,16 @@ export default function TopBar() {
 
       {isPro ? <AffiliateSlideOut /> : <ProTrialBanner onUpgradeClick={() => setIsUpgradeModalOpen(true)} />}
 
-      <WelcomeModal key={tourKey} />
+      {(!announcementPending || tourForced) && <WelcomeModal key={tourKey} />}
+
+      <WhatsNewModal
+        isPro={isPro}
+        onSeeAll={(category) => {
+          window.dispatchEvent(
+            new CustomEvent('ppp:open-mockup-gallery', { detail: { category } })
+          );
+        }}
+      />
 
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
     </header>
