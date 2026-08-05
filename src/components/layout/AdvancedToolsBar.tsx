@@ -152,6 +152,7 @@ export default function AdvancedToolsBar({
   const [repeatModalMode, setRepeatModalMode] = useState<'cricut' | 'social' | null>(null);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMockupsOpen, setIsMockupsOpen] = useState(false);
+  const [mockupInitialCategory, setMockupInitialCategory] = useState<string>('all');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedMockup, setSelectedMockup] = useState<string | null>(null);
   const [mockupColorOverride, setMockupColorOverride] = useState<string | null>(null);
@@ -209,6 +210,19 @@ export default function AdvancedToolsBar({
   useEffect(() => () => {
     snapshotThrottleRef.current?.cancel();
     if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current);
+  }, []);
+
+  // Lets anything outside this tree (e.g. the what's-new announcement in the
+  // top bar) open the gallery on a given category without prop-drilling
+  // through the whole layout.
+  useEffect(() => {
+    const onOpenGallery = (e: Event) => {
+      const detail = (e as CustomEvent<{ category?: string }>).detail;
+      setMockupInitialCategory(detail?.category ?? 'all');
+      setIsMockupsOpen(true);
+    };
+    window.addEventListener('ppp:open-mockup-gallery', onOpenGallery);
+    return () => window.removeEventListener('ppp:open-mockup-gallery', onOpenGallery);
   }, []);
   const [proAccess, setProAccess] = useState<'unknown' | 'allowed' | 'denied'>('unknown');
 
@@ -525,6 +539,7 @@ export default function AdvancedToolsBar({
       />
 
       <MockupGalleryModal
+        initialCategory={mockupInitialCategory}
         isOpen={isMockupsOpen}
         onClose={() => {
           setIsMockupsOpen(false);

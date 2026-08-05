@@ -22,6 +22,8 @@ interface MockupGalleryModalProps {
   scalePreviewActive: boolean;
   isPro: boolean;
   onUpgrade: () => void;
+  /** Category tab to select when the gallery opens. Defaults to 'all'. */
+  initialCategory?: string;
 }
 
 const categories = [
@@ -66,8 +68,15 @@ export default function MockupGalleryModal({
   scalePreviewActive,
   isPro,
   onUpgrade,
+  initialCategory,
 }: MockupGalleryModalProps) {
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory ?? 'all');
+
+  // Re-seed the tab each time the gallery opens so a deep-link into a
+  // category isn't overridden by whatever tab was left selected last time.
+  useEffect(() => {
+    if (isOpen) setActiveCategory(initialCategory ?? 'all');
+  }, [isOpen, initialCategory]);
 
   // Staggered reveal state — index up to which cards receive the real pattern image
   const [revealedCount, setRevealedCount] = useState(0);
