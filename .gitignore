@@ -55,3 +55,7 @@ public/tested-in-patternpal.zip
 
 # Clerk user exports
 clerk_users.*
+
+# Google Drive upload staging (Drive mirrors ~/Documents and stages tens of
+# thousands of files here, which blows past VS Code's git change limit)
+.tmp.driveupload/
