@@ -56,6 +56,9 @@ public/tested-in-patternpal.zip
 # Clerk user exports
 clerk_users.*
 
+# Entitlement sweep output — contains customer emails
+scripts/backfill-report.json
+
 # Google Drive upload staging (Drive mirrors ~/Documents and stages tens of
 # thousands of files here, which blows past VS Code's git change limit)
 .tmp.driveupload/
