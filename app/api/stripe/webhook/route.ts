@@ -7,6 +7,86 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
+// Statuses that entitle a user to Pro. `trialing` counts - the app grants Pro
+// during the 3-day trial.
+const ENTITLED_STATUSES: Stripe.Subscription.Status[] = ["active", "trialing"];
+
+/**
+ * One email can own several Stripe customer records (the app creates a new
+ * customer when someone re-subscribes), each with its own subscriptions - one
+ * dead, one live. Events on the dead one must never revoke Pro from a customer
+ * whose live subscription is paid.
+ *
+ * Returns true if ANY subscription on ANY customer record for this email is
+ * `active` or `trialing`, ignoring the subscription the current event is
+ * revoking (compared by id) so a genuine final cancellation still revokes.
+ *
+ * Fails SAFE: if Stripe errors, this returns true so the caller skips the
+ * revoke. Leaving a paying customer entitled is the acceptable failure; locking
+ * one out is not.
+ */
+async function hasAnyActiveSubscription(
+  email: string,
+  excludeSubscriptionId: string | null
+): Promise<boolean> {
+  try {
+    const customers = await stripe.customers.list({ email, limit: 100 });
+
+    for (const customer of customers.data) {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: "all",
+        limit: 100,
+      });
+
+      const entitling = subscriptions.data.find(
+        (sub) =>
+          sub.id !== excludeSubscriptionId &&
+          ENTITLED_STATUSES.includes(sub.status)
+      );
+
+      if (entitling) {
+        console.log(
+          `[entitlement] active subscription found for ${email}: ${entitling.id} (${entitling.status}) on customer ${customer.id}`
+        );
+        return true;
+      }
+    }
+
+    return false;
+  } catch (err) {
+    console.error(
+      `[entitlement] hasAnyActiveSubscription failed for ${email} - treating as entitled and skipping revoke`,
+      err
+    );
+    return true;
+  }
+}
+
+/**
+ * Resolve the subscription id an invoice was generated from. On API versions
+ * from 2025-04-30 onwards this lives under `parent.subscription_details`.
+ */
+function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const subscription = invoice.parent?.subscription_details?.subscription;
+
+  if (!subscription) {
+    return null;
+  }
+
+  return typeof subscription === "string" ? subscription : subscription.id;
+}
+
+function logSkippedRevoke(
+  email: string,
+  eventType: string,
+  subscriptionId: string | null
+): void {
+  console.log(
+    `[entitlement] SKIPPED revoke for ${email} on ${eventType} - another subscription is still active (event subscription: ${subscriptionId ?? "unknown"})`
+  );
+}
+
 export async function POST(req: Request) {
   const rawBody = await req.text();
   const sig = (await headers()).get("stripe-signature") as string;
@@ -94,6 +174,12 @@ export async function POST(req: Request) {
       const inactiveStatuses = ['canceled', 'incomplete', 'incomplete_expired', 'past_due', 'unpaid'];
       const shouldRevokePro = inactiveStatuses.includes(subscription.status);
 
+      // Only revoke when this email has no other entitling subscription.
+      if (shouldRevokePro && (await hasAnyActiveSubscription(email, subscription.id))) {
+        logSkippedRevoke(email, event.type, subscription.id);
+        return NextResponse.json({ received: true, revokeSkipped: true });
+      }
+
       await client.users.updateUser(user.id, {
         publicMetadata: {
           ...existingPublic,
@@ -129,6 +215,12 @@ export async function POST(req: Request) {
 
       const user = users.data[0];
       const existingPublic = user.publicMetadata ?? {};
+
+      // Only revoke when this email has no other entitling subscription.
+      if (await hasAnyActiveSubscription(email, subscription.id)) {
+        logSkippedRevoke(email, event.type, subscription.id);
+        return NextResponse.json({ received: true, revokeSkipped: true });
+      }
 
       await client.users.updateUser(user.id, {
         publicMetadata: {
@@ -185,6 +277,14 @@ export async function POST(req: Request) {
 
       const user = users.data[0];
       const existingPublic = user.publicMetadata ?? {};
+      const failedSubscriptionId = subscriptionIdFromInvoice(invoice);
+
+      // A failing invoice on a stale subscription must not revoke Pro from a
+      // customer whose live subscription is paid (or trialing).
+      if (await hasAnyActiveSubscription(email, failedSubscriptionId)) {
+        logSkippedRevoke(email, event.type, failedSubscriptionId);
+        return NextResponse.json({ received: true, revokeSkipped: true });
+      }
 
       // Revoke Pro access when payment fails
       await client.users.updateUser(user.id, {
