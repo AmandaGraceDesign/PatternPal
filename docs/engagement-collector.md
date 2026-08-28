@@ -37,6 +37,29 @@ The obvious version — a Node script in `scripts/` run daily — fails on three
 `patternpal_user_snapshots` is keyed on `(snapshot_date, clerk_user_id)` and written with
 merge-duplicates, so **re-running a day overwrites rather than duplicating**. Safe to retry by hand.
 
+### `collected_at` means *last* written, and that is deliberate
+
+`collected_at` is sent explicitly in the upsert payload rather than left to the column default.
+PostgREST only updates columns **present in the payload**, so a default-populated `collected_at` keeps
+its original insert value forever — the row updates correctly while its timestamp still reads as the
+first run of the day. That looked exactly like `ON CONFLICT DO NOTHING` when it was nothing of the sort,
+and it would have made a re-run appear not to have happened. **Do not remove `collected_at` from the
+payload.**
+
+Because every row in a run shares one `collected_at`, this is a free partial-write detector:
+
+```sql
+-- anything other than 1 means that day was written by more than one run
+select snapshot_date, count(distinct collected_at)
+from patternpal_user_snapshots group by 1 order by 1 desc;
+```
+
+### History model
+
+Rows are partitioned by `snapshot_date`, so each day is its own generation and a re-run updates only
+that day. **A bad or partial first run of a day is correctable — just run it again.** Verified: a Pro
+revoke made between two runs was reflected by the second.
+
 `patternpal_snapshot_runs` is the heartbeat: one row per run with counts, duration and any error.
 Query for missing `run_date`s to find collection gaps — the Kit sync's six dark days went unnoticed
 precisely because nothing recorded that it had not run.
