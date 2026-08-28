@@ -62,3 +62,6 @@ scripts/backfill-report.json
 # Google Drive upload staging (Drive mirrors ~/Documents and stages tens of
 # thousands of files here, which blows past VS Code's git change limit)
 .tmp.driveupload/
+
+# Supabase CLI scratch files
+supabase/.temp/
